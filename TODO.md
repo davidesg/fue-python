@@ -1,0 +1,75 @@
+# FUE Python — Tareas pendientes
+
+Estado: en progreso  
+Referencia: fue-1.13.1 es el código C fuente de verdad.
+
+---
+
+## FASE 1 — Núcleo C: extracción y API (en progreso)
+
+### 1.1 fue_api.c — implementación completa
+- [x] `populate_globals()` — FueModelSpec → Tm + Ts + DataMat
+  - [x] Generación de DataMat[0] (serie transformada, BoxCox)
+  - [x] Generación de DataMat[i] para cada intervención (impulse, step, ramp, seasonal)
+  - [x] Asignación de omega/delta/flags en Tusmodel (Tm)
+  - [x] Asignación de factores AR/MA regulares y estacionales
+- [x] `count_npar_build_par()` — contar parámetros libres y extraer par[] iniciales
+- [x] `cast_us()` — extraído de fue.c:3645
+- [x] `unscramble()` — extraído de fue.c:3939
+- [x] `CalcNonsOp()` — extraído de fue.c:4303
+- [x] `calcnu()` — extraído de fue.c:4489
+- [x] `fue_estimate()` — implementación completa:
+  1. populate_globals(spec)
+  2. count_npar() → npar
+  3. build_par_vector() → par[]
+  4. Allocar dev[], cov[][], a[][]
+  5. Llamar est(cast_us, npar, par, dev, cov, ...)
+  6. Empaquetar FueResult y return
+
+### 1.2 Compilación y test
+- [ ] Verificar que compila con gcc -c fue_api.c (sin gnuplot, sin pdflatex)
+- [ ] Compilar extensión cffi: python src/fue/_build_cffi.py
+- [ ] Activar cffi_modules en pyproject.toml
+- [ ] Test de smoke: pip install -e . && python -c "import fue"
+
+### 1.3 Tests de equivalencia numérica
+- [ ] Crear tests/test_estimation.py con casos de prueba de fue-1.13.1
+- [ ] Cada test: mismo .inp → fue C vs fue Python → comparar params, loglik, residuos
+- [ ] Tolerancia: params dentro de 1e-6, loglik dentro de 1e-4
+
+---
+
+## FASE 2 — API Python iterativa
+
+- [ ] `TimeSeries.plot()` — gráfico básico de la serie
+- [ ] `TimeSeries.plot_acf()` y `plot_pacf()` como métodos de instancia
+- [ ] `Model.compare(other)` — tabla AIC/BIC/loglik comparativa
+- [ ] `Model.forecast(horizon)` — generar archivo .inp para FUF (puente interim)
+- [ ] Soporte para `pandas.Series` como entrada en TimeSeries.from_pandas()
+
+---
+
+## FASE 3 — Distribución
+
+- [ ] conda-forge recipe (entorno Linux prioritario)
+- [ ] pyproject.toml: activar cffi_modules una vez Fase 1 completa
+- [ ] cibuildwheel para Linux/macOS (wheels pip)
+- [ ] Soporte Windows (GSL estática vía MXE, como en fue-1.13.1/Makefile)
+- [ ] Notebook de ejemplo con modelo ARMAX + intervenciones
+
+---
+
+## Notas de sesión
+
+### 2026-05-26
+- Creada estructura del proyecto en ../fue/
+- fue_api.h completo (interfaz pública cffi)
+- fue_api.c: stub, cast_us() pendiente de extraer
+- Python package skeleton completo (series, intervention, model, diagnostics, plots)
+- tests/test_api.py: smoke tests sin extensión C (todos deben pasar)
+- Leído fue.c: cast_us en línea 3645, unscramble en 3939, CalcNonsOp en 4303,
+  calcnu en 4489, BoxCox en 4511
+- Globales en fue.c: Tm (l.38), Ts (l.39), DataMat (l.40) — replicar como static en fue_api.c
+- DataMat construction: fue.c:280-436 (impulse/step/ramp/seasonal/easter/trend/cos/sin/alter)
+- npar counting: fue.c:921-1048 (segunda pasada, post-lectura)
+- SIGUIENTE: implementar fue_api.c completo (Fase 1.1)

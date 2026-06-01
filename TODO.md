@@ -81,7 +81,11 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
       - macOS: `brew install gsl` + delocate bundle; x86_64 + arm64
       - Python 3.10–3.13; sdist + wheels en el mismo job; publish a PyPI en tags v*
       - MANIFEST.in incluye csrc/**; sdist→wheel chain verificada localmente
-- [ ] Soporte Windows (GSL estática vía MXE, como en fue-1.13.1/Makefile)
+- [x] Soporte Windows (AMD64, GSL estática vía vcpkg x64-windows-static-md)
+      - fue_api.c: /dev/null → NUL en Windows (#ifdef _WIN32)
+      - _build_cffi.py: flags MSVC (/O2 /W2), sin -lm, rutas GSL desde GSL_ROOT o vcpkg default
+      - pyproject.toml: [tool.cibuildwheel.windows] con before-all=vcpkg install + environment GSL_ROOT
+      - wheels.yml: windows-latest añadido a la matriz
 - [x] Notebook de ejemplo: `notebooks/fue_example.ipynb`
       - AR(1) simple, SFNY.2 completo (step + AR(1)×AR(2) + mu + boxlam), RIPC mensual (cos/sin/alter)
 

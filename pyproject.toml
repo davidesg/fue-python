@@ -50,3 +50,14 @@ before-all = "brew install gsl"
 # Build for both Intel and Apple Silicon
 archs = ["x86_64", "arm64"]
 
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+
+# Install GSL via vcpkg (static-md = static libs + /MD runtime, compatible with Python).
+# VCPKG_INSTALLATION_ROOT is set by the GitHub Actions windows-latest runner.
+before-all = "vcpkg install gsl:x64-windows-static-md"
+
+# Expose the vcpkg prefix so _build_cffi.py can locate headers and .lib files.
+# GSL_ROOT is read in _build_cffi.py; falls back to the vcpkg default if unset.
+environment = { GSL_ROOT = "{env:VCPKG_INSTALLATION_ROOT}\\installed\\x64-windows-static-md" }
+

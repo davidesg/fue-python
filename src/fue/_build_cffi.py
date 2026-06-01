@@ -10,6 +10,7 @@ the _fue_engine extension module imported by _engine.py at runtime.
 """
 
 import os
+import sys
 import cffi
 
 # Compute paths relative to the project root (CWD during pip/setup.py build).
@@ -102,23 +103,44 @@ void       fue_result_free(FueResult *r);
 const char *fue_strerror(int ifault);
 """
 
+_SOURCES = [
+    os.path.join(_ROOT, "fue_api.c"),
+    os.path.join(_INTERN, "elfvarma.c"),
+    os.path.join(_INTERN, "usmelard.c"),
+    os.path.join(_INTERN, "qnewtopt.c"),
+    os.path.join(_INTERN, "nlatools.c"),
+    os.path.join(_INTERN, "drvmlest.c"),
+]
+
+if sys.platform == "win32":
+    # GSL via vcpkg (x64-windows-static-md triplet).
+    # Set GSL_ROOT to override the default vcpkg install prefix.
+    _vcpkg_default = os.path.join(
+        os.environ.get("VCPKG_INSTALLATION_ROOT", r"C:\vcpkg"),
+        "installed", "x64-windows-static-md",
+    )
+    _gsl_root    = os.environ.get("GSL_ROOT", _vcpkg_default)
+    _include_dirs = [_ROOT, _INTERN, os.path.join(_gsl_root, "include")]
+    _library_dirs = [os.path.join(_gsl_root, "lib")]
+    _libraries    = ["gsl", "gslcblas"]   # no -lm on Windows
+    _compile_args = ["/O2", "/W2"]
+else:
+    _include_dirs = [_ROOT, _INTERN]
+    _library_dirs = []
+    _libraries    = ["gsl", "gslcblas", "m"]
+    _compile_args = ["-O2", "-std=c99", "-Wall"]
+
 ffi = cffi.FFI()
 ffi.cdef(_CDEF)
 
 ffi.set_source(
     "fue._fue_engine",
     r'#include "fue_api.h"',
-    sources=[
-        os.path.join(_ROOT, "fue_api.c"),
-        os.path.join(_INTERN, "elfvarma.c"),
-        os.path.join(_INTERN, "usmelard.c"),
-        os.path.join(_INTERN, "qnewtopt.c"),
-        os.path.join(_INTERN, "nlatools.c"),
-        os.path.join(_INTERN, "drvmlest.c"),
-    ],
-    include_dirs=[_ROOT, _INTERN],
-    libraries=["gsl", "gslcblas", "m"],
-    extra_compile_args=["-O2", "-std=c99", "-Wall"],
+    sources=_SOURCES,
+    include_dirs=_include_dirs,
+    library_dirs=_library_dirs,
+    libraries=_libraries,
+    extra_compile_args=_compile_args,
 )
 
 if __name__ == "__main__":

@@ -13,10 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13, macos-latest]
-        # ubuntu-latest  → Linux x86_64 (+ aarch64 via QEMU)
-        # macos-13       → macOS Intel x86_64
-        # macos-latest   → macOS Apple Silicon arm64
+        os: [ubuntu-latest, macos-13, macos-latest, windows-latest]
+        # ubuntu-latest   → Linux x86_64 (+ aarch64 via QEMU)
+        # macos-13        → macOS Intel x86_64
+        # macos-latest    → macOS Apple Silicon arm64
+        # windows-latest  → Windows x86_64 (AMD64)
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +48,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install build
-        run: pip install build --break-system-packages
+        run: pip install build
 
       - name: Build sdist
         run: python -m build --sdist

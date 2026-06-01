@@ -796,7 +796,11 @@ FueResult *fue_estimate(const FueModelSpec *spec)
 
     /* Redirect engine diagnostics to null sink (outputv=NULL causes crashes) */
     if (outputv == NULL) {
+#ifdef _WIN32
+        outputv = fopen("NUL", "w");
+#else
         outputv = fopen("/dev/null", "w");
+#endif
         if (!outputv) outputv = stderr;
     }
 

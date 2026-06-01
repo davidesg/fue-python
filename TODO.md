@@ -27,10 +27,16 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
   6. Empaquetar FueResult y return
 
 ### 1.2 Compilación y test
-- [ ] Verificar que compila con gcc -c fue_api.c (sin gnuplot, sin pdflatex)
-- [ ] Compilar extensión cffi: python src/fue/_build_cffi.py
-- [ ] Activar cffi_modules en pyproject.toml
-- [ ] Test de smoke: pip install -e . && python -c "import fue"
+- [x] Verificar que compila con gcc -c fue_api.c (sin gnuplot, sin pdflatex)
+- [x] Compilar extensión cffi: python src/fue/_build_cffi.py
+- [x] Activar cffi_modules en pyproject.toml
+- [x] Test de smoke: 10/10 tests passing (test_api.py)
+- [x] Bugs encontrados y corregidos:
+  - _build_cffi.py: path incorrecto (3 niveles en lugar de 2)
+  - _build_cffi.py: cdef con macros no expandidas → cdef manual con literales
+  - _engine.py: dangling pointer (numpy array GC'd antes de fue_estimate) → ffi.from_buffer
+  - fue_api.c: outputv=NULL causaba segfault en qnewtopt.c:report() → fopen(/dev/null)
+  - qnewtopt.c: printf() siempre a stdout → if(outputv) fprintf(outputv,...)
 
 ### 1.3 Tests de equivalencia numérica
 - [ ] Crear tests/test_estimation.py con casos de prueba de fue-1.13.1

@@ -75,11 +75,18 @@ def test_model_add_intervention():
     assert len(m2.interventions) == 1
 
 
-def test_model_fit_raises_without_engine():
+def test_model_fit_arma11():
+    """ARMA(1,1) smoke fit: engine must converge and return sensible values."""
     ts = _dummy_series()
     m  = Model(ts, ar=[[0.5]], ma=[[0.3]])
-    with pytest.raises((ImportError, RuntimeError)):
+    try:
         m.fit()
+        assert m._result.converged
+        assert m._result.npar == 2
+        assert m._result.loglik < 0          # log-likelihood is always negative
+        assert len(m._result.residuals) == ts.nobs
+    except ImportError:
+        pytest.skip("C extension not compiled")
 
 
 def test_model_requires_fit_before_results():

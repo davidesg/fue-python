@@ -86,7 +86,7 @@ void raxopt( real (*func)(real *), real *fk, int n, real *xk, real **b,
       {
       if ( (k % nrits) == 0 )
           report( n, k, xk, gk, *fk, termcode );
-      printf( "%4d F: %0.10f", k, *fk );
+      if ( outputv ) fprintf( outputv, "%4d F: %0.10f", k, *fk );
 
       for ( i = 1; i <= n; i++ ) dk[i] = -gk[i];
       cholsol( b, n, dk );
@@ -114,7 +114,7 @@ void raxopt( real (*func)(real *), real *fk, int n, real *xk, real **b,
       }                                       /* Back for another iteration. */
 
    report( n, k, xk, gk, *fk, termcode );     /* Report on convergence.      */
-   printf( "%4d F: %0.10f\n", k, *fk );
+   if ( outputv ) fprintf( outputv, "%4d F: %0.10f\n", k, *fk );
 
 /* Deallocate temporary storage and return:                                  */
 

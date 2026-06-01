@@ -21,7 +21,5 @@ dev = ["pytest>=7", "pandas"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# cffi extension is built by src/fue/_build_cffi.py (registered as cffi_modules)
-# Add this once fue_api.c / fue_api.h are complete:
-# [tool.setuptools]
-# cffi_modules = ["src/fue/_build_cffi.py:ffi"]
+[tool.setuptools]
+cffi_modules = ["src/fue/_build_cffi.py:ffi"]

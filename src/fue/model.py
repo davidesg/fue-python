@@ -7,22 +7,18 @@ from .intervention import Intervention
 class FitResult:
     """Container for estimation results returned by the C engine."""
 
-    def __init__(self, raw):
-        self._raw       = raw          # FueResult* (cffi cdata, kept alive)
-        self.ifault     = raw.ifault
-        self.converged  = raw.ifault == 0
-        self.npar       = raw.npar
-        self.sigma2     = raw.sigma2
-        self.loglik     = raw.loglik
-        self.aic        = raw.aic
-        self.bic        = raw.bic
-
-        import numpy as np
-        n = raw.npar
-        self.params     = np.frombuffer(raw.params[0:n],      dtype=float).copy()
-        self.std_errors = np.frombuffer(raw.std_errors[0:n],  dtype=float).copy()
-        self.cov_matrix = np.frombuffer(raw.cov_matrix[0:n*n],dtype=float).reshape(n,n).copy()
-        self.residuals  = np.frombuffer(raw.residuals[0:raw.nresiduals], dtype=float).copy()
+    def __init__(self, data):
+        self.ifault     = data['ifault']
+        self.converged  = data['ifault'] == 0
+        self.npar       = data['npar']
+        self.sigma2     = data['sigma2']
+        self.loglik     = data['loglik']
+        self.aic        = data['aic']
+        self.bic        = data['bic']
+        self.params     = data['params']
+        self.std_errors = data['std_errors']
+        self.cov_matrix = data['cov_matrix']
+        self.residuals  = data['residuals']
 
 
 class Model:
@@ -110,8 +106,8 @@ class Model:
         raw = estimate(self)
         self._result = FitResult(raw)
         if not self._result.converged:
-            from .._engine import fue_strerror   # noqa: F401 — will exist
-            msg = f"ifault={self._result.ifault}"
+            from fue._fue_engine import ffi, lib
+            msg = ffi.string(lib.fue_strerror(self._result.ifault)).decode()
             raise RuntimeError(f"FUE estimation failed: {msg}")
         return self
 

@@ -767,6 +767,12 @@ FueResult *fue_estimate(const FueModelSpec *spec)
         return result;
     }
 
+    /* Redirect engine diagnostics to null sink (outputv=NULL causes crashes) */
+    if (outputv == NULL) {
+        outputv = fopen("/dev/null", "w");
+        if (!outputv) outputv = stderr;
+    }
+
     /* [1]: Populate module-level globals (Tm, Ts, DataMat) */
     if (populate_globals(spec) != 0) return NULL;
 

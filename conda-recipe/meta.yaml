@@ -1,0 +1,54 @@
+{% set version = "0.1.0" %}
+
+package:
+  name: fue
+  version: {{ version }}
+
+source:
+  # For local development/testing:
+  #   conda build conda-recipe/
+  # from the project root.  Switch to a PyPI url + sha256 for the
+  # conda-forge feedstock.
+  path: ..
+
+build:
+  number: 0
+  script:
+    - {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+  host:
+    - python
+    - pip
+    - setuptools >=60
+    - wheel
+    - cffi >=1.15
+    - gsl
+  run:
+    - python
+    - cffi >=1.15
+    - numpy >=1.24
+    - scipy >=1.10
+    - matplotlib >=3.7
+
+test:
+  imports:
+    - fue
+  requires:
+    - pytest
+  commands:
+    - pytest {{ SRC_DIR }}/tests/ -q
+
+about:
+  home: https://github.com/warriord/fue
+  license: GPL-2.0-or-later
+  license_file: LICENSE
+  summary: >-
+    Exact maximum likelihood estimation of univariate time series
+    (ARMAX with transfer functions)
+
+extra:
+  recipe-maintainers:
+    - warriord

@@ -113,22 +113,35 @@ _SOURCES = [
 ]
 
 if sys.platform == "win32":
-    # GSL via vcpkg (x64-windows-static-md triplet).
-    # Set GSL_ROOT to override the default vcpkg install prefix.
-    _vcpkg_default = os.path.join(
-        os.environ.get("VCPKG_INSTALLATION_ROOT", r"C:\vcpkg"),
-        "installed", "x64-windows-static-md",
-    )
-    _gsl_root    = os.environ.get("GSL_ROOT", _vcpkg_default)
-    _include_dirs = [_ROOT, _INTERN, os.path.join(_gsl_root, "include")]
-    _library_dirs = [os.path.join(_gsl_root, "lib")]
     _libraries    = ["gsl", "gslcblas"]   # no -lm on Windows
     _compile_args = ["/O2", "/W2"]
+    # conda-build sets LIBRARY_INC / LIBRARY_LIB; prefer those when present.
+    _lib_inc = os.environ.get("LIBRARY_INC")
+    _lib_lib = os.environ.get("LIBRARY_LIB")
+    if _lib_inc and _lib_lib:
+        _include_dirs = [_ROOT, _INTERN, _lib_inc]
+        _library_dirs = [_lib_lib]
+    else:
+        # GSL via vcpkg (x64-windows-static-md triplet) — used by cibuildwheel.
+        # Set GSL_ROOT to override the default vcpkg install prefix.
+        _vcpkg_default = os.path.join(
+            os.environ.get("VCPKG_INSTALLATION_ROOT", r"C:\vcpkg"),
+            "installed", "x64-windows-static-md",
+        )
+        _gsl_root     = os.environ.get("GSL_ROOT", _vcpkg_default)
+        _include_dirs = [_ROOT, _INTERN, os.path.join(_gsl_root, "include")]
+        _library_dirs = [os.path.join(_gsl_root, "lib")]
 else:
-    _include_dirs = [_ROOT, _INTERN]
-    _library_dirs = []
     _libraries    = ["gsl", "gslcblas", "m"]
     _compile_args = ["-O2", "-std=c99", "-Wall"]
+    # conda-build sets PREFIX to the environment where host deps are installed.
+    _prefix = os.environ.get("PREFIX")
+    if _prefix:
+        _include_dirs = [_ROOT, _INTERN, os.path.join(_prefix, "include")]
+        _library_dirs = [os.path.join(_prefix, "lib")]
+    else:
+        _include_dirs = [_ROOT, _INTERN]
+        _library_dirs = []
 
 ffi = cffi.FFI()
 ffi.cdef(_CDEF)

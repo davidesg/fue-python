@@ -70,7 +70,9 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
 
 ## FASE 3 — Distribución
 
-- [ ] conda-forge recipe (entorno Linux prioritario)
+- [x] conda-forge recipe (entorno Linux prioritario)
+      - `conda-recipe/meta.yaml`: recipe completa con compiler('c'), gsl como host dep, pip install
+      - `_build_cffi.py`: detecta PREFIX (conda Linux/macOS) y LIBRARY_INC/LIBRARY_LIB (conda Windows)
 - [x] pyproject.toml: build backend corregido (setuptools.build_meta + setup.py con cffi_modules)
       - `setuptools.backends.legacy:build` no disponible en setuptools del sistema → cambiado a `build_meta`
       - `cffi_modules` en `[tool.setuptools]` rechazado → movido a `setup.py`

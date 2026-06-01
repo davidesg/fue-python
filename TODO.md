@@ -56,11 +56,11 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
 
 ## FASE 2 — API Python iterativa
 
-- [ ] `TimeSeries.plot()` — gráfico básico de la serie
-- [ ] `TimeSeries.plot_acf()` y `plot_pacf()` como métodos de instancia
-- [ ] `Model.compare(other)` — tabla AIC/BIC/loglik comparativa
-- [ ] `Model.forecast(horizon)` — generar archivo .inp para FUF (puente interim)
-- [ ] Soporte para `pandas.Series` como entrada en TimeSeries.from_pandas()
+- [x] `TimeSeries.plot()` — gráfico con eje x en años decimales (plot_series mejorado)
+- [x] `TimeSeries.plot_acf()` y `plot_pacf()` como métodos de instancia
+- [x] `Model.compare(*others)` — tabla AIC/BIC/loglik comparativa
+- [ ] `Model.forecast(horizon)` — FUF no disponible en esta distribución; pendiente
+- [x] `TimeSeries.from_pandas(series)` — inferencia automática de freq y start desde DatetimeIndex/PeriodIndex
 
 ---
 

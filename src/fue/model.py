@@ -146,6 +146,39 @@ class Model:
         self._require_fit()
         return self._result.bic
 
+    def compare(self, *others):
+        """
+        Print a comparison table of fitted models.
+
+        Parameters
+        ----------
+        *others : Model
+            Additional fitted models to compare against *self*.
+
+        Returns
+        -------
+        str
+            Formatted table (also printed to stdout).
+        """
+        models = [self] + list(others)
+        for m in models:
+            if m._result is None:
+                raise RuntimeError("All models must be fitted before comparing.")
+
+        header = f"{'Model':<20} {'npar':>5} {'loglik':>12} {'sigma2':>12} {'AIC':>10} {'BIC':>10}"
+        sep    = "-" * len(header)
+        rows   = [header, sep]
+        for m in models:
+            r = m._result
+            label = m.series.name[:19]
+            rows.append(
+                f"{label:<20} {r.npar:>5d} {r.loglik:>12.4f} {r.sigma2:>12.6f}"
+                f" {r.aic:>10.4f} {r.bic:>10.4f}"
+            )
+        table = "\n".join(rows)
+        print(table)
+        return table
+
     def summary(self):
         self._require_fit()
         r = self._result

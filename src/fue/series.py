@@ -41,6 +41,67 @@ class TimeSeries:
         label = name or (col.name if hasattr(col, "name") else "series")
         return cls(col.values, freq=freq, start=start, name=label)
 
+    @classmethod
+    def from_pandas(cls, series, freq=None, name=None):
+        """
+        Build a TimeSeries from a ``pandas.Series``.
+
+        If the series has a ``DatetimeIndex`` or ``PeriodIndex``, freq and
+        start are inferred automatically (annual / quarterly / monthly).
+        Pass *freq* explicitly to override.
+
+        Parameters
+        ----------
+        series : pandas.Series
+        freq   : int, optional
+            1, 4, or 12.  Inferred from index if omitted.
+        name   : str, optional
+            Defaults to ``series.name``.
+        """
+        import pandas as pd
+
+        label = name or (str(series.name) if series.name is not None else "series")
+        data  = series.to_numpy(dtype=float)
+        idx   = series.index
+
+        if freq is None:
+            if hasattr(idx, "freqstr") and idx.freqstr:
+                fs = idx.freqstr.upper()
+                if fs.startswith("A") or fs.startswith("Y"):
+                    freq = 1
+                elif fs.startswith("Q"):
+                    freq = 4
+                elif fs.startswith("M"):
+                    freq = 12
+                else:
+                    freq = 1
+            else:
+                freq = 1
+
+        # Derive start from the first index value
+        if isinstance(idx, pd.PeriodIndex):
+            p0 = idx[0]
+            year = p0.year
+            if freq == 4:
+                period = p0.quarter
+            elif freq == 12:
+                period = p0.month
+            else:
+                period = 1
+        elif isinstance(idx, pd.DatetimeIndex):
+            d0 = idx[0]
+            year = d0.year
+            if freq == 4:
+                period = (d0.month - 1) // 3 + 1
+            elif freq == 12:
+                period = d0.month
+            else:
+                period = 1
+        else:
+            year, period = 1900, 1
+
+        return cls(data, freq=freq, start=(year, period), name=label)
+
     # ── Properties ────────────────────────────────────────────────────────
 
     @property
@@ -51,6 +112,25 @@ class TimeSeries:
     def numbering(self):
         """True when freq=0 (plain observation indices, no calendar dates)."""
         return self.freq == 0
+
+    # ── Plotting ──────────────────────────────────────────────────────────
+
+    def plot(self, title=None, ax=None):
+        """Time-series line plot with calendar x-axis."""
+        from .plots import plot_series
+        plot_series(self, title=title, ax=ax)
+
+    def plot_acf(self, lags=24, confidence=0.95, ax=None):
+        """Autocorrelation function stem plot."""
+        from .plots import plot_acf
+        plot_acf(self.data, lags=lags, confidence=confidence,
+                 title=f"ACF — {self.name}", ax=ax)
+
+    def plot_pacf(self, lags=24, confidence=0.95, ax=None):
+        """Partial autocorrelation function stem plot."""
+        from .plots import plot_pacf
+        plot_pacf(self.data, lags=lags, confidence=confidence,
+                  title=f"PACF — {self.name}", ax=ax)
 
     def __len__(self):
         return self.nobs

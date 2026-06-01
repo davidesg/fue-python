@@ -94,3 +94,66 @@ def test_model_requires_fit_before_results():
     m  = Model(ts)
     with pytest.raises(RuntimeError, match="not been fitted"):
         _ = m.residuals
+
+
+# ── TimeSeries.from_pandas ────────────────────────────────────────────────
+
+def test_from_pandas_annual():
+    pd = pytest.importorskip("pandas")
+    s = pd.Series(range(20),
+                  index=pd.period_range("1990", periods=20, freq="A"))
+    ts = TimeSeries.from_pandas(s)
+    assert ts.nobs == 20
+    assert ts.freq == 1
+    assert ts.start == (1990, 1)
+
+
+def test_from_pandas_monthly():
+    pd = pytest.importorskip("pandas")
+    s = pd.Series(range(36),
+                  index=pd.period_range("2000-01", periods=36, freq="M"))
+    ts = TimeSeries.from_pandas(s, name="test_m")
+    assert ts.nobs == 36
+    assert ts.freq == 12
+    assert ts.start == (2000, 1)
+    assert ts.name == "test_m"
+
+
+def test_from_pandas_quarterly():
+    pd = pytest.importorskip("pandas")
+    s = pd.Series(range(12),
+                  index=pd.period_range("1995Q1", periods=12, freq="Q"))
+    ts = TimeSeries.from_pandas(s)
+    assert ts.freq == 4
+    assert ts.start == (1995, 1)
+
+
+def test_from_pandas_datetime_index():
+    pd = pytest.importorskip("pandas")
+    s = pd.Series(range(24),
+                  index=pd.date_range("2010-01", periods=24, freq="MS"))
+    ts = TimeSeries.from_pandas(s, freq=12)
+    assert ts.freq == 12
+    assert ts.start == (2010, 1)
+
+
+# ── Model.compare ─────────────────────────────────────────────────────────
+
+def test_model_compare_requires_fitted():
+    ts = _dummy_series()
+    m1 = Model(ts, ar=[[0.5]])
+    m2 = Model(ts, ma=[[0.3]])
+    with pytest.raises(RuntimeError):
+        m1.compare(m2)
+
+
+def test_model_compare_output():
+    ts = _dummy_series()
+    m1 = Model(ts, ar=[[0.5]], ma=[[0.3]])
+    try:
+        m1.fit()
+    except ImportError:
+        pytest.skip("C extension not compiled")
+    table = m1.compare()
+    assert "loglik" in table
+    assert "AIC" in table

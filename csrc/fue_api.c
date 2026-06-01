@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 
 #include "fue_api.h"
 #include "internal/fue.h"
@@ -62,9 +63,9 @@ void fue_defaults(FueModelSpec *spec)
     spec->boxlam      = 1.0;
     spec->refactor    = 1.0;
     spec->estimate_mu = 0;
-    spec->maxits      = 200;
-    spec->grtol       = 1e-5;
-    spec->sptol       = 1e-7;
+    spec->maxits      = 500;
+    spec->grtol       = pow(DBL_EPSILON, 1.1 / 3.0);
+    spec->sptol       = pow(DBL_EPSILON, 2.0 / 3.0);
     spec->xitol       = 1e-3;
     spec->chkma       = 1;
     spec->eml         = 1;
@@ -797,15 +798,22 @@ FueResult *fue_estimate(const FueModelSpec *spec)
     /* [4]: Fill initial parameter vector */
     count_npar_build_par(par);
 
-    /* [5]: Estimate */
-    est(cast_us, npar, par, dev, cov,
-        spec->maxits > 0 ? spec->maxits : 200,
-        10,
-        spec->grtol  > 0 ? spec->grtol  : 1e-5,
-        spec->sptol  > 0 ? spec->sptol  : 1e-7,
-        spec->xitol  > 0 ? spec->xitol  : 1e-3,
-        spec->chkma,
-        a, &sigma2, &logelf, &ifault);
+    /* [5]: Estimate
+       xitol sign convention from fue.c:1087:
+         exact ML (eml=1) → negative xitol forces exact Melard recursions in cxi()
+         approx ML (eml=0) → positive xitol allows cheap approximation */
+    {
+        real abs_xitol = spec->xitol > 0 ? spec->xitol : 1e-3;
+        real xitol_signed = spec->eml ? -abs_xitol : abs_xitol;
+        est(cast_us, npar, par, dev, cov,
+            spec->maxits > 0 ? spec->maxits : 200,
+            10,
+            spec->grtol  > 0 ? spec->grtol  : 1e-5,
+            spec->sptol  > 0 ? spec->sptol  : 1e-7,
+            xitol_signed,
+            spec->chkma,
+            a, &sigma2, &logelf, &ifault);
+    }
 
     /* [6]: Pack results */
     result->ifault = ifault;

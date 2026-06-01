@@ -39,9 +39,16 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
   - qnewtopt.c: printf() siempre a stdout → if(outputv) fprintf(outputv,...)
 
 ### 1.3 Tests de equivalencia numérica
-- [ ] Crear tests/test_estimation.py con casos de prueba de fue-1.13.1
-- [ ] Cada test: mismo .inp → fue C vs fue Python → comparar params, loglik, residuos
-- [ ] Tolerancia: params dentro de 1e-6, loglik dentro de 1e-4
+- [x] Crear tests/test_estimation.py con casos de prueba de fue-1.13.1
+- [x] Cada test: mismo .inp → fue C vs fue Python → comparar params, loglik, residuos
+- [x] Tolerancia: params dentro de 1e-6, loglik dentro de 1e-4
+- [x] Bugs encontrados y corregidos:
+  - test_ar1.inp tenía secciones extra (seasonal AR/MA, anual f-fixed) que el parser no lee → reescrito con estructura exacta de SFNY.2.inp
+  - fue_api.c: xitol sign bug → fue.c usa -xitol para exact ML (fuerza recursiones Melard exactas en cxi()), fue_api.c usaba +xitol (ML aproximado) → corregido con eml flag
+  - fue_api.c: tolerancias del optimizer no coincidían con fue.c → grtol/sptol = pow(DBL_EPSILON, ...), maxits=500
+- [x] Casos de prueba:
+  - Case 1: AR(1) anual, 30 obs SFNY30 → phi=0.9747519833, sigma2=0.2482607765, logelf=-23.1683049163
+  - Case 2: IMA(1,1) anual, 30 obs SFNY30 → theta=-0.4228241648, sigma2=0.2060862798, logelf=-18.3455244692
 
 ---
 

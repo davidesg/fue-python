@@ -121,3 +121,71 @@ def test_ima11_sigma2():
     assert abs(m._result.sigma2 - 0.2060862798) < 1e-6, (
         f"sigma2 mismatch: got {m._result.sigma2}"
     )
+
+
+# ── Case 3: SFNY.2 full model — step intervention + 2 AR factors + mu ────────
+#
+# fue-1.13.1 reference (SFNY.2.inp, boxlam=0.0, nrdiff=0):
+#   npar=6
+#   params[0] = omega       = -0.600361  (step omega)
+#   params[1] = delta       =  0.587261  (step delta)
+#   params[2] = AR1 fac1 φ1 =  0.131073
+#   params[3] = AR1 fac2 φ1 =  0.487958
+#   params[4] = AR1 fac2 φ2 = -0.258762
+#   params[5] = mu          =  1.209415
+#   sigma2 = 0.0370593261
+#   logelf = 13.9573576937
+
+_REF_SFNY2_PARAMS = np.array([
+    -0.600361,  0.587261,
+     0.131073,
+     0.487958, -0.258762,
+     1.209415,
+])
+
+
+def _sfny2_model():
+    from fue import Intervention
+    ts = TimeSeries(_SFNY62, freq=1, start=(1852, 1), name="SFNY")
+    return Model(ts,
+        interventions=[
+            Intervention("step", at=1,
+                         omega=[0.08], omega_free=[True],
+                         delta=[0.6],  delta_free=[True])
+        ],
+        ar=[[0.8], [-0.1, -0.1]],
+        boxlam=0.0,
+        mu=0.0,
+        estimate_mu=True,
+    )
+
+
+def test_sfny2_npar():
+    m = _sfny2_model()
+    m.fit()
+    assert m._result.npar == 6
+
+
+def test_sfny2_params():
+    m = _sfny2_model()
+    m.fit()
+    for i, (got, ref) in enumerate(zip(m._result.params, _REF_SFNY2_PARAMS)):
+        assert abs(got - ref) < 1e-5, (
+            f"params[{i}] mismatch: got {got:.6f}, expected {ref:.6f}"
+        )
+
+
+def test_sfny2_loglik():
+    m = _sfny2_model()
+    m.fit()
+    assert abs(m._result.loglik - 13.9573576937) < 1e-4, (
+        f"loglik mismatch: got {m._result.loglik}"
+    )
+
+
+def test_sfny2_sigma2():
+    m = _sfny2_model()
+    m.fit()
+    assert abs(m._result.sigma2 - 0.0370593261) < 1e-6, (
+        f"sigma2 mismatch: got {m._result.sigma2}"
+    )

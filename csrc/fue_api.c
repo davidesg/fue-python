@@ -669,6 +669,14 @@ static int populate_globals(const FueModelSpec *spec)
     /* Fixed-frequency factors not supported in API (disabled in fue.c too) */
     Tm.NumAr1f = Tm.NumAr2f = Tm.NumMa1f = Tm.NumMa2f = 0;
 
+    /* Normalize polynomial 0th element to -1 (fue.c:862-869).
+       unscramble() uses Ar?[i][0] in its convolution; leaving it at 0
+       produces a different landscape in factor-phi space. */
+    for (i = 1; i <= Tm.NumAr1; i++) Tm.Ar1[i][0] = -1.0;
+    for (i = 1; i <= Tm.NumAr2; i++) Tm.Ar2[i][0] = -1.0;
+    for (i = 1; i <= Tm.NumMa1; i++) Tm.Ma1[i][0] = -1.0;
+    for (i = 1; i <= Tm.NumMa2; i++) Tm.Ma2[i][0] = -1.0;
+
     /* ── DataMat: series data + intervention indicators ── */
 
     DataMat = matrix(0, Tm.NdetVar, 1, Ts.nobs);

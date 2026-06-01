@@ -49,6 +49,8 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
 - [x] Casos de prueba:
   - Case 1: AR(1) anual, 30 obs SFNY30 → phi=0.9747519833, sigma2=0.2482607765, logelf=-23.1683049163
   - Case 2: IMA(1,1) anual, 30 obs SFNY30 → theta=-0.4228241648, sigma2=0.2060862798, logelf=-18.3455244692
+  - Case 3: SFNY.2 completo (step + AR(1)×AR(2) + mu, boxlam=0) → 6 params, logelf=13.9573576937, sigma2=0.0370593261
+- [x] Bug adicional corregido: fue_api.c: Ar1/Ar2/Ma1/Ma2[i][0] no se inicializaba a -1.0 como requiere unscramble() → con modelos de varios factores, los valores individuales por factor eran incorrectos aunque el polinomio combinado (y el loglik) eran correctos
 
 ---
 

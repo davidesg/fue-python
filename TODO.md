@@ -51,6 +51,10 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
   - Case 2: IMA(1,1) anual, 30 obs SFNY30 → theta=-0.4228241648, sigma2=0.2060862798, logelf=-18.3455244692
   - Case 3: SFNY.2 completo (step + AR(1)×AR(2) + mu, boxlam=0) → 6 params, logelf=13.9573576937, sigma2=0.0370593261
 - [x] Bug adicional corregido: fue_api.c: Ar1/Ar2/Ma1/Ma2[i][0] no se inicializaba a -1.0 como requiere unscramble() → con modelos de varios factores, los valores individuales por factor eran incorrectos aunque el polinomio combinado (y el loglik) eran correctos
+- [x] Case 4: RIPC.1 mensual (cos/sin/alter + step + AR(1) fijo + mu, boxlam=0, refactor=100) → 14 params, logelf=-100.9274828448, sigma2=0.9662469111
+  - [x] Nuevos tipos de intervención: FUE_ITV_COS, FUE_ITV_SIN, FUE_ITV_ALTER con campo `harmonic` en FueIntervention
+  - [x] Soporte para coeficientes AR/MA fijos (coef_free=0) en Model: parámetros ar_free/ma_free/ar_s_free/ma_s_free
+  - [x] Parámetro refactor en Model (default=1.0)
 
 ---
 

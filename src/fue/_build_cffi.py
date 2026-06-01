@@ -22,6 +22,7 @@ _CDEF = """
 typedef struct {
     int    type;
     int    obs_index;
+    double harmonic;
 
     int    nomega;
     double omega[16];

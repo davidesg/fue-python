@@ -57,8 +57,9 @@ class Model:
     """
 
     def __init__(self, series, ar=None, ma=None, ar_s=None, ma_s=None,
+                 ar_free=None, ma_free=None, ar_s_free=None, ma_s_free=None,
                  d=0, D=0, interventions=None, mu=0.0, estimate_mu=False,
-                 boxlam=1.0, eml=True, chkma=True):
+                 boxlam=1.0, refactor=1.0, eml=True, chkma=True):
         if not isinstance(series, TimeSeries):
             raise TypeError("series must be a TimeSeries instance")
         self.series        = series
@@ -66,12 +67,19 @@ class Model:
         self.ma            = ma   or []
         self.ar_s          = ar_s or []
         self.ma_s          = ma_s or []
+        # ar_free/ma_free: list of lists of bool, same shape as ar/ma/ar_s/ma_s.
+        # None means all coefficients are free.
+        self.ar_free       = ar_free
+        self.ma_free       = ma_free
+        self.ar_s_free     = ar_s_free
+        self.ma_s_free     = ma_s_free
         self.d             = int(d)
         self.D             = int(D)
         self.interventions = list(interventions or [])
         self.mu0           = float(mu)
         self.estimate_mu   = bool(estimate_mu)
         self.boxlam        = float(boxlam)
+        self.refactor      = float(refactor)
         self.eml           = bool(eml)
         self.chkma         = bool(chkma)
         self._result       = None
@@ -86,10 +94,13 @@ class Model:
         new = Model(
             self.series, ar=self.ar, ma=self.ma,
             ar_s=self.ar_s, ma_s=self.ma_s,
+            ar_free=self.ar_free, ma_free=self.ma_free,
+            ar_s_free=self.ar_s_free, ma_s_free=self.ma_s_free,
             d=self.d, D=self.D,
             interventions=self.interventions + [itv],
             mu=self.mu0, estimate_mu=self.estimate_mu,
-            boxlam=self.boxlam, eml=self.eml, chkma=self.chkma,
+            boxlam=self.boxlam, refactor=self.refactor,
+            eml=self.eml, chkma=self.chkma,
         )
         return new
 

@@ -189,3 +189,105 @@ def test_sfny2_sigma2():
     assert abs(m._result.sigma2 - 0.0370593261) < 1e-6, (
         f"sigma2 mismatch: got {m._result.sigma2}"
     )
+
+
+# ── Case 4: RIPC.1 — cos/sin/alter seasonals + step + fixed AR(1) + mu ───────
+#
+# fue-1.13.1 reference (RIPC.1.inp, boxlam=0.0, refactor=100.0, freq=12):
+#   npar=14
+#   params[0..10]: omegas for cos1,sin1,cos2,sin2,cos3,sin3,cos4,sin4,cos5,sin5,alter
+#   params[11]  = omega for step   = 1.419040
+#   params[12]  = delta for step   = 0.843401
+#   params[13]  = mu               = -90.034940
+#   AR(1) phi=0 fixed (not estimated)
+#   sigma2 = 0.9662469111
+#   logelf = -100.9274828448
+
+_RIPC1_DATA = np.array([
+    0.413459, 0.416226, 0.418544, 0.422442, 0.424508, 0.425892,
+    0.425137, 0.425577, 0.427322, 0.429367, 0.432350, 0.434795,
+    0.443644, 0.443617, 0.443454, 0.448741, 0.450270, 0.448844,
+    0.448505, 0.447079, 0.449154, 0.449650, 0.452374, 0.452679,
+    0.452326, 0.452981, 0.453226, 0.454730, 0.449935, 0.447131,
+    0.445082, 0.444966, 0.445047, 0.443958, 0.445585, 0.446936,
+    0.447090, 0.445735, 0.443441, 0.444167, 0.445403, 0.445490,
+    0.442748, 0.439849, 0.437653, 0.438303, 0.442595, 0.445719,
+    0.444463, 0.446707, 0.447143, 0.443674, 0.440874, 0.438993,
+    0.437829, 0.437908, 0.442587, 0.446552, 0.447956, 0.447148,
+    0.447111, 0.445032, 0.441439, 0.438548, 0.436016, 0.436859,
+    0.438797, 0.439924, 0.441830, 0.441481, 0.441057, 0.443876,
+])
+
+_REF_RIPC1_PARAMS = np.array([
+    0.370491,   # omega cos 1
+    0.601877,   # omega sin 1
+    0.074002,   # omega cos 2
+    0.033204,   # omega sin 2
+   -0.020471,   # omega cos 3
+    0.089728,   # omega sin 3
+   -0.042174,   # omega cos 4
+    0.048089,   # omega sin 4
+   -0.056381,   # omega cos 5
+   -0.054876,   # omega sin 5
+   -0.017354,   # omega alter
+    1.419040,   # omega step
+    0.843401,   # delta step
+  -90.034940,   # mu
+])
+
+
+def _ripc1_model():
+    from fue import Intervention
+    ts = TimeSeries(_RIPC1_DATA, freq=12, start=(2002, 1), name="RIPC1")
+    interventions = [
+        Intervention("cos",   harmonic=1.0, omega=[0.0], omega_free=[True]),
+        Intervention("sin",   harmonic=1.0, omega=[0.0], omega_free=[True]),
+        Intervention("cos",   harmonic=2.0, omega=[0.0], omega_free=[True]),
+        Intervention("sin",   harmonic=2.0, omega=[0.0], omega_free=[True]),
+        Intervention("cos",   harmonic=3.0, omega=[0.0], omega_free=[True]),
+        Intervention("sin",   harmonic=3.0, omega=[0.0], omega_free=[True]),
+        Intervention("cos",   harmonic=4.0, omega=[0.0], omega_free=[True]),
+        Intervention("sin",   harmonic=4.0, omega=[0.0], omega_free=[True]),
+        Intervention("cos",   harmonic=5.0, omega=[0.0], omega_free=[True]),
+        Intervention("sin",   harmonic=5.0, omega=[0.0], omega_free=[True]),
+        Intervention("alter", omega=[0.0], omega_free=[True]),
+        Intervention("step", at=1, omega=[0.014], omega_free=[True],
+                     delta=[0.6], delta_free=[True]),
+    ]
+    return Model(ts,
+        interventions=interventions,
+        ar=[[0.0]], ar_free=[[False]],
+        boxlam=0.0, refactor=100.0,
+        mu=0.0, estimate_mu=True,
+    )
+
+
+def test_ripc1_npar():
+    m = _ripc1_model()
+    m.fit()
+    assert m._result.npar == 14, f"npar mismatch: got {m._result.npar}"
+
+
+def test_ripc1_params():
+    m = _ripc1_model()
+    m.fit()
+    for i, (got, ref) in enumerate(zip(m._result.params, _REF_RIPC1_PARAMS)):
+        assert abs(got - ref) < 2e-3, (
+            f"params[{i}] mismatch: got {got:.6f}, expected {ref:.6f}"
+        )
+
+
+def test_ripc1_loglik():
+    m = _ripc1_model()
+    m.fit()
+    assert abs(m._result.loglik - (-100.9274828448)) < 1e-3, (
+        f"loglik mismatch: got {m._result.loglik}"
+    )
+
+
+def test_ripc1_sigma2():
+    m = _ripc1_model()
+    m.fit()
+    assert abs(m._result.sigma2 - 0.9662469111) < 1e-4, (
+        f"sigma2 mismatch: got {m._result.sigma2}"
+    )

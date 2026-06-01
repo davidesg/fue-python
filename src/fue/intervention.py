@@ -29,14 +29,16 @@ class Intervention:
         Which delta coefficients to estimate.  Defaults to all True.
     """
 
-    TYPES = {"pulse": 0, "step": 1, "ramp": 2, "seasonal": 3}
+    TYPES = {"pulse": 0, "step": 1, "ramp": 2, "seasonal": 3,
+             "cos": 4, "sin": 5, "alter": 6}
 
-    def __init__(self, type, at, omega=None, delta=None,
-                 omega_free=None, delta_free=None):
+    def __init__(self, type, at=0, omega=None, delta=None,
+                 omega_free=None, delta_free=None, harmonic=1.0):
         if type not in self.TYPES:
             raise ValueError(f"type must be one of {list(self.TYPES)}")
-        self.type   = type
-        self.at     = int(at)
+        self.type     = type
+        self.at       = int(at)
+        self.harmonic = float(harmonic)
         self.omega  = list(omega) if omega is not None else [1.0]
         self.delta  = list(delta) if delta is not None else []
         self.omega_free = (list(omega_free) if omega_free is not None

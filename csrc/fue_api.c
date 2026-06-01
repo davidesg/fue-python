@@ -712,6 +712,24 @@ static int populate_globals(const FueModelSpec *spec)
             for (j = 1; j <= Ts.nobs; j++)
                 if (((j - Ts.begtime) % Ts.freq) + 1 == obs) DataMat[i][j] = 1.0;
             break;
+        case FUE_ITV_COS: {
+            const double PI = 3.141592654;
+            double k = itv->harmonic;
+            for (j = 1; j <= Ts.nobs; j++)
+                DataMat[i][j] = cos(2.0 * PI * k / Ts.freq * j);
+            break;
+        }
+        case FUE_ITV_SIN: {
+            const double PI = 3.141592654;
+            double k = itv->harmonic;
+            for (j = 1; j <= Ts.nobs; j++)
+                DataMat[i][j] = sin(2.0 * PI * k / Ts.freq * j);
+            break;
+        }
+        case FUE_ITV_ALTER:
+            for (j = 1; j <= Ts.nobs; j++)
+                DataMat[i][j] = (j % 2 == 0) ? 1.0 : -1.0;
+            break;
         }
     }
 

@@ -27,12 +27,16 @@ extern "C" {
 #define FUE_ITV_STEP      1   /* permanent level shift (step indicator)    */
 #define FUE_ITV_RAMP      2   /* linear ramp                               */
 #define FUE_ITV_SEASONAL  3   /* periodic seasonal dummy                   */
+#define FUE_ITV_COS       4   /* cosine component: cos(2π·k/freq·j)        */
+#define FUE_ITV_SIN       5   /* sine component:   sin(2π·k/freq·j)        */
+#define FUE_ITV_ALTER     6   /* alternator: (-1)^j                        */
 
 /* ── Single intervention with linear transfer function ω(B)/δ(B) ───────── */
 
 typedef struct {
     int    type;                       /* FUE_ITV_* constant               */
     int    obs_index;                  /* 0-based index of the event        */
+    double harmonic;                   /* harmonic k for cos/sin types      */
 
     int    nomega;                     /* degree of ω(B) numerator (≥0)    */
     double omega[FUE_MAX_POLYORD];     /* ω₀, ω₁, ..., ω_{nomega}          */

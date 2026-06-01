@@ -37,6 +37,7 @@ def estimate(model):
     spec.begtime   = ts.start[1]
 
     spec.boxlam      = model.boxlam
+    spec.refactor    = model.refactor
     spec.nrdiff      = model.d
     spec.nadiff      = model.D
     spec.mu0         = model.mu0
@@ -44,38 +45,26 @@ def estimate(model):
     spec.chkma       = 1 if model.chkma else 0
     spec.eml         = 1 if model.eml else 0
 
-    spec.nar1 = len(model.ar)
-    for i, factor in enumerate(model.ar):
-        spec.ar1[i].order = len(factor)
-        for j, v in enumerate(factor):
-            spec.ar1[i].coefs[j]    = v
-            spec.ar1[i].coef_free[j] = 1
+    def _fill_factors(spec_arr, factors, free_lists):
+        for i, factor in enumerate(factors):
+            spec_arr[i].order = len(factor)
+            free = free_lists[i] if free_lists is not None else None
+            for j, v in enumerate(factor):
+                spec_arr[i].coefs[j]     = v
+                spec_arr[i].coef_free[j] = (
+                    0 if (free is not None and not free[j]) else 1
+                )
 
-    spec.nma1 = len(model.ma)
-    for i, factor in enumerate(model.ma):
-        spec.ma1[i].order = len(factor)
-        for j, v in enumerate(factor):
-            spec.ma1[i].coefs[j]    = v
-            spec.ma1[i].coef_free[j] = 1
-
-    spec.nar2 = len(model.ar_s)
-    for i, factor in enumerate(model.ar_s):
-        spec.ar2[i].order = len(factor)
-        for j, v in enumerate(factor):
-            spec.ar2[i].coefs[j]    = v
-            spec.ar2[i].coef_free[j] = 1
-
-    spec.nma2 = len(model.ma_s)
-    for i, factor in enumerate(model.ma_s):
-        spec.ma2[i].order = len(factor)
-        for j, v in enumerate(factor):
-            spec.ma2[i].coefs[j]    = v
-            spec.ma2[i].coef_free[j] = 1
+    spec.nar1 = len(model.ar);   _fill_factors(spec.ar1, model.ar,   model.ar_free)
+    spec.nma1 = len(model.ma);   _fill_factors(spec.ma1, model.ma,   model.ma_free)
+    spec.nar2 = len(model.ar_s); _fill_factors(spec.ar2, model.ar_s, model.ar_s_free)
+    spec.nma2 = len(model.ma_s); _fill_factors(spec.ma2, model.ma_s, model.ma_s_free)
 
     spec.ninterventions = len(model.interventions)
     for i, itv in enumerate(model.interventions):
         spec.interventions[i].type      = itv.type_code
         spec.interventions[i].obs_index = itv.at
+        spec.interventions[i].harmonic  = itv.harmonic
         spec.interventions[i].nomega    = len(itv.omega)
         for j, v in enumerate(itv.omega):
             spec.interventions[i].omega[j]       = v

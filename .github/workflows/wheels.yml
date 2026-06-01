@@ -1,0 +1,83 @@
+name: Build wheels
+
+on:
+  push:
+    tags:
+      - "v*"          # build + publish on version tags
+  workflow_dispatch:  # manual trigger from GitHub UI
+
+jobs:
+  build_wheels:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-13, macos-latest]
+        # ubuntu-latest  → Linux x86_64 (+ aarch64 via QEMU)
+        # macos-13       → macOS Intel x86_64
+        # macos-latest   → macOS Apple Silicon arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # QEMU lets cibuildwheel build aarch64 wheels on x86_64 GitHub runners.
+      - name: Set up QEMU (Linux only)
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: aarch64
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          # Build aarch64 on Linux as well as x86_64
+          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  # ── Source distribution ────────────────────────────────────────────────────
+  build_sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build
+        run: pip install build --break-system-packages
+
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  # ── Publish to PyPI on version tags ───────────────────────────────────────
+  publish:
+    name: Publish to PyPI
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment: pypi
+    permissions:
+      id-token: write   # required for trusted publishing (OIDC)
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "wheels-*"
+          merge-multiple: true
+          path: dist/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

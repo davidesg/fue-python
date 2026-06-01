@@ -76,7 +76,11 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
       - `cffi_modules` en `[tool.setuptools]` rechazado → movido a `setup.py`
       - `_build_cffi.py`: rutas con `../../` confundían distutils → `os.path.relpath` desde raíz del proyecto
       - `python setup.py bdist_wheel` genera `fue-0.1.0-cp312-cp312-linux_x86_64.whl` con `_fue_engine.abi3.so`
-- [ ] cibuildwheel para Linux/macOS (wheels pip)
+- [x] cibuildwheel para Linux/macOS — `.github/workflows/wheels.yml` + `[tool.cibuildwheel]` en pyproject.toml
+      - Linux (manylinux_2_28): `dnf install -y gsl-devel` + auditwheel bundle libgsl.so
+      - macOS: `brew install gsl` + delocate bundle; x86_64 + arm64
+      - Python 3.10–3.13; sdist + wheels en el mismo job; publish a PyPI en tags v*
+      - MANIFEST.in incluye csrc/**; sdist→wheel chain verificada localmente
 - [ ] Soporte Windows (GSL estática vía MXE, como en fue-1.13.1/Makefile)
 - [x] Notebook de ejemplo: `notebooks/fue_example.ipynb`
       - AR(1) simple, SFNY.2 completo (step + AR(1)×AR(2) + mu + boxlam), RIPC mensual (cos/sin/alter)

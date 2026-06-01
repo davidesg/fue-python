@@ -12,7 +12,10 @@ the _fue_engine extension module imported by _engine.py at runtime.
 import os
 import cffi
 
-_ROOT   = os.path.join(os.path.dirname(__file__), "..", "..", "csrc")
+# Compute paths relative to the project root (CWD during pip/setup.py build).
+# os.path.relpath normalises away the ".." components that confuse distutils.
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT   = os.path.relpath(os.path.join(_THIS_DIR, "..", "..", "csrc"))
 _INTERN = os.path.join(_ROOT, "internal")
 
 # cffi cannot process C preprocessor directives (#define, #ifdef, etc.).

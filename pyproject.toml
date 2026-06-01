@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68", "cffi>=1.15", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+requires = ["setuptools>=60", "cffi>=1.15", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name            = "fue"
@@ -21,5 +21,3 @@ dev = ["pytest>=7", "pandas"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools]
-cffi_modules = ["src/fue/_build_cffi.py:ffi"]

@@ -71,10 +71,15 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
 ## FASE 3 — Distribución
 
 - [ ] conda-forge recipe (entorno Linux prioritario)
-- [ ] pyproject.toml: activar cffi_modules una vez Fase 1 completa
+- [x] pyproject.toml: build backend corregido (setuptools.build_meta + setup.py con cffi_modules)
+      - `setuptools.backends.legacy:build` no disponible en setuptools del sistema → cambiado a `build_meta`
+      - `cffi_modules` en `[tool.setuptools]` rechazado → movido a `setup.py`
+      - `_build_cffi.py`: rutas con `../../` confundían distutils → `os.path.relpath` desde raíz del proyecto
+      - `python setup.py bdist_wheel` genera `fue-0.1.0-cp312-cp312-linux_x86_64.whl` con `_fue_engine.abi3.so`
 - [ ] cibuildwheel para Linux/macOS (wheels pip)
 - [ ] Soporte Windows (GSL estática vía MXE, como en fue-1.13.1/Makefile)
-- [ ] Notebook de ejemplo con modelo ARMAX + intervenciones
+- [x] Notebook de ejemplo: `notebooks/fue_example.ipynb`
+      - AR(1) simple, SFNY.2 completo (step + AR(1)×AR(2) + mu + boxlam), RIPC mensual (cos/sin/alter)
 
 ---
 

@@ -63,7 +63,7 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
 - [x] `TimeSeries.plot()` — gráfico con eje x en años decimales (plot_series mejorado)
 - [x] `TimeSeries.plot_acf()` y `plot_pacf()` como métodos de instancia
 - [x] `Model.compare(*others)` — tabla AIC/BIC/loglik comparativa
-- [ ] `Model.forecast(horizon)` — FUF no disponible en esta distribución; pendiente
+- [x] `Model.forecast(horizon)` — implementación Python pura en forecast.py (mirrors usfo.c/fuf.c)
 - [x] `TimeSeries.from_pandas(series)` — inferencia automática de freq y start desde DatetimeIndex/PeriodIndex
 
 ---

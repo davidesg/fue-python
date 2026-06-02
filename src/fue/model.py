@@ -157,6 +157,25 @@ class Model:
         self._require_fit()
         return self._result.bic
 
+    def forecast(self, horizon):
+        """
+        Compute L-step-ahead ARMAX forecasts.
+
+        Parameters
+        ----------
+        horizon : int
+            Number of periods ahead to forecast.
+
+        Returns
+        -------
+        ForecastResult
+            Dataclass with level, diff1, seasonal_diff arrays and their
+            standard deviations (all length *horizon*).
+        """
+        self._require_fit()
+        from .forecast import forecast as _forecast
+        return _forecast(self, self._result, horizon)
+
     def compare(self, *others):
         """
         Print a comparison table of fitted models.

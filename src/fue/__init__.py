@@ -18,8 +18,9 @@ Typical usage::
 from .series import TimeSeries
 from .intervention import Intervention
 from .model import Model
+from .forecast import ForecastResult
 from .diagnostics import acf, pacf, jarque_bera, ljung_box
 
 __version__ = "0.1.0"
-__all__ = ["TimeSeries", "Intervention", "Model", "acf", "pacf",
-           "jarque_bera", "ljung_box"]
+__all__ = ["TimeSeries", "Intervention", "Model", "ForecastResult",
+           "acf", "pacf", "jarque_bera", "ljung_box"]

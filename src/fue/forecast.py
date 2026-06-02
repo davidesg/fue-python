@@ -32,6 +32,8 @@ class ForecastResult:
 def _boxcox(y, lam, refactor):
     if lam == 0.0:
         return refactor * math.log(y)
+    elif lam != 1.0:
+        return refactor * (y ** lam - 1.0) / lam
     else:
         return refactor * y
 
@@ -39,6 +41,8 @@ def _inv_boxcox(z, lam, refactor):
     y = z / refactor
     if lam == 0.0:
         return math.exp(y)
+    elif lam != 1.0:
+        return (y * lam + 1.0) ** (1.0 / lam)
     else:
         return y
 
@@ -252,14 +256,20 @@ def _build_xi(model, nobs, freq, horizon, itv_omega, itv_delta):
 
     For each intervention: extend its indicator D to nobs+horizon, compute the
     nu impulse response, and convolve: xi[t] += Σ_k nu[k]*D[t-k].
+
+    Mirrors fue_api.c DataMat[i] generation and fuf.c DataMat extension.
+    `itv.at` is 0-based; obs = itv.at + 1 gives the 1-based C obs index.
     """
     T  = nobs + horizon
     xi = np.zeros(T + 1)   # 1-indexed, index 0 unused
 
+    # begtime: starting period within year (1-based), used by seasonal indicator
+    begtime = model.series.start[1] if model.series.start else 1
+
     for idx, itv in enumerate(model.interventions):
-        omega = itv_omega[idx]
-        delta = itv_delta[idx]
-        obs   = itv.at         # 1-based C obs_index
+        omega  = itv_omega[idx]
+        delta  = itv_delta[idx]
+        obs    = itv.at + 1    # convert 0-based at → 1-based C obs index
 
         # NuLag mirrors fue_api.c: Nomega if no delta, else 40
         nu_lag = len(omega) - 1 if not delta else 40
@@ -278,9 +288,11 @@ def _build_xi(model, nobs, freq, horizon, itv_omega, itv_delta):
         elif itype == 2:  # ramp
             for t in range(max(1, obs), T + 1):
                 D[t] = float(t - obs + 1)
-        elif itype == 3:  # seasonal (obs = 1-based period within year)
-            for t in range(obs, T + 1, freq):
-                D[t] = 1.0
+        elif itype == 3:  # seasonal: obs is 1-based period within year
+            # mirrors fue_api.c: ((j - begtime) % freq) + 1 == obs
+            for t in range(1, T + 1):
+                if ((t - begtime) % freq) + 1 == obs:
+                    D[t] = 1.0
         elif itype == 4:  # cos
             k = itv.harmonic
             for t in range(1, T + 1):
@@ -289,7 +301,7 @@ def _build_xi(model, nobs, freq, horizon, itv_omega, itv_delta):
             k = itv.harmonic
             for t in range(1, T + 1):
                 D[t] = math.sin(2.0 * math.pi * k / freq * t)
-        elif itype == 6:  # alter  (fue_api.c: j%2==0 → +1, else −1)
+        elif itype == 6:  # alter: (-1)^t, mirrors fue_api.c j%2==0 → +1, else -1
             for t in range(1, T + 1):
                 D[t] = 1.0 if t % 2 == 0 else -1.0
 

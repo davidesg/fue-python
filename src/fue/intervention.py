@@ -14,10 +14,13 @@ class Intervention:
         ``'pulse'``    — isolated impulse at *at*
         ``'step'``     — permanent level shift starting at *at*
         ``'ramp'``     — linear ramp starting at *at*
-        ``'seasonal'`` — periodic seasonal dummy at *at* (period within year)
+        ``'seasonal'`` — periodic seasonal dummy (*at* = 0-based period within year)
+        ``'cos'``      — cosine component cos(2π·harmonic/freq·j); *at* unused
+        ``'sin'``      — sine component   sin(2π·harmonic/freq·j); *at* unused
+        ``'alter'``    — alternating sign (-1)^j; *at* unused
     at : int
-        0-based observation index (pulse/step/ramp) or period within year
-        (seasonal).
+        0-based observation index for pulse/step/ramp (0 = first observation);
+        0-based period within year for seasonal.  Unused for cos/sin/alter.
     omega : list of float
         Numerator polynomial coefficients [ω₀, ω₁, …].  Default ``[1.0]``.
     delta : list of float

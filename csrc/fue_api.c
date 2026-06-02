@@ -681,10 +681,13 @@ static int populate_globals(const FueModelSpec *spec)
 
     DataMat = matrix(0, Tm.NdetVar, 1, Ts.nobs);
 
-    /* DataMat[0]: Box-Cox transformed series */
+    /* DataMat[0]: Box-Cox transformed series (mirrors fuf.c lines 868-873) */
     if (spec->boxlam == 0.0)
         for (i = 1; i <= Ts.nobs; i++)
             DataMat[0][i] = Ts.refactor * log(Ts.data[i]);
+    else if (spec->boxlam != 1.0)
+        for (i = 1; i <= Ts.nobs; i++)
+            DataMat[0][i] = Ts.refactor * ((pow(Ts.data[i], spec->boxlam) - 1.0) / spec->boxlam);
     else
         for (i = 1; i <= Ts.nobs; i++)
             DataMat[0][i] = Ts.refactor * Ts.data[i];

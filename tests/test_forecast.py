@@ -127,7 +127,7 @@ def test_forecast_sfny2_vs_fuf():
     come from forecast_sfny2_prev.1.1914.tex (2 decimal places, fuf 1.08.1).
     """
     ts = TimeSeries(_SFNY62, freq=1, start=(1852, 12), name="SFNY2")
-    itv = Intervention("step", at=2,
+    itv = Intervention("step", at=1,   # 0-based: obs 2 = year 1853
                        omega=[-0.600361], omega_free=[False],
                        delta=[0.5873], delta_free=[False])
     m = Model(ts, interventions=[itv],

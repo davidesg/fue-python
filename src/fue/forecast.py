@@ -367,8 +367,9 @@ def forecast(model, result, horizon):
     # [6] Point forecasts f1[1..L]  (level, Box-Cox space)
     # Mirrors the forecast() loop in usfo.c, but for the univariate case.
     #
-    # n = nobs  (fuf.c passes Ts.nobs, not Ts.nobs-ornsop)
-    # AR part : phi0[i] * (f1[l-i]  if l>i  else  nt[nobs-i+l])
+    # n = nobs, b = 0  (fuf.c: Fs.b=0)
+    # w = varma1.nt = stochastic level = Box-Cox(data) - xi  (NOT raw Box-Cox!)
+    # AR part : phi0[i] * (f1[l-i]  if l>i  else  w[nobs-i+l])
     # MA part : theta[j] * a[nobs-j+l-ornsop]  for l≤j  (else 0)
     f1 = np.zeros(L + 1)   # f1[0] unused
 
@@ -380,7 +381,7 @@ def forecast(model, result, horizon):
             else:
                 idx_nt = nobs - i + l
                 if 1 <= idx_nt <= nobs:
-                    vtmp1 += phi0[i - 1] * nt[idx_nt]
+                    vtmp1 += phi0[i - 1] * (nt[idx_nt] - xi[idx_nt])
 
         vtmp2 = 0.0
         for j in range(1, q + 1):

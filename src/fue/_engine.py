@@ -60,6 +60,18 @@ def estimate(model):
     spec.nar2 = len(model.ar_s); _fill_factors(spec.ar2, model.ar_s, model.ar_s_free)
     spec.nma2 = len(model.ma_s); _fill_factors(spec.ma2, model.ma_s, model.ma_s_free)
 
+    spec.nar1f = len(model.ar_f)
+    for i, ff in enumerate(model.ar_f):
+        spec.ar1f_freq[i] = ff.freq
+        spec.ar1f_coef[i] = ff.coef
+        spec.ar1f_free[i] = 1 if ff.free else 0
+
+    spec.nma1f = len(model.ma_f)
+    for i, ff in enumerate(model.ma_f):
+        spec.ma1f_freq[i] = ff.freq
+        spec.ma1f_coef[i] = ff.coef
+        spec.ma1f_free[i] = 1 if ff.free else 0
+
     spec.ninterventions = len(model.interventions)
     for i, itv in enumerate(model.interventions):
         spec.interventions[i].type      = itv.type_code

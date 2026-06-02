@@ -75,6 +75,16 @@ typedef struct {
     int       nma2;
     FueFactor ma2[8];
 
+    int    nar1f;
+    double ar1f_freq[8];
+    double ar1f_coef[8];
+    int    ar1f_free[8];
+
+    int    nma1f;
+    double ma1f_freq[8];
+    double ma1f_coef[8];
+    int    ma1f_free[8];
+
     int    maxits;
     double grtol;
     double sptol;

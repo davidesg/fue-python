@@ -98,6 +98,19 @@ typedef struct {
     int       nma2;
     FueFactor ma2[FUE_MAX_FACTORS];
 
+    /* ── Fixed-frequency AR(2) factors: 1 − 2r·cos(ω)B + r²B² ── */
+    /* phi2 = −r² < 0 is estimated; phi1 = 2·cos(2π·freq/sper)·√(−phi2) */
+    int    nar1f;
+    double ar1f_freq[FUE_MAX_FACTORS]; /* fixed frequency (pfre1, cycles/sper) */
+    double ar1f_coef[FUE_MAX_FACTORS]; /* phi2 initial value (must be < 0)     */
+    int    ar1f_free[FUE_MAX_FACTORS]; /* 1 = estimate, 0 = fix               */
+
+    /* ── Fixed-frequency MA(2) factors ── */
+    int    nma1f;
+    double ma1f_freq[FUE_MAX_FACTORS];
+    double ma1f_coef[FUE_MAX_FACTORS];
+    int    ma1f_free[FUE_MAX_FACTORS];
+
     /* ── Optimizer settings ── */
     int    maxits;             /* max optimizer iterations (default 200)   */
     double grtol;              /* gradient tolerance (default 1e-5)        */

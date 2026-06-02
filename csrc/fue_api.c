@@ -666,8 +666,37 @@ static int populate_globals(const FueModelSpec *spec)
         }
     }
 
-    /* Fixed-frequency factors not supported in API (disabled in fue.c too) */
-    Tm.NumAr1f = Tm.NumAr2f = Tm.NumMa1f = Tm.NumMa2f = 0;
+    /* Fixed-frequency AR(2) factors (pfre1 / Ar1f / Ia1f) */
+    Tm.NumAr2f = 0;
+    Tm.NumAr1f = spec->nar1f;
+    if (Tm.NumAr1f > 0) {
+        Tm.pfre1 = vector(1, Tm.NumAr1f);
+        Tm.Ar1f  = (double **)calloc((size_t)(Tm.NumAr1f + 1), sizeof(double *));
+        Tm.Ia1f  = ivector(1, Tm.NumAr1f);
+        for (i = 1; i <= Tm.NumAr1f; i++) {
+            Tm.pfre1[i]   = spec->ar1f_freq[i - 1];
+            Tm.Ar1f[i]    = vector(0, 2);
+            Tm.Ar1f[i][0] = -1.0;
+            Tm.Ar1f[i][2] = spec->ar1f_coef[i - 1];
+            Tm.Ia1f[i]    = spec->ar1f_free[i - 1] ? 1 : 0;
+        }
+    }
+
+    /* Fixed-frequency MA(2) factors (qfre1 / Ma1f / Im1f) */
+    Tm.NumMa2f = 0;
+    Tm.NumMa1f = spec->nma1f;
+    if (Tm.NumMa1f > 0) {
+        Tm.qfre1 = vector(1, Tm.NumMa1f);
+        Tm.Ma1f  = (double **)calloc((size_t)(Tm.NumMa1f + 1), sizeof(double *));
+        Tm.Im1f  = ivector(1, Tm.NumMa1f);
+        for (i = 1; i <= Tm.NumMa1f; i++) {
+            Tm.qfre1[i]   = spec->ma1f_freq[i - 1];
+            Tm.Ma1f[i]    = vector(0, 2);
+            Tm.Ma1f[i][0] = -1.0;
+            Tm.Ma1f[i][2] = spec->ma1f_coef[i - 1];
+            Tm.Im1f[i]    = spec->ma1f_free[i - 1] ? 1 : 0;
+        }
+    }
 
     /* Normalize polynomial 0th element to -1 (fue.c:862-869).
        unscramble() uses Ar?[i][0] in its convolution; leaving it at 0

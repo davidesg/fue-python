@@ -115,11 +115,27 @@ def _reconstruct_params(model, params):
     ma_est   = _update(model.ma,   model.ma_free)
     ma_s_est = _update(model.ma_s, model.ma_s_free)
 
+    # Fixed-frequency AR coefs (phi2 per factor) — after AR/MA, before mu
+    ar_f_coefs = []
+    for ff in model.ar_f:
+        if ff.free:
+            ar_f_coefs.append(float(params[idx[0]])); idx[0] += 1
+        else:
+            ar_f_coefs.append(ff.coef)
+
+    ma_f_coefs = []
+    for ff in model.ma_f:
+        if ff.free:
+            ma_f_coefs.append(float(params[idx[0]])); idx[0] += 1
+        else:
+            ma_f_coefs.append(ff.coef)
+
     mu = float(model.mu0) if model.mu0 else 0.0
     if model.estimate_mu:
         mu = float(params[idx[0]]); idx[0] += 1
 
-    return itv_omega, itv_delta, ar_est, ar_s_est, ma_est, ma_s_est, mu
+    return itv_omega, itv_delta, ar_est, ar_s_est, ma_est, ma_s_est, \
+           ar_f_coefs, ma_f_coefs, mu
 
 
 # ── AR/MA unscramble (replicates unscramble() in fue_api.c) ──────────────────
@@ -352,12 +368,27 @@ def forecast(model, result, horizon):
     residuals = np.asarray(result.residuals)   # 0-indexed, length nobs-ornsop
 
     # [1] Reconstruct estimated coefficients
-    itv_omega, itv_delta, ar_est, ar_s_est, ma_est, ma_s_est, mu = \
-        _reconstruct_params(model, params)
+    itv_omega, itv_delta, ar_est, ar_s_est, ma_est, ma_s_est, \
+        ar_f_coefs, ma_f_coefs, mu = _reconstruct_params(model, params)
 
-    # [2] Unscramble factor polynomials
-    phi_coefs   = _unscramble(ar_est,  ar_s_est,  freq)   # stationary AR
-    theta_coefs = _unscramble(ma_est,  ma_s_est,  freq)   # MA
+    # [2a] Expand fixed-freq factors to equivalent [phi1, phi2] regular factors
+    #      phi1 = 2·cos(2π·ff.freq/sper)·√(−phi2), phi2 = ar_f_coefs[i]
+    sper = freq
+    ff_ar = []
+    for i, ff in enumerate(model.ar_f):
+        phi2 = ar_f_coefs[i]
+        phi1 = 2.0 * math.cos(2.0 * math.pi * ff.freq / sper) * math.sqrt(-phi2)
+        ff_ar.append([phi1, phi2])
+
+    ff_ma = []
+    for i, ff in enumerate(model.ma_f):
+        theta2 = ma_f_coefs[i]
+        theta1 = 2.0 * math.cos(2.0 * math.pi * ff.freq / sper) * math.sqrt(-theta2)
+        ff_ma.append([theta1, theta2])
+
+    # [2b] Unscramble factor polynomials (regular + f-fixed combined, then × seasonal)
+    phi_coefs   = _unscramble(list(ar_est) + ff_ar, ar_s_est, freq)   # stationary AR
+    theta_coefs = _unscramble(list(ma_est) + ff_ma, ma_s_est, freq)   # MA
     p  = len(phi_coefs)
     q  = len(theta_coefs)
 

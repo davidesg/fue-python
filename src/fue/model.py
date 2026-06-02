@@ -4,6 +4,36 @@ from .series import TimeSeries
 from .intervention import Intervention
 
 
+class FixedFreqFactor:
+    """Second-order AR or MA factor with fixed spectral frequency.
+
+    Polynomial: 1 − phi1·B − phi2·B²
+    where phi1 = 2·cos(2π·freq/sper)·√(−phi2) is derived from the fixed
+    frequency, and only phi2 (equivalently the spectral radius r = √(−phi2))
+    is estimated.
+
+    Parameters
+    ----------
+    freq : float
+        Fixed frequency in cycles per seasonal period (pfre1 in fue.c).
+        For monthly data (sper=12): freq=6 → biennial cycle.
+    coef : float
+        Initial value for phi2 (AR) or theta2 (MA).  Must be < 0.
+    free : bool
+        Estimate *coef* by ML (default True).
+    """
+
+    def __init__(self, freq, coef=-0.5, free=True):
+        if float(coef) >= 0:
+            raise ValueError("coef must be negative (phi2 < 0)")
+        self.freq = float(freq)
+        self.coef = float(coef)
+        self.free = bool(free)
+
+    def __repr__(self):
+        return f"FixedFreqFactor(freq={self.freq}, coef={self.coef}, free={self.free})"
+
+
 class FitResult:
     """Container for estimation results returned by the C engine."""
 
@@ -58,6 +88,7 @@ class Model:
 
     def __init__(self, series, ar=None, ma=None, ar_s=None, ma_s=None,
                  ar_free=None, ma_free=None, ar_s_free=None, ma_s_free=None,
+                 ar_f=None, ma_f=None,
                  d=0, D=0, interventions=None, mu=0.0, estimate_mu=False,
                  boxlam=1.0, refactor=1.0, eml=True, chkma=True):
         if not isinstance(series, TimeSeries):
@@ -73,6 +104,9 @@ class Model:
         self.ma_free       = ma_free
         self.ar_s_free     = ar_s_free
         self.ma_s_free     = ma_s_free
+        # Fixed-frequency second-order factors (list of FixedFreqFactor)
+        self.ar_f          = list(ar_f or [])
+        self.ma_f          = list(ma_f or [])
         self.d             = int(d)
         self.D             = int(D)
         self.interventions = list(interventions or [])
@@ -96,6 +130,7 @@ class Model:
             ar_s=self.ar_s, ma_s=self.ma_s,
             ar_free=self.ar_free, ma_free=self.ma_free,
             ar_s_free=self.ar_s_free, ma_s_free=self.ma_s_free,
+            ar_f=self.ar_f, ma_f=self.ma_f,
             d=self.d, D=self.D,
             interventions=self.interventions + [itv],
             mu=self.mu0, estimate_mu=self.estimate_mu,
@@ -217,8 +252,8 @@ class Model:
             f"  nobs      : {self.series.nobs}",
             f"  freq      : {self.series.freq}",
             f"  d / D     : {self.d} / {self.D}",
-            f"  AR factors: {len(self.ar)} regular, {len(self.ar_s)} seasonal",
-            f"  MA factors: {len(self.ma)} regular, {len(self.ma_s)} seasonal",
+            f"  AR factors: {len(self.ar)} regular, {len(self.ar_s)} seasonal, {len(self.ar_f)} f-fixed",
+            f"  MA factors: {len(self.ma)} regular, {len(self.ma_s)} seasonal, {len(self.ma_f)} f-fixed",
             f"  Interv.   : {len(self.interventions)}",
             f"  npar      : {r.npar}",
             f"  loglik    : {r.loglik:.6f}",

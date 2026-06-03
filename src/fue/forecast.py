@@ -354,6 +354,10 @@ def _build_xi(model, nobs, freq, horizon, itv_omega, itv_delta):
         elif itype == 6:  # alter: (-1)^t, mirrors fue_api.c j%2==0 → +1, else -1
             for t in range(1, T + 1):
                 D[t] = 1.0 if t % 2 == 0 else -1.0
+        elif itype == 7:  # custom: use provided data; zero beyond observed range
+            if itv.data is not None:
+                for t in range(1, min(len(itv.data), T) + 1):
+                    D[t] = itv.data[t - 1]
 
         # Apply filter: xi[t] += Σ_{k=0}^{nu_lag} nu[k] * D[t-k]
         for t in range(1, T + 1):

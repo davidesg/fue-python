@@ -30,6 +30,7 @@ extern "C" {
 #define FUE_ITV_COS       4   /* cosine component: cos(2π·k/freq·j)        */
 #define FUE_ITV_SIN       5   /* sine component:   sin(2π·k/freq·j)        */
 #define FUE_ITV_ALTER     6   /* alternator: (-1)^j                        */
+#define FUE_ITV_CUSTOM    7   /* external indicator supplied via data ptr  */
 
 /* ── Single intervention with linear transfer function ω(B)/δ(B) ───────── */
 
@@ -45,6 +46,10 @@ typedef struct {
     int    ndelta;                     /* degree of δ(B) denominator (≥0)  */
     double delta[FUE_MAX_POLYORD];     /* δ₁, δ₂, ..., δ_{ndelta}          */
     int    delta_free[FUE_MAX_POLYORD];/* 1 = estimate, 0 = fix            */
+
+    /* For FUE_ITV_CUSTOM: pointer to nobs pre-computed indicator values.   */
+    /* Caller must keep the buffer alive for the duration of fue_estimate(). */
+    double *indicator_data;
 } FueIntervention;
 
 /* ── Single AR or MA polynomial factor ─────────────────────────────────── */

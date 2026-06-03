@@ -217,31 +217,32 @@ class _InpParser:
         if ndet > 0:
             # [3.2.0] Read intervention type + date for each detvar
             self._skip_sep()
-            raw_types = []   # (type_str, at_1based, harmonic)
+            raw_types = []        # (type_str, at_1based, harmonic, is_custom)
+            custom_col_order = [] # indices into raw_types that are custom
             for _ in range(ndet):
                 toks = self._next_data()
                 t = toks[0].lower()
                 if t in ("impulse", "pulse", "compimp"):
                     py_type = "pulse"
                     at_1 = _date_to_obs(begyear, begtime, freq, toks[1:])
-                    raw_types.append((py_type, at_1, None))
+                    raw_types.append((py_type, at_1, None, False))
                 elif t == "step":
                     at_1 = _date_to_obs(begyear, begtime, freq, toks[1:])
-                    raw_types.append(("step", at_1, None))
+                    raw_types.append(("step", at_1, None, False))
                 elif t == "ramp":
                     at_1 = _date_to_obs(begyear, begtime, freq, toks[1:])
-                    raw_types.append(("ramp", at_1, None))
+                    raw_types.append(("ramp", at_1, None, False))
                 elif t == "cos":
-                    raw_types.append(("cos", None, float(toks[1])))
+                    raw_types.append(("cos", None, float(toks[1]), False))
                 elif t == "sin":
-                    raw_types.append(("sin", None, float(toks[1])))
+                    raw_types.append(("sin", None, float(toks[1]), False))
                 elif t in ("alter", "easter", "trend"):
-                    raw_types.append((t, None, None))
+                    raw_types.append((t, None, None, False))
                 else:
-                    raise ValueError(
-                        f"Non-standard deterministic variable '{toks[0]}' "
-                        f"is not supported by the Python parser."
-                    )
+                    # Non-standard (external) deterministic variable — data
+                    # comes as extra columns in the time series block.
+                    custom_col_order.append(len(raw_types))
+                    raw_types.append(("custom", None, None, True))
 
             # [3.2.2] Omega orders for all detvars (one line)
             self._skip_sep()
@@ -288,9 +289,16 @@ class _InpParser:
                     all_delta[i] = coefs
                     all_delta_free[i] = frees
 
-            # Build Intervention objects
-            for i, (py_type, at_1, harm) in enumerate(raw_types):
-                if at_1 is not None:
+            # Build Intervention objects (data for custom filled in after reading)
+            for i, (py_type, at_1, harm, is_custom) in enumerate(raw_types):
+                if is_custom:
+                    # Placeholder — data array assigned after reading the data block
+                    interventions.append(Intervention(
+                        "custom", at=0, data=np.zeros(nobs),
+                        omega=all_omega[i], omega_free=all_omega_free[i],
+                        delta=all_delta[i], delta_free=all_delta_free[i],
+                    ))
+                elif at_1 is not None:
                     at_0 = at_1 - 1
                     interventions.append(Intervention(
                         py_type, at=at_0,
@@ -299,13 +307,12 @@ class _InpParser:
                     ))
                 else:
                     # cos / sin / alter / trend / easter
-                    itv = Intervention(
+                    interventions.append(Intervention(
                         py_type, at=0,
                         omega=all_omega[i], omega_free=all_omega_free[i],
                         delta=all_delta[i], delta_free=all_delta_free[i],
                         harmonic=harm if harm is not None else 0.0,
-                    )
-                    interventions.append(itv)
+                    ))
 
         # [3.3.1-3.3.2] Regular AR
         self._skip_sep()
@@ -381,12 +388,21 @@ class _InpParser:
         if refactor == 0.0:
             refactor = 1.0
 
-        # [3.7] Time series data
+        # [3.7] Time series data (col 0 = stochastic; extra cols = custom detvars)
         self._skip_sep()
+        n_custom = len(custom_col_order)
+        custom_data = [[] for _ in range(n_custom)]
         data = []
         while len(data) < nobs:
             toks = self._next_data()
-            data.append(float(toks[0]))  # column 0; non-standard detvars ignored
+            data.append(float(toks[0]))
+            for k in range(n_custom):
+                col_idx = k + 1
+                custom_data[k].append(float(toks[col_idx]) if col_idx < len(toks) else 0.0)
+
+        # Fill in the custom intervention data arrays
+        for k, itv_idx in enumerate(custom_col_order):
+            interventions[itv_idx].data = np.array(custom_data[k], dtype=float)
 
         ts = TimeSeries(
             np.array(data),

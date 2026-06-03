@@ -76,6 +76,8 @@ def estimate(model):
         spec.ma1f_free[i] = 1 if ff.free else 0
 
     spec.ninterventions = len(model.interventions)
+    # Custom indicator buffers must stay alive until fue_estimate returns.
+    _custom_bufs = []
     for i, itv in enumerate(model.interventions):
         spec.interventions[i].type      = itv.type_code
         spec.interventions[i].obs_index = itv.at
@@ -88,8 +90,15 @@ def estimate(model):
         for j, v in enumerate(itv.delta):
             spec.interventions[i].delta[j]       = v
             spec.interventions[i].delta_free[j]  = 1 if itv.delta_free[j] else 0
+        if itv.type == "custom" and itv.data is not None:
+            _arr = np.ascontiguousarray(itv.data, dtype=np.float64)
+            _buf = ffi.from_buffer("double[]", _arr)
+            spec.interventions[i].indicator_data = _buf
+            _custom_bufs.append((_arr, _buf))
+        else:
+            spec.interventions[i].indicator_data = ffi.NULL
 
-    # _data and _data_buf remain alive until fue_estimate returns.
+    # _data, _data_buf, and _custom_bufs remain alive until fue_estimate returns.
     raw = lib.fue_estimate(spec)
     if raw == ffi.NULL:
         return {'ifault': -1, 'npar': 0, 'nresiduals': 0,

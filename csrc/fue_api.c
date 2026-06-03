@@ -778,6 +778,11 @@ static int populate_globals(const FueModelSpec *spec)
             for (j = 1; j <= Ts.nobs; j++)
                 DataMat[i][j] = (j % 2 == 0) ? 1.0 : -1.0;
             break;
+        case FUE_ITV_CUSTOM:
+            if (itv->indicator_data != NULL)
+                for (j = 1; j <= Ts.nobs; j++)
+                    DataMat[i][j] = itv->indicator_data[j - 1];
+            break;
         }
     }
 

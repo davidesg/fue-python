@@ -35,6 +35,8 @@ typedef struct {
     int    ndelta;
     double delta[16];
     int    delta_free[16];
+
+    double *indicator_data;
 } FueIntervention;
 
 typedef struct {

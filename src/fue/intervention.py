@@ -1,5 +1,7 @@
 """Intervention: linear transfer function ω(B)/δ(B) applied to an indicator."""
 
+import numpy as np
+
 
 class Intervention:
     """
@@ -18,9 +20,10 @@ class Intervention:
         ``'cos'``      — cosine component cos(2π·harmonic/freq·j); *at* unused
         ``'sin'``      — sine component   sin(2π·harmonic/freq·j); *at* unused
         ``'alter'``    — alternating sign (-1)^j; *at* unused
+        ``'custom'``   — external indicator supplied as *data* array
     at : int
         0-based observation index for pulse/step/ramp (0 = first observation);
-        0-based period within year for seasonal.  Unused for cos/sin/alter.
+        0-based period within year for seasonal.  Unused for cos/sin/alter/custom.
     omega : list of float
         Numerator polynomial coefficients [ω₀, ω₁, …].  Default ``[1.0]``.
     delta : list of float
@@ -30,18 +33,23 @@ class Intervention:
         Which omega coefficients to estimate.  Defaults to all True.
     delta_free : list of bool, optional
         Which delta coefficients to estimate.  Defaults to all True.
+    data : array-like, optional
+        Pre-computed indicator values, length nobs.  Required for type='custom'.
     """
 
     TYPES = {"pulse": 0, "step": 1, "ramp": 2, "seasonal": 3,
-             "cos": 4, "sin": 5, "alter": 6}
+             "cos": 4, "sin": 5, "alter": 6, "custom": 7}
 
     def __init__(self, type, at=0, omega=None, delta=None,
-                 omega_free=None, delta_free=None, harmonic=1.0):
+                 omega_free=None, delta_free=None, harmonic=1.0, data=None):
         if type not in self.TYPES:
             raise ValueError(f"type must be one of {list(self.TYPES)}")
+        if type == "custom" and data is None:
+            raise ValueError("data must be provided for type='custom'")
         self.type     = type
         self.at       = int(at)
         self.harmonic = float(harmonic)
+        self.data     = np.asarray(data, dtype=float) if data is not None else None
         self.omega  = list(omega) if omega is not None else [1.0]
         self.delta  = list(delta) if delta is not None else []
         self.omega_free = (list(omega_free) if omega_free is not None

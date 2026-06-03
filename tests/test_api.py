@@ -55,7 +55,7 @@ def test_describe_monthly():
     std = x.std(ddof=0)
     skew = (((x - mu) / std) ** 3).mean()
     kurt = (((x - mu) / std) ** 4).mean() - 3.0
-    jb   = n / 6.0 * (skew**2 + kurt**2 / 4.0)
+    jb   = (n // 6) * (skew**2 + kurt**2 / 4.0)
     assert f"{mu:.6f}" in out
     assert f"{jb:.6f}" in out
     assert "9/2020" in out      # minimum at observation 9
@@ -280,3 +280,161 @@ def test_load_v8_multi_omega():
     itv4 = m.interventions[4]   # impulse 198
     assert len(itv4.omega) == 2
     assert itv4.omega == pytest.approx([-0.046, 0.046])
+
+
+# ── report.write_out ──────────────────────────────────────────────────────────
+
+def _make_fitted_model():
+    """Return a Model with a mock FitResult matching SFNY.2 estimates."""
+    from fue.model import FitResult
+    from fue.report import write_out
+
+    ts = TimeSeries.from_array(
+        list(range(62)), freq=1, start=(1852, 1), name="SFNY"
+    )
+    m = Model(
+        ts,
+        ar=[[0.8], [-0.1, -0.1]],
+        interventions=[Intervention("step", at=1, omega=[-0.08], delta=[0.6])],
+        estimate_mu=True, mu=0.0, boxlam=0.0,
+    )
+    # Mock FitResult matching SFNY.2.out values
+    params     = np.array([-0.600310, 0.587290, 0.131007, 0.488024, -0.258792, 1.209391])
+    std_errors = np.array([ 0.268425, 0.142186, 0.640792, 0.624776,  0.233014, 0.249425])
+    n = len(params)
+    cov = np.diag(std_errors ** 2)
+    residuals = np.zeros(62)
+
+    m._result = FitResult({
+        'ifault': 0, 'npar': n, 'nresiduals': 62,
+        'sigma2': 0.0370592811, 'loglik': 13.9573881339,
+        'aic': 0.0, 'bic': 0.0,
+        'params': params, 'std_errors': std_errors,
+        'cov_matrix': cov,
+        'residuals': residuals,
+    })
+    return m
+
+
+def test_write_out_requires_fit():
+    ts = _dummy_series()
+    m  = Model(ts, ar=[[0.5]])
+    with pytest.raises(RuntimeError, match="not been fitted"):
+        m.write_out()
+
+
+def test_write_out_returns_string():
+    m = _make_fitted_model()
+    out = m.write_out()
+    assert isinstance(out, str)
+    assert len(out) > 100
+
+
+def test_write_out_param_table():
+    m   = _make_fitted_model()
+    out = m.write_out()
+    assert "Omegas for deterministic variable 1" in out
+    assert "Deltas for deterministic variable 1" in out
+    assert "Coefficients for regular AR factor 1" in out
+    assert "Coefficients for regular AR factor 2" in out
+    assert "Mean parameter (mu)" in out
+    # Check fitted values appear
+    assert "-0.600310" in out
+    assert "0.587290" in out
+    assert "1.209391" in out
+
+
+def test_write_out_hq_schwarz():
+    m   = _make_fitted_model()
+    out = m.write_out()
+    assert "Hannan-Quinn" in out
+    assert "Schwarz" in out
+    assert "-3.11" in out
+    assert "-2.76" in out
+
+
+def test_write_out_ar_operator():
+    m   = _make_fitted_model()
+    out = m.write_out()
+    assert "Coefficients of the Autoregressive operator" in out
+    assert "phi[ 1]" in out
+    # SFNY.2: phi[1] ≈ 0.619031
+    assert "0.6190" in out
+
+
+def test_write_out_sigma():
+    m   = _make_fitted_model()
+    out = m.write_out()
+    assert "sigma2:" in out
+    assert "0.0370592811" in out
+    assert "logelf:" in out
+    assert "13.9573881339" in out
+
+
+def test_write_out_residual_stats():
+    m   = _make_fitted_model()
+    out = m.write_out()
+    assert "Unconditional residuals" in out
+    assert "seasonal period: 1" in out
+
+
+def test_write_out_acf_section():
+    # Use a real random series so ACF/PACF have something to compute
+    rng = np.random.default_rng(0)
+    ts  = TimeSeries(rng.standard_normal(62), freq=1, start=(1852, 1), name="SFNY")
+    from fue.model import FitResult
+    m   = Model(ts, ar=[[0.5]], ma=[[0.3]], estimate_mu=True)
+    n   = 3
+    m._result = FitResult({
+        'ifault': 0, 'npar': n, 'nresiduals': 62,
+        'sigma2': 0.8, 'loglik': -80.0,
+        'aic': 0.0, 'bic': 0.0,
+        'params':     np.array([0.4, 0.2, 0.0]),
+        'std_errors': np.array([0.1, 0.1, 0.1]),
+        'cov_matrix': np.eye(n) * 0.01,
+        'residuals':  rng.standard_normal(62),
+    })
+    out = m.write_out()
+    assert "Autocorrelation function" in out
+    assert "Partial autocorrelation function" in out
+
+
+def test_write_out_to_file(tmp_path):
+    m    = _make_fitted_model()
+    path = str(tmp_path / "test.out")
+    ret  = m.write_out(path=path)
+    assert os.path.exists(path)
+    with open(path) as f:
+        content = f.read()
+    assert "-0.600310" in content
+    assert ret.rstrip("\n") == content.rstrip("\n")
+
+
+def test_report_utilities():
+    """Unit tests for internal report utilities."""
+    from fue.report import _iround, _poly_mul, _count_nparma, _chi_test
+
+    # _iround: round-half-away-from-zero
+    assert _iround(0.5)  ==  1
+    assert _iround(-0.5) == -1
+    assert _iround(0.4)  ==  0
+    assert _iround(-0.4) ==  0
+    assert _iround(6.636) == 7
+
+    # _poly_mul: (1-aB)(1-bB) = 1-(a+b)B+abB^2
+    p = [1.0, -0.2]
+    q = [1.0, -0.3]
+    r = _poly_mul(p, q)
+    assert r == pytest.approx([1.0, -0.5, 0.06])
+
+    # _count_nparma for SFNY.2-style model
+    ts = _dummy_series()
+    m  = Model(ts, ar=[[0.5], [0.3, 0.1]], ma=[[0.2]])
+    assert _count_nparma(m) == 4   # 1+2+1
+
+    # _chi_test: Q = n*(n+2)*sum(r^2/(n-k))
+    corr = np.array([0.1, 0.2])
+    n    = 50
+    q    = _chi_test(corr, 2, n)
+    expected = n * (n + 2) * (0.01 / 49 + 0.04 / 48)
+    assert q == pytest.approx(expected)

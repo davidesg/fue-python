@@ -149,7 +149,7 @@ class TimeSeries:
         se  = std / math.sqrt(n)
         skew = (((x - mu) / std) ** 3).mean() if std > 1e-20 else 0.0
         kurt = (((x - mu) / std) ** 4).mean() - 3.0 if std > 1e-20 else 0.0
-        jb   = n / 6.0 * (skew ** 2 + kurt ** 2 / 4.0)
+        jb   = (n // 6) * (skew ** 2 + kurt ** 2 / 4.0)   # C uses integer n/6
 
         imin = int(x.argmin())             # 0-based
         imax = int(x.argmax())

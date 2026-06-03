@@ -269,6 +269,23 @@ class Model:
 
     # ── Diagnostics / plots ───────────────────────────────────────────────
 
+    def write_out(self, path=None):
+        """
+        Generate an estimation report in fue .out format.
+
+        Parameters
+        ----------
+        path : str or None
+            Write to this file path, or return as a string if None.
+
+        Returns
+        -------
+        str
+        """
+        self._require_fit()
+        from .report import write_out as _write_out
+        return _write_out(self, path=path)
+
     def plot_residuals(self, lags=24):
         from .plots import plot_residual_diagnostics
         self._require_fit()

@@ -31,7 +31,7 @@ def load(path):
     model : Model  (unfitted)
     """
     path = str(path)
-    if not path.endswith(".inp"):
+    if not path.endswith(".inp") and not path.endswith(".pre"):
         path += ".inp"
     return _InpParser(path).parse()
 

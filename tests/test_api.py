@@ -5,9 +5,20 @@ Tests that verify the C engine results go in test_estimation.py
 and are marked with pytest.mark.engine.
 """
 
+import os
 import numpy as np
 import pytest
 from fue import TimeSeries, Intervention, Model
+import fue
+
+_INP_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "..", "fue-1.12.02_win", "src"
+)
+_SFNY2_INP = os.path.join(_INP_DIR, "SFNY.2.inp")
+_V8_INP    = os.path.join(_INP_DIR, "V8.inp")
+_PU1_INP   = os.path.join(
+    os.path.dirname(__file__), "..", "..", "fue-1.13", "examples", "PU.1.inp"
+)
 
 
 def _dummy_series(n=120, freq=12):
@@ -191,3 +202,81 @@ def test_model_compare_output():
     table = m1.compare()
     assert "loglik" in table
     assert "AIC" in table
+
+
+# ── inp.load() ────────────────────────────────────────────────────────────────
+
+def _skip_if_no_inp(path):
+    if not os.path.exists(path):
+        pytest.skip(f"inp file not found: {path}")
+
+
+def test_load_sfny2_metadata():
+    _skip_if_no_inp(_SFNY2_INP)
+    ts, m = fue.load(_SFNY2_INP)
+    assert ts.freq == 1
+    assert ts.nobs == 62
+    assert ts.start == (1852, 1)
+    assert ts.name == "SFNY"
+    assert m.d == 0
+    assert m.D == 0
+    assert m.boxlam == 0.0
+    assert m.estimate_mu is True
+
+
+def test_load_sfny2_ar_factors():
+    _skip_if_no_inp(_SFNY2_INP)
+    _, m = fue.load(_SFNY2_INP)
+    assert len(m.ar) == 2
+    assert m.ar[0] == pytest.approx([0.8])
+    assert m.ar[1] == pytest.approx([-0.1, -0.1])
+
+
+def test_load_sfny2_intervention():
+    _skip_if_no_inp(_SFNY2_INP)
+    _, m = fue.load(_SFNY2_INP)
+    assert len(m.interventions) == 1
+    itv = m.interventions[0]
+    assert itv.type_code == 1                      # step
+    assert itv.at == 1                             # 1853 → obs 2 → at=1 (0-based)
+    assert itv.omega == pytest.approx([0.08])
+    assert itv.delta == pytest.approx([0.6])
+
+
+def test_load_pu1_metadata():
+    _skip_if_no_inp(_PU1_INP)
+    ts, m = fue.load(_PU1_INP)
+    assert ts.freq == 12
+    assert ts.nobs == 115
+    assert ts.start == (2000, 1)
+    assert m.d == 2
+    assert m.boxlam == 0.0
+    assert m.refactor == pytest.approx(100.0)
+
+
+def test_load_pu1_interventions():
+    _skip_if_no_inp(_PU1_INP)
+    _, m = fue.load(_PU1_INP)
+    assert len(m.interventions) == 11
+    assert m.interventions[0].type_code == 4       # cos
+    assert m.interventions[0].harmonic == pytest.approx(1.0)
+    assert m.interventions[10].type_code == 6      # alter
+
+
+def test_load_v8_metadata():
+    _skip_if_no_inp(_V8_INP)
+    ts, m = fue.load(_V8_INP)
+    assert ts.freq == 1
+    assert ts.nobs == 253
+    assert m.d == 1
+    assert m.boxlam == pytest.approx(-0.4)
+    assert len(m.interventions) == 6
+
+
+def test_load_v8_multi_omega():
+    """Impulses 5 and 6 in V8.inp have 2-element omega (Nomega=1)."""
+    _skip_if_no_inp(_V8_INP)
+    _, m = fue.load(_V8_INP)
+    itv4 = m.interventions[4]   # impulse 198
+    assert len(itv4.omega) == 2
+    assert itv4.omega == pytest.approx([-0.046, 0.046])

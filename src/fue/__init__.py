@@ -20,7 +20,9 @@ from .intervention import Intervention
 from .model import Model, FixedFreqFactor
 from .forecast import ForecastResult
 from .diagnostics import acf, pacf, jarque_bera, ljung_box
+from .inp import load
 
 __version__ = "0.1.0"
 __all__ = ["TimeSeries", "Intervention", "Model", "FixedFreqFactor",
-           "ForecastResult", "acf", "pacf", "jarque_bera", "ljung_box"]
+           "ForecastResult", "acf", "pacf", "jarque_bera", "ljung_box",
+           "load"]

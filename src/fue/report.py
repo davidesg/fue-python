@@ -37,8 +37,8 @@ def _build_report(model):
     r      = model._result
     ts     = model.series
     freq   = ts.freq if ts.freq > 0 else 1
-    ornsop = model.d + model.D * freq
-    n_eff  = ts.nobs - ornsop
+    n_eff  = len(r.residuals)
+    ornsop = ts.nobs - n_eff
     sigma2 = r.sigma2
     sigma  = math.sqrt(sigma2)
     res    = r.residuals          # length n_eff
@@ -48,7 +48,7 @@ def _build_report(model):
     lines = []
     _section_params(lines, model, r, fitted)
     _section_boxcox(lines, model, freq)
-    _section_arma_ops(lines, model, fitted, freq)
+    _section_arma_ops(lines, model, fitted, freq, ornsop)
     _section_sigma(lines, r, sigma, sigma2, n_eff)
     _section_hq(lines, model, sigma2, n_eff)
     _section_matrices(lines, r)
@@ -266,11 +266,25 @@ def _section_boxcox(lines, model, freq):
     lines.append(f"Seasonal period    : {freq:2d}")
     lines.append(f"Regular differences: {model.d:2d}")
     lines.append(f"Annual differences : {model.D:2d}")
+    if freq > 1:
+        ifadf = getattr(model, 'ifadf', [])
+        n_ifadf = freq // 2 + 1
+        flags = ifadf[:n_ifadf] + [0] * max(0, n_ifadf - len(ifadf))
+        lines.append("Irreducible factors: " + "".join(f"{v:2d}" for v in flags))
     lines.append("")
 
 
-def _section_arma_ops(lines, model, fitted, freq):
+def _section_arma_ops(lines, model, fitted, freq, ornsop):
     sper = freq
+
+    # Non-stationary operator
+    if ornsop >= 1:
+        from .forecast import _nonsop_coefs
+        ifadf = getattr(model, 'ifadf', None)
+        rnsop = _nonsop_coefs(model.d, model.D, freq, ifadf=ifadf)
+        lines.append("Coefficients of the non-stationary operator: ")
+        for i, c in enumerate(rnsop, 1):
+            lines.append(f"  u[{i:2d}]     = {c:15.10f}")
 
     # Combined AR polynomial
     ar_poly = [1.0]

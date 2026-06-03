@@ -364,9 +364,15 @@ class _InpParser:
         d      = int(bc_toks[1])
         D      = int(bc_toks[2])
 
-        # [3.6] Individual annual-difference factors (read + discard)
+        # [3.6] Individual annual-difference factors
         self._skip_sep()
-        self._next_data()
+        toks = self._next_data()
+        if freq > 1:
+            n_ifadf = freq // 2 + 1
+            ifadf = [int(toks[k]) for k in range(min(n_ifadf, len(toks)))]
+            ifadf += [0] * (n_ifadf - len(ifadf))
+        else:
+            ifadf = []
 
         # [3.7] cbands + refactor
         self._skip_sep()
@@ -396,7 +402,7 @@ class _InpParser:
             ma_s=ma_s,       ma_s_free=ma_s_free if ma_s else None,
             ar_f=ar_f,
             ma_f=ma_f,
-            d=d, D=D,
+            d=d, D=D, ifadf=ifadf,
             interventions=interventions,
             mu=mu, estimate_mu=estimate_mu,
             boxlam=boxlam, refactor=refactor,

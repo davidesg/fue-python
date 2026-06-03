@@ -60,6 +60,9 @@ def estimate(model):
     spec.nar2 = len(model.ar_s); _fill_factors(spec.ar2, model.ar_s, model.ar_s_free)
     spec.nma2 = len(model.ma_s); _fill_factors(spec.ma2, model.ma_s, model.ma_s_free)
 
+    for i, v in enumerate(model.ifadf[:8]):
+        spec.ifadf[i] = 1 if v else 0
+
     spec.nar1f = len(model.ar_f)
     for i, ff in enumerate(model.ar_f):
         spec.ar1f_freq[i] = ff.freq

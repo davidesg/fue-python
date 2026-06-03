@@ -545,8 +545,24 @@ static int populate_globals(const FueModelSpec *spec)
     /* ornsop = order of non-stationary operator (regular + full seasonal diffs) */
     Tm.ornsop  = Tm.nrdiff + Tm.nadiff * Tm.sper;
 
-    /* ifadf: individual annual difference factors (all zeros = full diff only) */
-    Tm.ifadf   = (int *)calloc(8, sizeof(int));
+    /* ifadf: individual annual difference factors */
+    Tm.ifadf = (int *)calloc(8, sizeof(int));
+    for (i = 0; i < 8; i++) Tm.ifadf[i] = spec->ifadf[i];
+
+    /* ornsop includes ifadf contributions */
+    if (Tm.sper == 12) {
+        if (Tm.ifadf[0]) Tm.ornsop += 1;
+        if (Tm.ifadf[1]) Tm.ornsop += 2;
+        if (Tm.ifadf[2]) Tm.ornsop += 2;
+        if (Tm.ifadf[3]) Tm.ornsop += 2;
+        if (Tm.ifadf[4]) Tm.ornsop += 2;
+        if (Tm.ifadf[5]) Tm.ornsop += 2;
+        if (Tm.ifadf[6]) Tm.ornsop += 1;
+    } else if (Tm.sper == 4) {
+        if (Tm.ifadf[0]) Tm.ornsop += 1;
+        if (Tm.ifadf[1]) Tm.ornsop += 2;
+        if (Tm.ifadf[2]) Tm.ornsop += 1;
+    }
 
     /* rnsop: non-stationary operator coefficients */
     if (Tm.ornsop > 0) {

@@ -199,11 +199,40 @@ def _unscramble(factors, s_factors, freq):
 
 # ── Non-stationary polynomial ─────────────────────────────────────────────────
 
-def _nonsop_coefs(d, D, freq):
-    """Positive coefficients rnsop[1..ornsop] of (1-B)^d * (1-B^s)^D.
+# Irreducible factors of (1 - B^s) in standard polynomial form [1, c1, c2, ...].
+# Each entry corresponds to ifadf[k] for k = 0, 1, ...
+_IFADF_FACTORS = {
+    12: [
+        [1.0, -1.0],                        # k=0: (1 - B)
+        [1.0, -math.sqrt(3.0),  1.0],       # k=1: (1 - √3B + B²)
+        [1.0, -1.0,             1.0],       # k=2: (1 - B + B²)
+        [1.0,  0.0,             1.0],       # k=3: (1 + B²)
+        [1.0,  1.0,             1.0],       # k=4: (1 + B + B²)
+        [1.0,  math.sqrt(3.0),  1.0],       # k=5: (1 + √3B + B²)
+        [1.0,  1.0],                        # k=6: (1 + B)
+    ],
+    4: [
+        [1.0, -1.0],                        # k=0: (1 - B)
+        [1.0,  0.0,  1.0],                  # k=1: (1 + B²)
+        [1.0,  1.0],                        # k=2: (1 + B)
+    ],
+}
 
+# Extra order added to ornsop by each ifadf flag.
+_IFADF_ORDERS = {12: [1, 2, 2, 2, 2, 2, 1], 4: [1, 2, 1]}
+
+
+def _ifadf_ornsop(freq, ifadf):
+    """Extra order contributed by ifadf flags."""
+    orders = _IFADF_ORDERS.get(freq, [])
+    return sum(orders[k] for k in range(min(len(ifadf), len(orders))) if ifadf[k])
+
+
+def _nonsop_coefs(d, D, freq, ifadf=None):
+    """Positive coefficients rnsop[1..ornsop] of the full non-stationary operator.
+
+    Includes (1-B)^d, (1-B^s)^D, and any ifadf individual annual factors.
     Returns 0-indexed array [rnsop1, rnsop2, ...].
-    For the standard case with no irreducible annual difference factors.
     """
     poly = np.array([1.0])
     for _ in range(d):
@@ -213,6 +242,11 @@ def _nonsop_coefs(d, D, freq):
         seasonal[0] = 1.0; seasonal[freq] = -1.0
         for _ in range(D):
             poly = np.convolve(poly, seasonal)
+    if ifadf and freq in _IFADF_FACTORS:
+        fac_list = _IFADF_FACTORS[freq]
+        for k, flag in enumerate(ifadf[:len(fac_list)]):
+            if flag:
+                poly = np.convolve(poly, fac_list[k])
     # poly = [1, -rnsop1, -rnsop2, ...]  →  rnsop[i] = -poly[i]
     return -poly[1:]
 
@@ -393,8 +427,9 @@ def forecast(model, result, horizon):
     q  = len(theta_coefs)
 
     # [3] Non-stationary polynomial and combined phi0
-    ornsop      = d + D * freq
-    rnsop_coefs = _nonsop_coefs(d, D, freq)
+    ifadf       = getattr(model, 'ifadf', None)
+    ornsop      = d + D * freq + _ifadf_ornsop(freq, ifadf or [])
+    rnsop_coefs = _nonsop_coefs(d, D, freq, ifadf=ifadf)
     phi0        = _varphi(phi_coefs, rnsop_coefs)   # length ornsop + p
     p0          = len(phi0)
 

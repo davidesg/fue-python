@@ -89,8 +89,9 @@ class Model:
     def __init__(self, series, ar=None, ma=None, ar_s=None, ma_s=None,
                  ar_free=None, ma_free=None, ar_s_free=None, ma_s_free=None,
                  ar_f=None, ma_f=None,
-                 d=0, D=0, interventions=None, mu=0.0, estimate_mu=False,
-                 boxlam=1.0, refactor=1.0, eml=True, chkma=True):
+                 d=0, D=0, ifadf=None, interventions=None, mu=0.0,
+                 estimate_mu=False, boxlam=1.0, refactor=1.0,
+                 eml=True, chkma=True):
         if not isinstance(series, TimeSeries):
             raise TypeError("series must be a TimeSeries instance")
         self.series        = series
@@ -109,6 +110,7 @@ class Model:
         self.ma_f          = list(ma_f or [])
         self.d             = int(d)
         self.D             = int(D)
+        self.ifadf         = list(ifadf) if ifadf else []
         self.interventions = list(interventions or [])
         self.mu0           = float(mu)
         self.estimate_mu   = bool(estimate_mu)
@@ -131,7 +133,7 @@ class Model:
             ar_free=self.ar_free, ma_free=self.ma_free,
             ar_s_free=self.ar_s_free, ma_s_free=self.ma_s_free,
             ar_f=self.ar_f, ma_f=self.ma_f,
-            d=self.d, D=self.D,
+            d=self.d, D=self.D, ifadf=self.ifadf,
             interventions=self.interventions + [itv],
             mu=self.mu0, estimate_mu=self.estimate_mu,
             boxlam=self.boxlam, refactor=self.refactor,

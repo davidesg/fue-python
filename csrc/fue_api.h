@@ -112,6 +112,13 @@ typedef struct {
     int    ma1f_free[FUE_MAX_FACTORS];
 
     /* ── Optimizer settings ── */
+    /* ── Individual annual difference factors ── */
+    /* ifadf[k]=1 selects the k-th irreducible factor of (1-B^s):          */
+    /*   sp=12: 0=(1-B), 1=(1-√3B+B²), 2=(1-B+B²), 3=(1+B²),             */
+    /*          4=(1+B+B²), 5=(1+√3B+B²), 6=(1+B)                         */
+    /*   sp=4:  0=(1-B), 1=(1+B²), 2=(1+B)                                */
+    int    ifadf[8];           /* binary flags; 0 = not applied            */
+
     int    maxits;             /* max optimizer iterations (default 200)   */
     double grtol;              /* gradient tolerance (default 1e-5)        */
     double sptol;              /* step tolerance (default 1e-7)            */

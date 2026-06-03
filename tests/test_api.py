@@ -32,6 +32,40 @@ def test_timeseries_from_array():
     assert ts.freq == 4
 
 
+def test_describe_monthly():
+    import math
+    data = [1.2, 0.8, 1.5, 0.9, 1.1, 0.7, 1.3, 1.0, 0.6, 1.4, 1.1, 0.8]
+    ts = TimeSeries.from_array(data, freq=12, start=(2020, 1), name="test")
+    out = ts.describe()
+    n = len(data)
+    import numpy as np
+    x = np.array(data)
+    mu  = x.mean()
+    std = x.std(ddof=0)
+    skew = (((x - mu) / std) ** 3).mean()
+    kurt = (((x - mu) / std) ** 4).mean() - 3.0
+    jb   = n / 6.0 * (skew**2 + kurt**2 / 4.0)
+    assert f"{mu:.6f}" in out
+    assert f"{jb:.6f}" in out
+    assert "9/2020" in out      # minimum at observation 9
+    assert "3/2020" in out      # maximum at observation 3
+
+
+def test_describe_annual():
+    ts = TimeSeries.from_array([100, 105, 102], freq=1, start=(2000, 1))
+    out = ts.describe()
+    assert "2000" in out
+    assert "2002" in out
+    assert "from 2000 to 2002" in out
+
+
+def test_describe_obs_to_date():
+    ts = TimeSeries.from_array([0.0] * 13, freq=12, start=(2020, 1))
+    assert ts._obs_to_date(1)  == (2020, 1)
+    assert ts._obs_to_date(12) == (2020, 12)
+    assert ts._obs_to_date(13) == (2021, 1)
+
+
 # ── Intervention ──────────────────────────────────────────────────────────
 
 def test_intervention_pulse():

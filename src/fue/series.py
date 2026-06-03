@@ -132,6 +132,68 @@ class TimeSeries:
         plot_pacf(self.data, lags=lags, confidence=confidence,
                   title=f"PACF — {self.name}", ax=ax)
 
+    # ── Descriptive statistics ────────────────────────────────────────────
+
+    def describe(self):
+        """
+        Sample statistics matching fue's File_StatSer output.
+
+        Uses population moments (divisor n) to match the C implementation.
+        Returns the formatted string (also printed to stdout).
+        """
+        import math
+        x   = self.data
+        n   = self.nobs
+        mu  = float(x.mean())
+        std = float(x.std(ddof=0))         # population std (C uses sum/n)
+        se  = std / math.sqrt(n)
+        skew = (((x - mu) / std) ** 3).mean() if std > 1e-20 else 0.0
+        kurt = (((x - mu) / std) ** 4).mean() - 3.0 if std > 1e-20 else 0.0
+        jb   = n / 6.0 * (skew ** 2 + kurt ** 2 / 4.0)
+
+        imin = int(x.argmin())             # 0-based
+        imax = int(x.argmax())
+        ey, ep = self._obs_to_date(imin + 1)
+        ay, ap = self._obs_to_date(imax + 1)
+
+        freq = self.freq if self.freq > 0 else 1
+        begyear, begtime = self.start
+        endyear, endtime = self._obs_to_date(n)
+
+        if freq > 1:
+            span = f"from {begtime}/{begyear} to {endtime}/{endyear}"
+            min_at = f"at {ep:2d}/{ey} (observation {imin + 1:3d})"
+            max_at = f"at {ap:2d}/{ay} (observation {imax + 1:3d})"
+        else:
+            span = f"from {begyear} to {endyear}"
+            min_at = f"at {ey} (observation {imin + 1:3d})"
+            max_at = f"at {ay} (observation {imax + 1:3d})"
+
+        lines = [
+            f"{self.name} (seasonal period: {freq})",
+            f"{n} observations: {span}",
+            "",
+            f"{'Mean':>24s}: {mu:18.6f}",
+            f"{'Standard error of mean':>24s}: {se:18.6f}",
+            f"{'Variance':>24s}: {std**2:18.6f}",
+            f"{'Standard deviation':>24s}: {std:18.6f}",
+            f"{'Skewness':>24s}: {skew:18.6f}",
+            f"{'Kurtosis':>24s}: {kurt:18.6f}",
+            f"{'Jarque-Bera':>24s}: {jb:18.6f}",
+            f"{'Minimum':>24s}: {x[imin]:18.6f}  {min_at}",
+            f"{'Maximum':>24s}: {x[imax]:18.6f}  {max_at}",
+        ]
+        out = "\n".join(lines)
+        print(out)
+        return out
+
+    def _obs_to_date(self, obs_1based):
+        """Convert 1-based observation number to (year, period)."""
+        freq = self.freq if self.freq > 0 else 1
+        begyear, begtime = self.start
+        total = begyear * freq + (begtime - 1) + (obs_1based - 1)
+        return total // freq, total % freq + 1
+
     def __len__(self):
         return self.nobs
 

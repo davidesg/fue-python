@@ -829,6 +829,243 @@ def _seasonal_poly(coefs, sper):
     return poly
 
 
+def _arma_body(factors, free_lists, fitted_factors):
+    """Return the body string for one ARMA section, ending with '**' (no newline).
+
+    Pattern matches fue's fprintf output where the closing '**' is shared
+    with the next section's opening '**'.
+    """
+    n = len(factors)
+    if n == 0:
+        return "0\n**"
+    orders = [len(fac) for fac in factors]
+    body = str(n) + " " + " ".join(str(o) for o in orders) + "\n**"
+    for i, factor in enumerate(factors):
+        fl = free_lists[i] if free_lists is not None else [True] * len(factor)
+        for val, free in zip(fitted_factors[i], fl):
+            flag = "1" if free else "0"
+            body += f"\n{val:.4f} {flag}"
+        body += "\n**"
+    return body
+
+
+def _ffixed_body(ff_list, fitted_phi2):
+    """Return body string for a fixed-frequency AR/MA section, ending with '**'."""
+    n = len(ff_list)
+    if n == 0:
+        return "0\n**"
+    body = str(n) + "\n**"
+    for ff, phi2 in zip(ff_list, fitted_phi2):
+        flag = "1" if ff.free else "0"
+        body += f"\n{ff.freq:.6f} {phi2:.4f} {flag}"
+        body += "\n**"
+    return body
+
+
+def write_pre(model, path):
+    """
+    Write a .pre file from a fitted model — estimated parameters become the
+    new initial values, preserving free/fixed flags and original data.
+
+    The .pre file has the same format as .inp and can be fed back to fue (C
+    or Python) as starting point for a modified model.
+
+    Parameters
+    ----------
+    model : Model  (must be fitted)
+    path : str
+        Output path (e.g. "RIPC.1.pre").
+    """
+    model._require_fit()
+    r  = model._result
+    ts = model.series
+    f  = _extract_fitted(model, r)
+
+    # Build as raw string so ARMA sections can share ** separators with the
+    # next section header (exactly matching fue's fprintf output).
+    out = ""
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    out += ("************************************************\n"
+            "*        Input file for program DRVUS          *\n"
+            "* Copyright (C) 1996 Jos? Alberto Mauricio     *\n"
+            "************************************************\n\n")
+
+    # ── Frequency ─────────────────────────────────────────────────────────────
+    out += "** Frequency of time series: either 1(A), 4(Q) or 12(M):\n"
+    out += f" {ts.freq}\n"
+
+    # ── Observations + start + name ───────────────────────────────────────────
+    out += "** Number of observations and starting date of time series:\n"
+    begyear, begtime = ts.start
+    if ts.freq > 1:
+        out += f" {ts.nobs} {begtime:2d} {begyear} {ts.name}\n"
+    else:
+        outyear = begyear + ts.nobs - 1
+        out += f" {ts.nobs} {outyear:2d} {begyear} {ts.name}\n"
+
+    # ── Deterministic variables ───────────────────────────────────────────────
+    out += "** Number of deterministic variables (including seasonal components):\n"
+    ndet = len(model.interventions)
+    if ndet > 0:
+        out += f"{ndet}\n**\n"
+        for itv in model.interventions:
+            out += _itv_name_line(itv, begyear, begtime, ts.freq) + "\n"
+        # omega orders
+        omega_orders = [len(itv.omega) - 1 for itv in model.interventions]
+        out += "**\n"
+        out += " ".join(str(s) for s in omega_orders) + " \n"
+        out += "**\n"
+        # omega values: one block per detvar, each block ends with **\n
+        for i, itv in enumerate(model.interventions):
+            for val, free in zip(f['omega_vals'][i], itv.omega_free):
+                flag = "1" if free else "0"
+                out += f"{val:.6f}  {flag}\n"
+            out += "**\n"
+        # delta orders
+        delta_orders = [len(itv.delta) for itv in model.interventions]
+        out += " ".join(str(s) for s in delta_orders) + " \n"
+        # delta values (only for detvars with ndelta > 0)
+        for i, itv in enumerate(model.interventions):
+            if len(itv.delta) > 0:
+                out += "**\n"
+                for val, free in zip(f['delta_vals'][i], itv.delta_free):
+                    flag = "1" if free else "0"
+                    out += f"{val:.4f}  {flag}"
+                out += "\n"
+    else:
+        out += " 0\n"
+
+    # ── ARMA sections — share ** separators with next section header ──────────
+    # Pattern: each body ends with "**" (no newline); next label begins with
+    # " Label:\n" so they combine to "** Label:\n".
+    out += "**Number and orders of regular AR operators:\n"
+    out += _arma_body(model.ar, model.ar_free, f['ar'])
+    out += " Number and orders of annual AR operators:\n"
+    out += _arma_body(model.ar_s, model.ar_s_free, f['ar_s'])
+    out += " Number and orders of regular MA operators:\n"
+    out += _arma_body(model.ma, model.ma_free, f['ma'])
+    out += " Number and orders of anual MA operators:\n"
+    out += _arma_body(model.ma_s, model.ma_s_free, f['ma_s'])
+    out += " Number and frequencies of regular AR(2) operators with fixed frequency:\n"
+    out += _ffixed_body(model.ar_f, f['ar_f_phi2'])
+    out += " Number and frequencies of regular MA(2) operators with fixed frequency:\n"
+    out += _ffixed_body(model.ma_f, f['ma_f_th2'])
+
+    # ── Mu ───────────────────────────────────────────────────────────────────
+    # The trailing "**" from _ffixed_body shares with " Mean parameter" label.
+    out += " Mean parameter (mu):\n"
+    if model.estimate_mu:
+        out += f"{f['mu_val']:.6f} 1\n"
+    else:
+        out += "0\n"
+
+    # ── Box-Cox + differences ─────────────────────────────────────────────────
+    out += "** Box-Cox lambda, regular differences and complete annual differences:\n"
+    out += f"{model.boxlam:.2f} {model.d} {model.D}\n"
+
+    # ── ifadf ────────────────────────────────────────────────────────────────
+    out += "** Individual factors of the annual difference (from freq 0.0): \n"
+    if ts.freq > 1:
+        n_ifadf = ts.freq // 2 + 1
+        ifadf = list(model.ifadf) + [0] * (n_ifadf - len(model.ifadf))
+        out += " " + " ".join(str(v) for v in ifadf[:n_ifadf]) + "\n"
+    else:
+        out += " 0\n"
+
+    # ── cbands + refactor ────────────────────────────────────────────────────
+    out += "** ACF/PACF bands (0 Automatic) and reescaling factor: \n"
+    out += f" 0.00 {model.refactor:.2f}\n"
+
+    # ── Data ─────────────────────────────────────────────────────────────────
+    out += "** Time series (stochastic and non-standard deterministic variables): \n"
+    custom_itvs = [(i, itv) for i, itv in enumerate(model.interventions)
+                   if itv.type == "custom" and itv.data is not None]
+    for k in range(ts.nobs):
+        row = f"{ts.data[k]:.10f} "
+        for _, itv in custom_itvs:
+            row += f"   {itv.data[k]}"
+        out += row + "\n"
+
+    with open(path, "w") as fh:
+        fh.write(out)
+
+
+def _itv_name_line(itv, begyear, begtime, freq):
+    """Return the detvar name line as written in fue .pre files."""
+    t = itv.type
+    if t in ("pulse", "compimp"):
+        keyword = "impulse" if t == "pulse" else "compimp"
+        sub, year = _obs1_to_date(itv.at + 1, begyear, begtime, freq)
+        if freq > 1:
+            return f"{keyword} {sub} {year}"
+        return f"{keyword} {year}"
+    elif t == "step":
+        sub, year = _obs1_to_date(itv.at + 1, begyear, begtime, freq)
+        if freq > 1:
+            return f"step {sub} {year}"
+        return f"step {year}"
+    elif t == "ramp":
+        sub, year = _obs1_to_date(itv.at + 1, begyear, begtime, freq)
+        if freq > 1:
+            return f"ramp {sub} {year}"
+        return f"ramp {year}"
+    elif t == "cos":
+        return f"cos {itv.harmonic:.0f}"
+    elif t == "sin":
+        return f"sin {itv.harmonic:.0f}"
+    elif t == "alter":
+        return "alter"
+    elif t == "custom":
+        return "non-standard"
+    else:
+        return t
+
+
+def _obs1_to_date(at_1, begyear, begtime, freq):
+    """Convert 1-based obs index → (subperiod, year)."""
+    srest = freq - begtime + 1
+    if at_1 <= srest:
+        return begtime + at_1 - 1, begyear
+    remaining = at_1 - srest - 1
+    full_years = remaining // freq
+    period_in_year = remaining % freq
+    return period_in_year + 1, begyear + 1 + full_years
+
+
+def _write_arma_section(lines, factors, free_lists, fitted_factors, fmt):
+    """Write count + orders + coefficient blocks for one AR or MA section."""
+    n = len(factors)
+    if n == 0:
+        lines.append("0")
+        lines.append("**")
+        return
+    orders = [len(f) for f in factors]
+    lines.append(str(n) + " " + " ".join(str(o) for o in orders))
+    lines.append("**")
+    for i, factor in enumerate(factors):
+        fl = (free_lists[i] if free_lists is not None else [True] * len(factor))
+        for val, free in zip(fitted_factors[i], fl):
+            flag = "1" if free else "0"
+            lines.append(f"\n{val:{fmt[1:]}} {flag}")
+        lines.append("**")
+
+
+def _write_ffixed_section(lines, ff_list, fitted_phi2):
+    """Write a f-fixed AR(2) or MA(2) section."""
+    n = len(ff_list)
+    if n == 0:
+        lines.append("0")
+        return
+    freqs = " ".join(f"{ff.freq:.0f}" for ff in ff_list)
+    lines.append(f"{n} {freqs}")
+    for ff, phi2 in zip(ff_list, fitted_phi2):
+        lines.append("**")
+        flag = "1" if ff.free else "0"
+        lines.append(f"\n{phi2:.4f} {flag}")
+        lines.append("**")
+
+
 def _count_nparma(model):
     """Count free ARMA parameters (AR1+AR2+MA1+MA2+AR1f+MA1f), excluding omega/delta/mu."""
     n = 0

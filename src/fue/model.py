@@ -288,6 +288,19 @@ class Model:
         from .report import write_out as _write_out
         return _write_out(self, path=path)
 
+    def write_pre(self, path):
+        """
+        Write a .pre file with estimated parameters as new initial values.
+
+        Parameters
+        ----------
+        path : str
+            Output path, e.g. "RIPC.1.pre".
+        """
+        self._require_fit()
+        from .report import write_pre as _write_pre
+        _write_pre(self, path=path)
+
     def plot_residuals(self, lags=24):
         from .plots import plot_residual_diagnostics
         self._require_fit()

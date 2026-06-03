@@ -1,0 +1,116 @@
+************************************************
+* Input file for program FUE                   *
+* DOCTYPE ATSW-interface SYSTEM                *
+************************************************
+
+** Frequency of time series: either 1(A), 4(Q) or 12(M):
+ 4
+** Number of observations and starting date of time series:
+68 1 2003 PE
+** Number of deterministic variables (including seasonal components):
+3
+**
+cos 1
+sin 1
+alter
+**
+0 0 0 
+**
+0.000000  1
+**
+0.000000  1
+**
+0.000000  1
+**
+0 0 0 
+** Number and orders of regular AR operators:
+1 1
+**
+0 0
+** Number and orders of annual AR operators:
+0
+** Number and orders of regular MA operators:
+0
+** Number and orders of anual MA operators:
+0
+** Number and frequencies of regular AR(2) operators with fixed frequency:
+0
+** Number and frequencies of regular MA(2) operators with fixed frequency:
+0
+** Mean parameter (mu):
+0.000000 1
+** Box-Cox lambda, m. Regular differences and complete annual differences:
+ 0.00  1  0
+** Individual factors of the annual difference (starting at freq 0.0): 
+ 0 0 0
+** ACF/PACF bands (0 Automatic) and reescaling factor: 
+ 0 100.00
+** Time series (stochastic and non-standard deterministic variables): 
+40.2469192168923
+40.9138381267511
+41.0193080613667
+41.3305066761753
+41.8219444595899
+42.2090451755715
+41.8357654392062
+42.1292913259825
+42.3869689840126
+42.9158377275139
+42.9547797798123
+43.3810795639055
+44.0012764583031
+44.2511734352252
+44.3238098890205
+44.7243341303894
+44.9068708255603
+45.0085016922539
+45.4471996684627
+45.9737108601949
+47.2795069487598
+49.0831138970486
+49.9704592952942
+50.2356246550754
+51.0050531227294
+51.7749877877707
+51.7142205319132
+52.2173261928699
+53.0606432977239
+53.4578522078646
+53.5518323420101
+53.9885696294854
+54.8539716862241
+55.6653267026564
+56.1709743854373
+56.946759977644
+57.9512230492855
+58.4988118973657
+59.0150584324894
+59.5812786470405
+59.9956969878125
+60.1988380191106
+60.2691927071802
+60.9800795308474
+61.7722060317299
+62.2688993944633
+62.7702218299363
+63.2984298084177
+64.1081167744652
+65.1197680027382
+65.3399201847474
+65.4629213584459
+65.8200161027147
+66.2055731733634
+66.275804822315
+66.2233513005703
+66.4376350673636
+66.7235729189427
+66.3545398829908
+66.1123780105425
+66.3387281435006
+66.1672887546068
+66.208239957125
+66.3191619051703
+66.4669229724779
+66.4263016996155
+66.4213802492508
+66.4238359031288

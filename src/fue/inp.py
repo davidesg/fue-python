@@ -122,7 +122,7 @@ class _InpParser:
                     if remaining <= 0:
                         break
                     coefs.append(float(toks[j]))
-                    frees.append(bool(int(toks[j + 1])))
+                    frees.append(bool(int(toks[j + 1])) if j + 1 < len(toks) else False)
                     remaining -= 1
             factors.append(coefs)
             free_lists.append(frees)
@@ -213,12 +213,12 @@ class _InpParser:
         ndet = int(self._next_data()[0])
 
         interventions = []
+        custom_col_order = []
 
         if ndet > 0:
             # [3.2.0] Read intervention type + date for each detvar
             self._skip_sep()
             raw_types = []        # (type_str, at_1based, harmonic, is_custom)
-            custom_col_order = [] # indices into raw_types that are custom
             for _ in range(ndet):
                 toks = self._next_data()
                 t = toks[0].lower()
@@ -261,7 +261,7 @@ class _InpParser:
                         if remaining <= 0:
                             break
                         coefs.append(float(toks[j]))
-                        frees.append(bool(int(toks[j + 1])))
+                        frees.append(bool(int(toks[j + 1])) if j + 1 < len(toks) else False)
                         remaining -= 1
                 all_omega.append(coefs)
                 all_omega_free.append(frees)
@@ -284,7 +284,7 @@ class _InpParser:
                             if remaining <= 0:
                                 break
                             coefs.append(float(toks[j]))
-                            frees.append(bool(int(toks[j + 1])))
+                            frees.append(bool(int(toks[j + 1])) if j + 1 < len(toks) else False)
                             remaining -= 1
                     all_delta[i] = coefs
                     all_delta_free[i] = frees

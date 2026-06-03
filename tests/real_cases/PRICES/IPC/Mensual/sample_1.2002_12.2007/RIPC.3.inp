@@ -1,0 +1,158 @@
+************************************************
+*        Input file for program DRVUS          *
+* Copyright (C) 1996 Jos? Alberto Mauricio     *
+************************************************
+
+** Frequency of time series: either 1(A), 4(Q) or 12(M):
+ 12
+** Number of observations and starting date of time series:
+ 78  1 2002 RIPC
+** Number of deterministic variables (including seasonal components):
+12
+**
+cos 1
+sin 1
+cos 2
+sin 2
+cos 3
+sin 3
+cos 4
+sin 4
+cos 5
+sin 5
+alter
+step 2 2002
+**
+0 0 0 0 0 0 0 0 0 0 0 0 
+**
+0.171578  1
+**
+0.519039  1
+**
+0.086774  1
+**
+-0.045449  1
+**
+-0.001065  1
+**
+0.057460  1
+**
+-0.017055  1
+**
+0.025253  1
+**
+-0.027570  1
+**
+-0.060933  1
+**
+-0.004027  1
+**
+0.955890  1
+**
+0 0 0 0 0 0 0 0 0 0 0 1 
+**
+0.8827  1
+**Number and orders of regular AR operators:
+2 1 2
+**
+.3 1
+**
+1.3212 1
+-0.4320 1
+** Number and orders of annual AR operators:
+0
+** Number and orders of regular MA operators:
+0
+** Number and orders of anual MA operators:
+0
+** Number and frequencies of regular AR(2) operators with fixed frequency:
+0
+** Number and frequencies of regular MA(2) operators with fixed frequency:
+0
+** Mean parameter (mu):
+-88.717979 1
+** Box-Cox lambda, regular differences and complete annual differences:
+0.00 0 0
+** Individual factors of the annual difference (from freq 0.0): 
+ 0 0 0 0 0 0 0
+** ACF/PACF bands (0 Automatic) and reescaling factor: 
+ 0.00 100.00
+** Time series (stochastic and non-standard deterministic variables): 
+0.4134590000 
+0.4162260000 
+0.4185440000 
+0.4224420000 
+0.4245080000 
+0.4258920000 
+0.4251370000 
+0.4255770000 
+0.4273220000 
+0.4293670000 
+0.4323500000 
+0.4347950000 
+0.4436440000 
+0.4436170000 
+0.4434540000 
+0.4487410000 
+0.4502700000 
+0.4488440000 
+0.4485050000 
+0.4470790000 
+0.4491540000 
+0.4496500000 
+0.4523740000 
+0.4526790000 
+0.4523260000 
+0.4529810000 
+0.4532260000 
+0.4547300000 
+0.4499350000 
+0.4471310000 
+0.4450820000 
+0.4449660000 
+0.4450470000 
+0.4439580000 
+0.4455850000 
+0.4469360000 
+0.4470900000 
+0.4457350000 
+0.4434410000 
+0.4441670000 
+0.4454030000 
+0.4454900000 
+0.4427480000 
+0.4398490000 
+0.4376530000 
+0.4383030000 
+0.4425950000 
+0.4457190000 
+0.4444630000 
+0.4467070000 
+0.4471430000 
+0.4436740000 
+0.4408740000 
+0.4389930000 
+0.4378290000 
+0.4379080000 
+0.4425870000 
+0.4465520000 
+0.4479560000 
+0.4471480000 
+0.4471110000 
+0.4450320000 
+0.4414390000 
+0.4385480000 
+0.4360160000 
+0.4368590000 
+0.4387970000 
+0.4399240000 
+0.4418300000 
+0.4414810000 
+0.4410570000 
+0.4438760000 
+0.4467255670 
+0.4496349247 
+0.4523665350 
+0.4564665218 
+0.4574022922 
+0.4562660489 

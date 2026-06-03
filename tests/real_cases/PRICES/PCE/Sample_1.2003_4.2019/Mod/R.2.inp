@@ -1,0 +1,102 @@
+************************************************
+*        Input file for program DRVUS          *
+* Copyright (C) 1996 Jos? Alberto Mauricio     *
+************************************************
+
+** Frequency of time series: either 1(A), 4(Q) or 12(M):
+ 4
+** Number of observations and starting date of time series:
+ 68  1 2003 PE
+** Number of deterministic variables (including seasonal components):
+0
+**Number and orders of regular AR operators:
+1 1
+**
+.20 1
+** Number and orders of annual AR operators:
+0
+** Number and orders of regular MA operators:
+0
+** Number and orders of anual MA operators:
+0
+** Number and frequencies of regular AR(2) operators with fixed frequency:
+0
+** Number and frequencies of regular MA(2) operators with fixed frequency:
+0
+** Mean parameter (mu):
+0.2442 1
+** Box-Cox lambda, regular differences and complete annual differences:
+0.00 1 0
+** Individual factors of the annual difference (from freq 0.0): 
+ 0 0 0
+** ACF/PACF bands (0 Automatic) and reescaling factor: 
+ 0.00 100.00
+** Time series (stochastic and non-standard deterministic variables): 
+0.4820371315 
+0.4882461412 
+0.4871178032 
+0.4907247629 
+0.4921166051 
+0.4896614139 
+0.4836245376 
+0.4841238698 
+0.4840396045 
+0.4836118456 
+0.4782315786 
+0.4805368078 
+0.4847933532 
+0.4794329186 
+0.4775445680 
+0.4860007353 
+0.4830610702 
+0.4750461114 
+0.4783564641 
+0.4804810294 
+0.4885741993 
+0.4963163526 
+0.4994797448 
+0.5167465330 
+0.5272851703 
+0.5296290096 
+0.5254392838 
+0.5294857941 
+0.5358859368 
+0.5373447726 
+0.5377879471 
+0.5405795723 
+0.5423845146 
+0.5409761263 
+0.5436692100 
+0.5520172796 
+0.5573198583 
+0.5579686802 
+0.5616608212 
+0.5668453845 
+0.5674383268 
+0.5662960794 
+0.5648229982 
+0.5730844885 
+0.5761430806 
+0.5739975369 
+0.5779559739 
+0.5875394503 
+0.5983049953 
+0.6005067989 
+0.6009583671 
+0.6048103611 
+0.6077167589 
+0.6041933465 
+0.6028287794 
+0.6010139727 
+0.5982283055 
+0.5975551743 
+0.5919026526 
+0.5875648059 
+0.5843980039 
+0.5769276437 
+0.5754016037 
+0.5766971731 
+0.5760516302 
+0.5688814566 
+0.5672840089 
+0.5660990889 

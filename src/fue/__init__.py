@@ -17,9 +17,13 @@ Typical usage::
 
 from .series import TimeSeries
 from .intervention import Intervention
-from .model import Model
+from .model import Model, FixedFreqFactor
+from .forecast import ForecastResult
 from .diagnostics import acf, pacf, jarque_bera, ljung_box
+from .inp import load
+from .report import write_out
 
 __version__ = "0.1.0"
-__all__ = ["TimeSeries", "Intervention", "Model", "acf", "pacf",
-           "jarque_bera", "ljung_box"]
+__all__ = ["TimeSeries", "Intervention", "Model", "FixedFreqFactor",
+           "ForecastResult", "acf", "pacf", "jarque_bera", "ljung_box",
+           "load", "write_out"]

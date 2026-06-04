@@ -4,25 +4,51 @@ from .series import TimeSeries
 from .intervention import Intervention
 
 
+class FixedFreqFactor:
+    """Second-order AR or MA factor with fixed spectral frequency.
+
+    Polynomial: 1 − phi1·B − phi2·B²
+    where phi1 = 2·cos(2π·freq/sper)·√(−phi2) is derived from the fixed
+    frequency, and only phi2 (equivalently the spectral radius r = √(−phi2))
+    is estimated.
+
+    Parameters
+    ----------
+    freq : float
+        Fixed frequency in cycles per seasonal period (pfre1 in fue.c).
+        For monthly data (sper=12): freq=6 → biennial cycle.
+    coef : float
+        Initial value for phi2 (AR) or theta2 (MA).  Must be < 0.
+    free : bool
+        Estimate *coef* by ML (default True).
+    """
+
+    def __init__(self, freq, coef=-0.5, free=True):
+        if float(coef) >= 0:
+            raise ValueError("coef must be negative (phi2 < 0)")
+        self.freq = float(freq)
+        self.coef = float(coef)
+        self.free = bool(free)
+
+    def __repr__(self):
+        return f"FixedFreqFactor(freq={self.freq}, coef={self.coef}, free={self.free})"
+
+
 class FitResult:
     """Container for estimation results returned by the C engine."""
 
-    def __init__(self, raw):
-        self._raw       = raw          # FueResult* (cffi cdata, kept alive)
-        self.ifault     = raw.ifault
-        self.converged  = raw.ifault == 0
-        self.npar       = raw.npar
-        self.sigma2     = raw.sigma2
-        self.loglik     = raw.loglik
-        self.aic        = raw.aic
-        self.bic        = raw.bic
-
-        import numpy as np
-        n = raw.npar
-        self.params     = np.frombuffer(raw.params[0:n],      dtype=float).copy()
-        self.std_errors = np.frombuffer(raw.std_errors[0:n],  dtype=float).copy()
-        self.cov_matrix = np.frombuffer(raw.cov_matrix[0:n*n],dtype=float).reshape(n,n).copy()
-        self.residuals  = np.frombuffer(raw.residuals[0:raw.nresiduals], dtype=float).copy()
+    def __init__(self, data):
+        self.ifault     = data['ifault']
+        self.converged  = data['ifault'] == 0
+        self.npar       = data['npar']
+        self.sigma2     = data['sigma2']
+        self.loglik     = data['loglik']
+        self.aic        = data['aic']
+        self.bic        = data['bic']
+        self.params     = data['params']
+        self.std_errors = data['std_errors']
+        self.cov_matrix = data['cov_matrix']
+        self.residuals  = data['residuals']
 
 
 class Model:
@@ -61,8 +87,11 @@ class Model:
     """
 
     def __init__(self, series, ar=None, ma=None, ar_s=None, ma_s=None,
-                 d=0, D=0, interventions=None, mu=0.0, estimate_mu=False,
-                 boxlam=1.0, eml=True, chkma=True):
+                 ar_free=None, ma_free=None, ar_s_free=None, ma_s_free=None,
+                 ar_f=None, ma_f=None,
+                 d=0, D=0, ifadf=None, interventions=None, mu=0.0,
+                 estimate_mu=False, boxlam=1.0, refactor=1.0,
+                 eml=True, chkma=True):
         if not isinstance(series, TimeSeries):
             raise TypeError("series must be a TimeSeries instance")
         self.series        = series
@@ -70,12 +99,23 @@ class Model:
         self.ma            = ma   or []
         self.ar_s          = ar_s or []
         self.ma_s          = ma_s or []
+        # ar_free/ma_free: list of lists of bool, same shape as ar/ma/ar_s/ma_s.
+        # None means all coefficients are free.
+        self.ar_free       = ar_free
+        self.ma_free       = ma_free
+        self.ar_s_free     = ar_s_free
+        self.ma_s_free     = ma_s_free
+        # Fixed-frequency second-order factors (list of FixedFreqFactor)
+        self.ar_f          = list(ar_f or [])
+        self.ma_f          = list(ma_f or [])
         self.d             = int(d)
         self.D             = int(D)
+        self.ifadf         = list(ifadf) if ifadf else []
         self.interventions = list(interventions or [])
         self.mu0           = float(mu)
         self.estimate_mu   = bool(estimate_mu)
         self.boxlam        = float(boxlam)
+        self.refactor      = float(refactor)
         self.eml           = bool(eml)
         self.chkma         = bool(chkma)
         self._result       = None
@@ -90,10 +130,14 @@ class Model:
         new = Model(
             self.series, ar=self.ar, ma=self.ma,
             ar_s=self.ar_s, ma_s=self.ma_s,
-            d=self.d, D=self.D,
+            ar_free=self.ar_free, ma_free=self.ma_free,
+            ar_s_free=self.ar_s_free, ma_s_free=self.ma_s_free,
+            ar_f=self.ar_f, ma_f=self.ma_f,
+            d=self.d, D=self.D, ifadf=self.ifadf,
             interventions=self.interventions + [itv],
             mu=self.mu0, estimate_mu=self.estimate_mu,
-            boxlam=self.boxlam, eml=self.eml, chkma=self.chkma,
+            boxlam=self.boxlam, refactor=self.refactor,
+            eml=self.eml, chkma=self.chkma,
         )
         return new
 
@@ -104,14 +148,17 @@ class Model:
         Estimate model parameters by exact maximum likelihood.
 
         Sets self._result and returns self (for chaining).
-        Raises RuntimeError if the C engine returns a non-zero ifault.
+        Raises RuntimeError if estimation returns a non-zero ifault.
         """
-        from ._engine import estimate   # cffi bridge (built in Phase 1)
+        from ._engine import estimate
         raw = estimate(self)
         self._result = FitResult(raw)
         if not self._result.converged:
-            from .._engine import fue_strerror   # noqa: F401 — will exist
-            msg = f"ifault={self._result.ifault}"
+            try:
+                from fue._fue_engine import ffi, lib
+                msg = ffi.string(lib.fue_strerror(self._result.ifault)).decode()
+            except ImportError:
+                msg = f"ifault={self._result.ifault}"
             raise RuntimeError(f"FUE estimation failed: {msg}")
         return self
 
@@ -150,6 +197,58 @@ class Model:
         self._require_fit()
         return self._result.bic
 
+    def forecast(self, horizon):
+        """
+        Compute L-step-ahead ARMAX forecasts.
+
+        Parameters
+        ----------
+        horizon : int
+            Number of periods ahead to forecast.
+
+        Returns
+        -------
+        ForecastResult
+            Dataclass with level, diff1, seasonal_diff arrays and their
+            standard deviations (all length *horizon*).
+        """
+        self._require_fit()
+        from .forecast import forecast as _forecast
+        return _forecast(self, self._result, horizon)
+
+    def compare(self, *others):
+        """
+        Print a comparison table of fitted models.
+
+        Parameters
+        ----------
+        *others : Model
+            Additional fitted models to compare against *self*.
+
+        Returns
+        -------
+        str
+            Formatted table (also printed to stdout).
+        """
+        models = [self] + list(others)
+        for m in models:
+            if m._result is None:
+                raise RuntimeError("All models must be fitted before comparing.")
+
+        header = f"{'Model':<20} {'npar':>5} {'loglik':>12} {'sigma2':>12} {'AIC':>10} {'BIC':>10}"
+        sep    = "-" * len(header)
+        rows   = [header, sep]
+        for m in models:
+            r = m._result
+            label = m.series.name[:19]
+            rows.append(
+                f"{label:<20} {r.npar:>5d} {r.loglik:>12.4f} {r.sigma2:>12.6f}"
+                f" {r.aic:>10.4f} {r.bic:>10.4f}"
+            )
+        table = "\n".join(rows)
+        print(table)
+        return table
+
     def summary(self):
         self._require_fit()
         r = self._result
@@ -158,8 +257,8 @@ class Model:
             f"  nobs      : {self.series.nobs}",
             f"  freq      : {self.series.freq}",
             f"  d / D     : {self.d} / {self.D}",
-            f"  AR factors: {len(self.ar)} regular, {len(self.ar_s)} seasonal",
-            f"  MA factors: {len(self.ma)} regular, {len(self.ma_s)} seasonal",
+            f"  AR factors: {len(self.ar)} regular, {len(self.ar_s)} seasonal, {len(self.ar_f)} f-fixed",
+            f"  MA factors: {len(self.ma)} regular, {len(self.ma_s)} seasonal, {len(self.ma_f)} f-fixed",
             f"  Interv.   : {len(self.interventions)}",
             f"  npar      : {r.npar}",
             f"  loglik    : {r.loglik:.6f}",
@@ -174,6 +273,36 @@ class Model:
         return "\n".join(lines)
 
     # ── Diagnostics / plots ───────────────────────────────────────────────
+
+    def write_out(self, path=None):
+        """
+        Generate an estimation report in fue .out format.
+
+        Parameters
+        ----------
+        path : str or None
+            Write to this file path, or return as a string if None.
+
+        Returns
+        -------
+        str
+        """
+        self._require_fit()
+        from .report import write_out as _write_out
+        return _write_out(self, path=path)
+
+    def write_pre(self, path):
+        """
+        Write a .pre file with estimated parameters as new initial values.
+
+        Parameters
+        ----------
+        path : str
+            Output path, e.g. "RIPC.1.pre".
+        """
+        self._require_fit()
+        from .report import write_pre as _write_pre
+        _write_pre(self, path=path)
 
     def plot_residuals(self, lags=24):
         from .plots import plot_residual_diagnostics

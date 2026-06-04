@@ -27,12 +27,17 @@ extern "C" {
 #define FUE_ITV_STEP      1   /* permanent level shift (step indicator)    */
 #define FUE_ITV_RAMP      2   /* linear ramp                               */
 #define FUE_ITV_SEASONAL  3   /* periodic seasonal dummy                   */
+#define FUE_ITV_COS       4   /* cosine component: cos(2π·k/freq·j)        */
+#define FUE_ITV_SIN       5   /* sine component:   sin(2π·k/freq·j)        */
+#define FUE_ITV_ALTER     6   /* alternator: (-1)^j                        */
+#define FUE_ITV_CUSTOM    7   /* external indicator supplied via data ptr  */
 
 /* ── Single intervention with linear transfer function ω(B)/δ(B) ───────── */
 
 typedef struct {
     int    type;                       /* FUE_ITV_* constant               */
     int    obs_index;                  /* 0-based index of the event        */
+    double harmonic;                   /* harmonic k for cos/sin types      */
 
     int    nomega;                     /* degree of ω(B) numerator (≥0)    */
     double omega[FUE_MAX_POLYORD];     /* ω₀, ω₁, ..., ω_{nomega}          */
@@ -41,6 +46,10 @@ typedef struct {
     int    ndelta;                     /* degree of δ(B) denominator (≥0)  */
     double delta[FUE_MAX_POLYORD];     /* δ₁, δ₂, ..., δ_{ndelta}          */
     int    delta_free[FUE_MAX_POLYORD];/* 1 = estimate, 0 = fix            */
+
+    /* For FUE_ITV_CUSTOM: pointer to nobs pre-computed indicator values.   */
+    /* Caller must keep the buffer alive for the duration of fue_estimate(). */
+    double *indicator_data;
 } FueIntervention;
 
 /* ── Single AR or MA polynomial factor ─────────────────────────────────── */
@@ -94,7 +103,27 @@ typedef struct {
     int       nma2;
     FueFactor ma2[FUE_MAX_FACTORS];
 
+    /* ── Fixed-frequency AR(2) factors: 1 − 2r·cos(ω)B + r²B² ── */
+    /* phi2 = −r² < 0 is estimated; phi1 = 2·cos(2π·freq/sper)·√(−phi2) */
+    int    nar1f;
+    double ar1f_freq[FUE_MAX_FACTORS]; /* fixed frequency (pfre1, cycles/sper) */
+    double ar1f_coef[FUE_MAX_FACTORS]; /* phi2 initial value (must be < 0)     */
+    int    ar1f_free[FUE_MAX_FACTORS]; /* 1 = estimate, 0 = fix               */
+
+    /* ── Fixed-frequency MA(2) factors ── */
+    int    nma1f;
+    double ma1f_freq[FUE_MAX_FACTORS];
+    double ma1f_coef[FUE_MAX_FACTORS];
+    int    ma1f_free[FUE_MAX_FACTORS];
+
     /* ── Optimizer settings ── */
+    /* ── Individual annual difference factors ── */
+    /* ifadf[k]=1 selects the k-th irreducible factor of (1-B^s):          */
+    /*   sp=12: 0=(1-B), 1=(1-√3B+B²), 2=(1-B+B²), 3=(1+B²),             */
+    /*          4=(1+B+B²), 5=(1+√3B+B²), 6=(1+B)                         */
+    /*   sp=4:  0=(1-B), 1=(1+B²), 2=(1+B)                                */
+    int    ifadf[8];           /* binary flags; 0 = not applied            */
+
     int    maxits;             /* max optimizer iterations (default 200)   */
     double grtol;              /* gradient tolerance (default 1e-5)        */
     double sptol;              /* step tolerance (default 1e-7)            */

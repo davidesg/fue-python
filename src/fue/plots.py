@@ -6,10 +6,30 @@ import numpy as np
 def plot_series(series, title=None, ax=None):
     import matplotlib.pyplot as plt
     fig, ax = _get_ax(ax)
-    ax.plot(series.data)
+    xs = _date_axis(series)
+    ax.plot(xs, series.data)
     ax.set_title(title or series.name)
-    ax.set_xlabel("Observation")
+    if series.freq > 1:
+        fig.autofmt_xdate()
     _show(fig, ax)
+
+
+def _date_axis(series):
+    """Return a list of x-axis tick labels (decimal year or observation index)."""
+    freq = series.freq if series.freq > 0 else 1
+    year, period = series.start
+    result = []
+    y, p = year, period
+    for _ in range(series.nobs):
+        if freq == 1:
+            result.append(y)
+        else:
+            result.append(y + (p - 1) / freq)
+        p += 1
+        if p > freq:
+            p = 1
+            y += 1
+    return result
 
 
 def plot_acf(data, lags=24, title="ACF", confidence=0.95, ax=None):

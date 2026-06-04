@@ -1,0 +1,111 @@
+************************************************
+*        Input file for program DRVUS          *
+* Copyright (C) 1996 Jos? Alberto Mauricio     *
+************************************************
+
+** Frequency of time series: either 1(A), 4(Q) or 12(M):
+ 4
+** Number of observations and starting date of time series:
+ 68  1 2003 PE
+** Number of deterministic variables (including seasonal components):
+ 1
+**
+impulse 2 2008
+**
+1
+**
+0 1
+0 1
+**
+0
+**Number and orders of regular AR operators:
+1 1
+**
+0.0000 0
+** Number and orders of annual AR operators:
+0
+** Number and orders of regular MA operators:
+0
+** Number and orders of anual MA operators:
+0
+** Number and frequencies of regular AR(2) operators with fixed frequency:
+0
+** Number and frequencies of regular MA(2) operators with fixed frequency:
+0
+** Mean parameter (mu):
+0.5084 1
+** Box-Cox lambda, regular differences and complete annual differences:
+0.00 1 0
+** Individual factors of the annual difference (from freq 0.0): 
+ 0 0 0
+** ACF/PACF bands (0 Automatic) and reescaling factor: 
+ 0.00 100.00
+** Time series (stochastic and non-standard deterministic variables): 
+0.3680397019 
+0.3689406091 
+0.3755663433 
+0.3766648001 
+0.3822130198 
+0.3843067537 
+0.3889029912 
+0.3873395722 
+0.3927697273 
+0.4004374133 
+0.4191798663 
+0.4116075291 
+0.4218965507 
+0.4333864089 
+0.4354535252 
+0.4224014289 
+0.4206784138 
+0.4401901355 
+0.4518293723 
+0.4718902092 
+0.4888945695 
+0.5295953022 
+0.5291957685 
+0.4692243747 
+0.4574668577 
+0.4852550922 
+0.4981039759 
+0.5083858768 
+0.5223572614 
+0.5236207932 
+0.5225933014 
+0.5300003553 
+0.5411566248 
+0.5516436072 
+0.5447478527 
+0.5590418340 
+0.5701012753 
+0.5687685704 
+0.5664142547 
+0.5598307590 
+0.5704617744 
+0.5661765527 
+0.5767217203 
+0.5727550347 
+0.5780696220 
+0.5797432696 
+0.5777983321 
+0.5581618347 
+0.5344636952 
+0.5520902573 
+0.5318006294 
+0.5299341185 
+0.5277014330 
+0.5393268753 
+0.5415971299 
+0.5435736166 
+0.5355167031 
+0.5349093116 
+0.5310929103 
+0.5330977284 
+0.5348003212 
+0.5317992441 
+0.5346629377 
+0.5235058739 
+0.5231733124 
+0.5272403858 
+0.5206670506 
+0.5174031937 

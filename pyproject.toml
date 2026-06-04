@@ -1,6 +1,9 @@
 [build-system]
-requires = ["setuptools>=68", "cffi>=1.15", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+# cffi is kept here so the build environment has it available when setup.py
+# attempts to compile the C extension.  The extension is skipped gracefully
+# when FUE_SKIP_C=1 or when GSL is absent — see setup.py.
+requires = ["setuptools>=60", "cffi>=1.15", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name            = "fue"
@@ -8,20 +11,60 @@ version         = "0.1.0"
 description     = "Exact maximum likelihood estimation of univariate time series (ARMAX with transfer functions)"
 license         = { text = "GPL-2.0-or-later" }
 requires-python = ">=3.10"
+# cffi is NOT a runtime dependency: the compiled extension embeds the cffi
+# runtime inside the .so, and the pure-Python fallback does not need cffi.
 dependencies    = [
     "numpy>=1.24",
     "scipy>=1.10",
     "matplotlib>=3.7",
-    "cffi>=1.15",
 ]
 
 [project.optional-dependencies]
+# pip install "fue[c-engine]" — record cffi as an explicit runtime dep when
+# the C extension is used (mostly useful for lockfiles / conda packaging).
+c-engine = ["cffi>=1.15"]
 dev = ["pytest>=7", "pandas"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# cffi extension is built by src/fue/_build_cffi.py (registered as cffi_modules)
-# Add this once fue_api.c / fue_api.h are complete:
-# [tool.setuptools]
-# cffi_modules = ["src/fue/_build_cffi.py:ffi"]
+# ── cibuildwheel ──────────────────────────────────────────────────────────────
+
+[tool.cibuildwheel]
+# Python versions to build for
+build = "cp310-* cp311-* cp312-* cp313-*"
+
+# Skip 32-bit builds and PyPy
+skip = "*-win32 *-manylinux_i686 pp*"
+
+# Run the test suite after each wheel is built
+test-requires = ["pytest"]
+test-command  = "pytest {project}/tests/ -q"
+
+[tool.cibuildwheel.linux]
+# manylinux_2_28 = AlmaLinux 8; more recent glibc than manylinux2014
+manylinux-x86_64-image  = "quay.io/pypa/manylinux_2_28_x86_64"
+manylinux-aarch64-image = "quay.io/pypa/manylinux_2_28_aarch64"
+
+# Install GSL before building.  auditwheel repair then bundles libgsl.so
+# and libgslcblas.so into the wheel (they are not on the manylinux whitelist).
+before-all = "dnf install -y gsl-devel"
+
+[tool.cibuildwheel.macos]
+# Install GSL via Homebrew; delocate bundles the dylibs into the wheel.
+before-all = "brew install gsl"
+
+# Build for both Intel and Apple Silicon
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+
+# Install GSL via vcpkg (static-md = static libs + /MD runtime, compatible with Python).
+# VCPKG_INSTALLATION_ROOT is set by the GitHub Actions windows-latest runner.
+before-all = "vcpkg install gsl:x64-windows-static-md"
+
+# Expose the vcpkg prefix so _build_cffi.py can locate headers and .lib files.
+# GSL_ROOT is read in _build_cffi.py; falls back to the vcpkg default if unset.
+environment = { GSL_ROOT = "{env:VCPKG_INSTALLATION_ROOT}\\installed\\x64-windows-static-md" }
+

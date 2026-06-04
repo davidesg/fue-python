@@ -1,0 +1,26 @@
+# Build artefacts
+*.o
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+
+# cffi in-tree intermediate build (root-level fue/ directory created by ffi.compile)
+/fue/
+
+# Compiled extension (built, not committed; reproduced by pip install -e .)
+src/fue/_fue_engine*.so
+
+# Virtual environment
+.venv/
+
+# Stray .o directories from gcc run in project root
+/home/
+
+# Artefactos de fue ejecutado con flags como nombre de archivo
+/--*.out
+/--*.pre
+/--*.tex
+/--*_res.tex
+/-v.*

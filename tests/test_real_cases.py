@@ -1,0 +1,97 @@
+"""
+Regression tests against real .inp files from dolarization/Analisis/RATIOS.
+
+Reference values were produced by fue-1.13 (installed system-wide).
+Tests are skipped if the .inp file is not present.
+
+FUG-format files (Idem/*.inp, RIPC.inp) are explicitly skipped: they use
+a different program format that fue-1.13 itself cannot execute (segfault).
+"""
+
+import os
+import re
+import pytest
+
+pytest.importorskip("fue._fue_engine",
+                    reason="C extension not compiled — skip real-case tests")
+
+import fue
+
+_CASES_DIR = os.path.join(os.path.dirname(__file__), "real_cases")
+
+# FUG-format files: different program, not supported by fue or this parser.
+_FUG_FILES = {
+    "PRICES/GDP/Sample_1.2003_4.2019/Idem/R.1.inp",
+    "PRICES/IPC/Mensual/sample_1.2002_12.2007/RIPC.inp",
+    "PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Idem/R.1.inp",
+    "PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Idem/R1.inp",
+    "PRICES/PCE/Sample_1.2003_4.2019/Idem/R.1.inp",
+}
+
+# Reference values from fue-1.13 output files.
+# (rel_path, ref_sigma2, ref_loglik, sigma2_tol, loglik_tol)
+_CASES = [
+    ("PRICES/GDP/Sample_1.2003_4.2019/Mod/PE.1.inp",                        0.4595942631,  -69.0256059911, 1e-4, 1e-3),
+    ("PRICES/GDP/Sample_1.2003_4.2019/Mod/R.1.inp",                         7.0750884543, -160.6143098964, 1e-3, 1e-2),
+    ("PRICES/GDP/Sample_1.2003_4.2019/Mod/R.2.inp",                         4.0452844123, -141.8868690241, 1e-3, 1e-2),
+    ("PRICES/GDP/Sample_1.2003_4.2019/Mod/SF/R.2.inp",                      0.6231368945,  -80.3087042225, 1e-4, 1e-3),
+    ("PRICES/IPC/Mensual/sample_1.2002_12.2007/RIPC.0.inp",                 0.2486850071,  -58.6021700483, 1e-4, 1e-3),
+    ("PRICES/IPC/Mensual/sample_1.2002_12.2007/RIPC.1.inp",                 0.9662469111, -100.9274828448, 1e-4, 1e-3),
+    ("PRICES/IPC/Mensual/sample_1.2002_12.2007/RIPC.2.inp",                 0.1566201392,  -39.5332743432, 1e-4, 1e-3),
+    ("PRICES/IPC/Mensual/sample_1.2002_12.2007/RIPC.3.1.inp",               0.1563311728,  -39.8199920374, 1e-4, 1e-3),
+    ("PRICES/IPC/Mensual/sample_1.2002_12.2007/RIPC.3.inp",                 0.1551235917,  -39.1764600458, 1e-4, 1e-3),
+    ("PRICES/IPC/Mensual/sample_1.2002_12.2007/RIPC.4.inp",                 0.1587564448,  -39.4822974885, 1e-4, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/PE.1.inp",             0.4595942631,  -69.0256059911, 1e-4, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/R.1.inp",              0.6553326752,  -80.9113706253, 1e-4, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/R.2.inp",              0.5046684635,  -72.2974038918, 1e-4, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.1.inp",        0.0008762276,  142.8682603432, 1e-6, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.2.inp",        0.0002154545,  189.8809776965, 1e-6, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.3.inp",        6.58767e-05,   228.2017654123, 1e-7, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.4.inp",        9.45335e-05,   211.2147955479, 1e-7, 1e-2),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/SF/R.2.inp",           0.6231368945,  -80.3087042225, 1e-4, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/old/R.2.inp",          0.011381552,    54.8691279423, 1e-5, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/old/R.3.inp",          0.0010939222,  135.3236947743, 1e-6, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/old/R.4.inp",          0.0003433078,  174.1661689579, 1e-6, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/old/R.5.inp",          0.0002658274,  182.8429916793, 1e-6, 1e-3),
+    ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/old/R.6.inp",          0.0003485012,  170.713068238,  1e-6, 1e-3),
+    ("PRICES/PCE/Sample_1.2003_4.2019/Mod/PE.1.inp",                        0.4595942631,  -69.0256059911, 1e-4, 1e-3),
+    ("PRICES/PCE/Sample_1.2003_4.2019/Mod/R.1.inp",                         1.4774986393, -108.2340392827, 1e-3, 1e-2),
+    ("PRICES/PCE/Sample_1.2003_4.2019/Mod/R.2.inp",                         0.7296537323,  -84.5787453474, 1e-4, 1e-3),
+    ("PRICES/PCE/Sample_1.2003_4.2019/Mod/SF/R.1.inp",                      1.931265089,  -118.202709099,  1e-3, 1e-2),
+    ("PRICES/PCE/Sample_1.2003_4.2019/Mod/SF/R.2.inp",                      0.6231368945,  -80.3087042225, 1e-4, 1e-3),
+]
+
+
+def _inp_path(rel):
+    return os.path.join(_CASES_DIR, rel)
+
+
+def _skip_if_missing(rel):
+    if not os.path.exists(_inp_path(rel)):
+        pytest.skip(f"real-case file not present: {rel}")
+
+
+@pytest.mark.parametrize("rel,ref_sigma2,ref_loglik,stol,ltol", _CASES,
+                         ids=[c[0].split("/")[-1].replace(".inp", "") + "_" + c[0].split("/")[-3]
+                              for c in _CASES])
+def test_real_case_sigma2(rel, ref_sigma2, ref_loglik, stol, ltol):
+    _skip_if_missing(rel)
+    _, m = fue.load(_inp_path(rel))
+    m.fit()
+    r = m._result
+    assert abs(r.sigma2 - ref_sigma2) < stol, (
+        f"{rel}: sigma2 {r.sigma2:.8f} != ref {ref_sigma2:.8f} (tol {stol})"
+    )
+
+
+@pytest.mark.parametrize("rel,ref_sigma2,ref_loglik,stol,ltol", _CASES,
+                         ids=[c[0].split("/")[-1].replace(".inp", "") + "_" + c[0].split("/")[-3]
+                              for c in _CASES])
+def test_real_case_loglik(rel, ref_sigma2, ref_loglik, stol, ltol):
+    _skip_if_missing(rel)
+    _, m = fue.load(_inp_path(rel))
+    m.fit()
+    r = m._result
+    assert abs(r.loglik - ref_loglik) < ltol, (
+        f"{rel}: loglik {r.loglik:.8f} != ref {ref_loglik:.8f} (tol {ltol})"
+    )

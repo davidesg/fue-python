@@ -28,10 +28,10 @@ requirements:
     - gsl
   run:
     - python
-    - cffi >=1.15
     - numpy >=1.24
     - scipy >=1.10
     - matplotlib >=3.7
+    # cffi is NOT a runtime dep: the compiled extension embeds the cffi runtime.
 
 test:
   imports:

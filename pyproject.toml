@@ -1,4 +1,7 @@
 [build-system]
+# cffi is kept here so the build environment has it available when setup.py
+# attempts to compile the C extension.  The extension is skipped gracefully
+# when FUE_SKIP_C=1 or when GSL is absent — see setup.py.
 requires = ["setuptools>=60", "cffi>=1.15", "wheel"]
 build-backend = "setuptools.build_meta"
 
@@ -8,14 +11,18 @@ version         = "0.1.0"
 description     = "Exact maximum likelihood estimation of univariate time series (ARMAX with transfer functions)"
 license         = { text = "GPL-2.0-or-later" }
 requires-python = ">=3.10"
+# cffi is NOT a runtime dependency: the compiled extension embeds the cffi
+# runtime inside the .so, and the pure-Python fallback does not need cffi.
 dependencies    = [
     "numpy>=1.24",
     "scipy>=1.10",
     "matplotlib>=3.7",
-    "cffi>=1.15",
 ]
 
 [project.optional-dependencies]
+# pip install "fue[c-engine]" — record cffi as an explicit runtime dep when
+# the C extension is used (mostly useful for lockfiles / conda packaging).
+c-engine = ["cffi>=1.15"]
 dev = ["pytest>=7", "pandas"]
 
 [tool.setuptools.packages.find]

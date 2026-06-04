@@ -124,8 +124,9 @@ Python pura para eliminar la dependencia de GSL y el compilador C.
 ### 4.3 Limpieza final ✓
 - [x] `_engine.py`: fallback a `estimate_py` cuando C no disponible
 - [x] `model.fit()`: mensaje de error sin requerir C extension
-- [ ] Actualizar `pyproject.toml`: marcar cffi/GSL como opcionales
-- [ ] Actualizar conda recipe y cibuildwheel para builds sin C
+- [x] Actualizar `pyproject.toml`: cffi fuera de runtime deps; nuevo extra `c-engine`; `FUE_SKIP_C=1` en setup.py
+- [x] Actualizar conda recipe: cffi fuera de `run` deps
+- [ ] Actualizar cibuildwheel: añadir job pure-Python (FUE_SKIP_C=1) para sdist/no-C wheel
 
 ---
 

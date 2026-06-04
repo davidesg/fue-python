@@ -27,6 +27,21 @@ from fue.intervention import Intervention
 
 # ── Shared fixtures ───────────────────────────────────────────────────────────
 
+_RIPC1_DATA = np.array([
+    0.413459, 0.416226, 0.418544, 0.422442, 0.424508, 0.425892,
+    0.425137, 0.425577, 0.427322, 0.429367, 0.432350, 0.434795,
+    0.443644, 0.443617, 0.443454, 0.448741, 0.450270, 0.448844,
+    0.448505, 0.447079, 0.449154, 0.449650, 0.452374, 0.452679,
+    0.452326, 0.452981, 0.453226, 0.454730, 0.449935, 0.447131,
+    0.445082, 0.444966, 0.445047, 0.443958, 0.445585, 0.446936,
+    0.447090, 0.445735, 0.443441, 0.444167, 0.445403, 0.445490,
+    0.442748, 0.439849, 0.437653, 0.438303, 0.442595, 0.445719,
+    0.444463, 0.446707, 0.447143, 0.443674, 0.440874, 0.438993,
+    0.437829, 0.437908, 0.442587, 0.446552, 0.447956, 0.447148,
+    0.447111, 0.445032, 0.441439, 0.438548, 0.436016, 0.436859,
+    0.438797, 0.439924, 0.441830, 0.441481, 0.441057, 0.443876,
+])
+
 _SFNY30 = np.array([
     3.91505848, 2.02125792, 0.81208771, 0.60807414, 1.21576447,
     1.43763055, 1.78032601, 0.82841058, 0.65433228, 0.74324607,
@@ -182,6 +197,41 @@ class TestEstimatePyEquivalence:
         assert r["npar"] == 6
         assert abs(r["loglik"] - 13.9573576937) < 1e-3
         assert abs(r["sigma2"] - 0.0370593261) < 1e-5
+
+    # Case 4: RIPC.1 — monthly, cos/sin harmonics 1-5 + alter + step+delta + fixed AR(1) + mu
+    # Reference: 14 params, logelf=-100.9274828448, sigma2=0.9662469111
+    # Landscape is flat in 14D (cos/sin pairs near-degenerate near optimum);
+    # L-BFGS-B may converge to a different but equivalent point, so only
+    # loglik and sigma2 are checked (not individual parameters).
+    def test_ripc1(self):
+        ts = TimeSeries(_RIPC1_DATA, freq=12, start=(2002, 1))
+        interventions = [
+            Intervention("cos",   harmonic=1.0, omega=[0.0], omega_free=[True]),
+            Intervention("sin",   harmonic=1.0, omega=[0.0], omega_free=[True]),
+            Intervention("cos",   harmonic=2.0, omega=[0.0], omega_free=[True]),
+            Intervention("sin",   harmonic=2.0, omega=[0.0], omega_free=[True]),
+            Intervention("cos",   harmonic=3.0, omega=[0.0], omega_free=[True]),
+            Intervention("sin",   harmonic=3.0, omega=[0.0], omega_free=[True]),
+            Intervention("cos",   harmonic=4.0, omega=[0.0], omega_free=[True]),
+            Intervention("sin",   harmonic=4.0, omega=[0.0], omega_free=[True]),
+            Intervention("cos",   harmonic=5.0, omega=[0.0], omega_free=[True]),
+            Intervention("sin",   harmonic=5.0, omega=[0.0], omega_free=[True]),
+            Intervention("alter", omega=[0.0], omega_free=[True]),
+            Intervention("step", at=1, omega=[0.014], omega_free=[True],
+                         delta=[0.6], delta_free=[True]),
+        ]
+        m = Model(ts, interventions=interventions,
+                  ar=[[0.0]], ar_free=[[False]],
+                  boxlam=0.0, refactor=100.0,
+                  mu=0.0, estimate_mu=True)
+        r = estimate_py(m)
+        assert r["npar"] == 14
+        assert abs(r["loglik"] - (-100.9274828448)) < 5e-3, (
+            f"loglik {r['loglik']:.7f} vs -100.9274828448"
+        )
+        assert abs(r["sigma2"] - 0.9662469111) < 5e-4, (
+            f"sigma2 {r['sigma2']:.7f} vs 0.9662469111"
+        )
 
 
 # ── _logelf_c formula ─────────────────────────────────────────────────────────

@@ -126,7 +126,7 @@ Python pura para eliminar la dependencia de GSL y el compilador C.
 - [x] `model.fit()`: mensaje de error sin requerir C extension
 - [x] Actualizar `pyproject.toml`: cffi fuera de runtime deps; nuevo extra `c-engine`; `FUE_SKIP_C=1` en setup.py
 - [x] Actualizar conda recipe: cffi fuera de `run` deps
-- [ ] Actualizar cibuildwheel: añadir job pure-Python (FUE_SKIP_C=1) para sdist/no-C wheel
+- [x] Actualizar cibuildwheel: job `build_pure_wheel` (FUE_SKIP_C=1) → `fue-*-py3-none-any.whl`; publicado junto con los wheels C en PyPI
 
 ---
 

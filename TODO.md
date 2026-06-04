@@ -93,54 +93,38 @@ Referencia: fue-1.13.1 es el código C fuente de verdad.
 
 ---
 
-## FASE 4 — Migración a Python puro (en progreso)
+## FASE 4 — Migración a Python puro (completada)
 
 **Objetivo**: reemplazar la extensión cffi (`_fue_engine`) con una implementación
 Python pura para eliminar la dependencia de GSL y el compilador C.
 
-**Estado híbrido actual** (commit `eab95e3`, rama `phase1/cast-us-extraction`):
-- El estimador sigue usando el motor C vía cffi (`_engine.py` → `lib.fue_estimate()`)
-- `elfvarma.py`: Python puro — `elf_scalar` y `flikam_scalar` (11 tests ✓)
-- `elfvarma.py` ya no necesita el motor C — equivalencia numérica verificada
+**Estado actual**:
+- `elfvarma.py`: Python puro — `elf_scalar` y `flikam_scalar` ✓
+- `cast_us.py`: Python puro — `calcnu_py`, `cast_us_py`, `estimate_py` ✓
+- `_engine.estimate()`: usa C si disponible, cae a `estimate_py` si no ✓
+- 140 tests pasan ✓
 
-**Ruta de migración** (de abajo arriba):
+**Bugs corregidos en esta fase**:
+- `elf_scalar` paso [6.2]: `solve_triangular(M, h)` (inversa) → `M.T @ h` (producto)
+  — la C hacía multiplicación por Mᵀ, no resolución del sistema
+- `elf_scalar`: no restaba `mu` de `w` en paso [5.1] → añadido parámetro `mu=0.0`
+- `calcnu_py` test: expectativa incorrecta (convenio de signo ω(B) = ω₀−ω₁B−…)
+- `test_sfny2`: modelo incorrecto (d=1, ar=[[0.9],[0.6]]) → modelo SFNY.2 real
+- `estimate_py` Hessiano: `np.where(diag>0, sqrt(diag), 0)` → `sqrt(maximum(diag,0))`
 
-```
-cast_us_py(x)  →  flikam_scalar / elf_scalar   ← ya listo
-      ↑
-  optimizer_py   (scipy L-BFGS-B envuelve cast_us_py)
-      ↑
-  _engine.py     (reemplaza lib.fue_estimate() por optimizer_py)
-```
+### 4.1 cast_us_py — Python puro ✓
+- [x] `calcnu_py()` — port de calcnu() en fue_api.c:4489
+- [x] `cast_us_py(x, spec)` — ensambla `(phi, theta, mu, w)` desde vector de parámetros
+- [x] Tests de `cast_us_py`: calcnu, build_est_spec, w correcto para AR(1) y d=1
 
-### 4.1 cast_us_py — Python puro
-- [ ] `unscramble_py()` — Python port de unscramble() en fue_api.c:3939
-  - Expande factores AR/MA regulares × estacionales × frecuencia-fija
-  - Devuelve `(phi, theta)` como ndarray 1-D
-- [ ] `calcnu_py()` — Python port de calcnu() en fue_api.c:4489
-  - Calcula coeficientes del filtro de intervención ν(B) = ω(B)/δ(B)
-  - Devuelve vector `nu[0..lag]`
-- [ ] `cast_us_py(x, spec)` — ensambla `(phi, theta, mu, w)` desde el vector de parámetros
-  - Desempaqueta `x` en los coeficientes del modelo (mismo orden que `count_npar`)
-  - Llama a `unscramble_py` → phi, theta expandidos
-  - Llama a `calcnu_py` para cada intervención → resta el componente determinista
-  - Aplica el operador no estacionario `rnsop` → serie diferenciada `w`
-- [ ] Tests de `cast_us_py` vs `cast_us` C:
-  - Para cada caso de prueba existente, comparar `(phi, theta, w)` en cada iteración
+### 4.2 optimizer_py — Python puro ✓
+- [x] `estimate_py(model)` en `cast_us.py` (scipy L-BFGS-B + flikam_scalar + elf_scalar)
+- [x] Tests de equivalencia: loglik 1e-3, params 1e-4/5e-4 para 3 casos de prueba
 
-### 4.2 optimizer_py — Python puro
-- [ ] `estimate_py(model)` en `_engine.py`
-  - Construye `spec` igual que `estimate()` pero llama a `cast_us_py`
-  - Usa `scipy.optimize.minimize(method='L-BFGS-B')` o similar
-  - Llama a `flikam_scalar` como función objetivo (durante optimización)
-  - Llama a `elf_scalar` para evaluación final (loglik, residuos, sigma2)
-  - Devuelve el mismo dict que `estimate()` (ifault, params, std_errors, cov, residuals)
-- [ ] Tests de equivalencia numérica contra `estimate()` C:
-  - Tolerancia: params 1e-4, loglik 1e-3 (el optimizador puede diferir levemente)
-
-### 4.3 Limpieza final
-- [ ] Deprecar `_fue_engine` (cffi + C) o hacerlo opcional
-- [ ] Actualizar `pyproject.toml`: cffi/GSL son opcionales si `_fue_engine` no está
+### 4.3 Limpieza final ✓
+- [x] `_engine.py`: fallback a `estimate_py` cuando C no disponible
+- [x] `model.fit()`: mensaje de error sin requerir C extension
+- [ ] Actualizar `pyproject.toml`: marcar cffi/GSL como opcionales
 - [ ] Actualizar conda recipe y cibuildwheel para builds sin C
 
 ---

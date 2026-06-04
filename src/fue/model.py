@@ -148,14 +148,17 @@ class Model:
         Estimate model parameters by exact maximum likelihood.
 
         Sets self._result and returns self (for chaining).
-        Raises RuntimeError if the C engine returns a non-zero ifault.
+        Raises RuntimeError if estimation returns a non-zero ifault.
         """
-        from ._engine import estimate   # cffi bridge (built in Phase 1)
+        from ._engine import estimate
         raw = estimate(self)
         self._result = FitResult(raw)
         if not self._result.converged:
-            from fue._fue_engine import ffi, lib
-            msg = ffi.string(lib.fue_strerror(self._result.ifault)).decode()
+            try:
+                from fue._fue_engine import ffi, lib
+                msg = ffi.string(lib.fue_strerror(self._result.ifault)).decode()
+            except ImportError:
+                msg = f"ifault={self._result.ifault}"
             raise RuntimeError(f"FUE estimation failed: {msg}")
         return self
 

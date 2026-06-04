@@ -1,5 +1,8 @@
 """
 Bridge between the Python Model API and the cffi-compiled C extension.
+
+Falls back to the pure-Python estimator (cast_us.estimate_py) when the
+C extension (_fue_engine) is not available.
 """
 
 import numpy as np
@@ -7,18 +10,16 @@ import numpy as np
 
 def estimate(model):
     """
-    Convert a Model instance to a FueModelSpec, call fue_estimate(), and
-    return the raw FueResult* cdata object.
+    Estimate model parameters by exact ML.
 
-    Raises ImportError if the C extension has not been compiled yet.
+    Tries the C extension first; falls back to the pure-Python estimator
+    (scipy L-BFGS-B + elf_scalar) when the extension is not compiled.
     """
     try:
         from fue._fue_engine import ffi, lib
-    except ImportError as exc:
-        raise ImportError(
-            "The FUE C extension (_fue_engine) has not been compiled. "
-            "Run: pip install -e .  (requires GSL and a C compiler)"
-        ) from exc
+    except ImportError:
+        from .cast_us import estimate_py
+        return estimate_py(model)
 
     spec = ffi.new("FueModelSpec *")
     lib.fue_defaults(spec)

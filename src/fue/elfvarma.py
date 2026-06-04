@@ -126,7 +126,7 @@ def _cgamma_scalar(p, q, phi, theta):
 
 # ── elf_scalar: exact ML log-likelihood (Mauricio 1995) ───────────────────────
 
-def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0,
+def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
                xitol=1e-3, do_chkma=True, compute_residuals=False):
     """Exact log-likelihood of a scalar ARMA(p,q) model.
 
@@ -267,12 +267,12 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0,
     nlim = r
     # Premultiply by q1inv = 1.0: rxi unchanged (m=1 trivial)
 
-    # [5.1]: conditional residuals a[t] = w[t] − Σφ_j w[t-j] + Σθ_j a[t-j]
+    # [5.1]: conditional residuals a[t] = (w[t]-mu) − Σφ_j(w[t-j]-mu) + Σθ_j a[t-j]
     for t in range(n):
-        val = w[t]
+        val = w[t] - mu
         for j in range(1, p + 1):
             if t - j >= 0:
-                val -= phi[j - 1] * w[t - j]
+                val -= phi[j - 1] * (w[t - j] - mu)
         for j in range(1, q + 1):
             if t - j >= 0:
                 val += theta[j - 1] * a[t - j]
@@ -289,8 +289,9 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0,
         vechh[j - 1] = acc
 
     # [6.2]: premultiply by Mᵀ; if M=0, vechh becomes 0
+    # C: vechh[i] = Σ_{k>=i} M[k,i] * vechh[k]  ≡  M^T @ vechh  (matrix-vector product)
     if not _zero_M:
-        vechh = solve_triangular(M, vechh, trans='T', lower=True)
+        vechh = M.T @ vechh
     else:
         vechh = np.zeros(g)
 

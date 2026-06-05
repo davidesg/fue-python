@@ -212,8 +212,13 @@ la flexibilidad del optimizador Python.
 
 ## Historial de mediciones
 
-| Fecha | Rama | Caso | C (ms) | Python (ms) | Factor | Notas |
-|-------|------|------|-------:|------------:|-------:|-------|
-| 2026-06-04 | master | AR(1) | 0.1 | 7.8 | ×90 | Etapa 1 completada |
-| 2026-06-04 | master | SFNY.2 | 2.7 | 653 | ×240 | |
-| 2026-06-04 | master | RIPC.1 | 37 | 6577 | ×174 | |
+Reproducir: `pytest tests/test_performance.py::TestCvsPython::test_summary_table -v -s`
+
+| Fecha | Commit | Caso | C (ms) | Python (ms) | Factor | Notas |
+|-------|--------|------|-------:|------------:|-------:|-------|
+| 2026-06-04 | 53e1699 | AR(1) | 0.1 | 7.8 | ×90 | Etapa 1 completada |
+| 2026-06-04 | 53e1699 | SFNY.2 | 2.7 | 653 | ×240 | |
+| 2026-06-04 | 53e1699 | RIPC.1 | 37 | 6577 | ×174 | |
+| 2026-06-05 | f8d22bb | AR(1) | 0.1 | 6.2 | ×71 | test_performance.py añadido |
+| 2026-06-05 | f8d22bb | SFNY.2 | 2.7 | 773 | ×289 | |
+| 2026-06-05 | f8d22bb | RIPC.1 | 42 | 7864 | ×186 | |

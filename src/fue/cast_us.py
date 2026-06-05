@@ -20,6 +20,7 @@ from .forecast  import (
     _reconstruct_params, _unscramble, _nonsop_coefs,
     _ifadf_ornsop, _boxcox,
 )
+from .qnewtopt  import raxopt, _cholsol
 
 _LOG2PI   = 1.837877066
 _SQRT_EPS = math.sqrt(2.2e-16)   # sqrt(machine epsilon)
@@ -340,18 +341,15 @@ def _logelf_c(n, f1, f2):
             - 0.5 * n * (math.log(f1) + math.log(f2)))
 
 
-# ── estimate_py ───────────────────────────────────────────────────────────────
+# ── Shared estimation core ────────────────────────────────────────────────────
 
-def estimate_py(model):
-    """Pure-Python ML estimator.  Returns the same dict as _engine.estimate().
+def _estimate_core(model, optimizer="raxopt"):
+    """Shared core for estimate_py and estimate_raxopt_py.
 
-    Optimizer : scipy L-BFGS-B minimising (sumsq/sumsq0)·(fact/fact0)
-                (normalised like C's objcfunc, using flikam_scalar).
-    Final eval : elf_scalar with compute_residuals=True for exact residuals
-                and the concentrated logelf matching fue.c.
+    optimizer: "raxopt"  — Dennis-Schnabel BFGS (matches C, faster per-iter)
+               "lbfgsb"  — scipy L-BFGS-B (may find better global optima)
     """
-    ts   = model.series
-    sper = ts.freq if ts.freq > 0 else 1
+    ts    = model.series
 
     spec    = build_est_spec(model)
     x0      = _build_initial_x(model)
@@ -370,7 +368,7 @@ def estimate_py(model):
     xitol    = 1e-3
     do_chkma = model.chkma
 
-    # [1] Evaluate at initial parameters
+    # [1] Evaluate at initial parameters (normalises objective to 1.0 at x0)
     p0, q0, phi0, theta0, mu0, w0, fault0 = cast_us_py(x0, spec)
     if fault0 or len(w0) == 0:
         return {**_empty, "ifault": 6}
@@ -384,7 +382,7 @@ def estimate_py(model):
     if sumsq0 <= 0.0 or fact0 <= 0.0:
         return {**_empty, "ifault": 3}
 
-    # [2] Objective function: normalised like C's objcfunc
+    # [2] Objective function: normalised to 1.0 at x0 (matches C's objcfunc)
     def objective(x):
         p, q, phi, theta, mu, w, fault = cast_us_py(x, spec)
         if fault or len(w) == 0:
@@ -398,7 +396,15 @@ def estimate_py(model):
         return (sumsq / sumsq0) * (fact / fact0)
 
     # [3] Optimize
-    if npar > 0:
+    B_hess  = None    # Cholesky factor (raxopt only)
+    if npar == 0:
+        x_opt    = x0.copy()
+        obj_opt  = 1.0
+        converged = True
+    elif optimizer == "raxopt":
+        x_opt, obj_opt, B_hess, termcode = raxopt(objective, x0)
+        converged = termcode in (1, 2)
+    else:
         opt = minimize(
             objective, x0,
             method="L-BFGS-B",
@@ -407,12 +413,8 @@ def estimate_py(model):
         x_opt    = opt.x
         obj_opt  = opt.fun
         converged = opt.success
-    else:
-        x_opt    = x0.copy()
-        obj_opt  = 1.0
-        converged = True
 
-    # [4] Final evaluation with elf_scalar (exact ML)
+    # [4] Final evaluation with elf_scalar (exact ML, compute residuals)
     p, q, phi, theta, mu, w, fault = cast_us_py(x_opt, spec)
     if fault or len(w) == 0:
         return {**_empty, "ifault": 6}
@@ -429,25 +431,31 @@ def estimate_py(model):
     aic        = -2.0 * logelf_c + 2.0 * npar
     bic        = -2.0 * logelf_c + npar * math.log(n_eff) if n_eff > 0 else 0.0
 
-    # [5] Standard errors via finite-difference Hessian of the objective
-    #     Mirrors fdhess → cholsol → dev[i] = sqrt(cov[i][i]) in drvmlest.c.
+    # [5] Standard errors
+    #     raxopt: use the BFGS Cholesky factor B directly — mirrors drvmlest.c
+    #             cov[:,i] = 2·obj·cholsol(B, e_i) / n_eff
+    #     lbfgsb: fall back to finite-difference Hessian (_fdhess)
     cov        = np.zeros((npar, npar))
     std_errors = np.zeros(npar)
     if npar > 0:
-        H = _fdhess(objective, x_opt.copy(), obj_opt, _SQRT_EPS)
-        try:
-            # cov[j,i] = 2·obj·(H⁻¹)[j,i] / n_eff
-            H_inv = np.linalg.inv(H)
-            cov   = 2.0 * obj_opt * H_inv / n_eff
-            diag  = np.diag(cov)
-            std_errors = np.sqrt(np.maximum(diag, 0.0))
-        except np.linalg.LinAlgError:
-            converged = False
-
-    ifault_final = 0 if converged else 6
+        if B_hess is not None:
+            for i in range(npar):
+                e      = np.zeros(npar)
+                e[i]   = 1.0
+                col    = _cholsol(B_hess, e)
+                cov[:, i] = 2.0 * obj_opt * col / n_eff
+        else:
+            H = _fdhess(objective, x_opt.copy(), obj_opt, _SQRT_EPS)
+            try:
+                H_inv = np.linalg.inv(H)
+                cov   = 2.0 * obj_opt * H_inv / n_eff
+            except np.linalg.LinAlgError:
+                converged = False
+        diag       = np.diag(cov)
+        std_errors = np.sqrt(np.maximum(diag, 0.0))
 
     return {
-        "ifault":     ifault_final,
+        "ifault":     0 if converged else 6,
         "npar":       npar,
         "nresiduals": n_eff,
         "sigma2":     sigma2_hat,
@@ -459,3 +467,24 @@ def estimate_py(model):
         "cov_matrix": cov,
         "residuals":  a_res,
     }
+
+
+# ── estimate_py ───────────────────────────────────────────────────────────────
+
+def estimate_py(model):
+    """Pure-Python ML estimator using the Dennis-Schnabel BFGS optimizer.
+
+    Mirrors the C estimation chain exactly: same raxopt algorithm, same
+    normalised objective, same BFGS Cholesky factor for covariance.
+    Returns the same dict as _engine.estimate().
+    """
+    return _estimate_core(model, optimizer="raxopt")
+
+
+def estimate_lbfgsb_py(model):
+    """Pure-Python ML estimator using scipy L-BFGS-B.
+
+    May find strictly better optima than raxopt on ill-conditioned problems
+    (e.g. near unit roots).  Standard errors via finite-difference Hessian.
+    """
+    return _estimate_core(model, optimizer="lbfgsb")

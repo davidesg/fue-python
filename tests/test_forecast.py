@@ -217,3 +217,22 @@ def test_forecast_fuf_spain_std():
         assert abs(got - ref) < 0.005, (
             f"h={h+1} level_std*refactor: got {got:.4f}, expected {ref}"
         )
+
+
+@_spain_fuf_missing
+def test_write_fuf_roundtrip(tmp_path):
+    """write_fuf() → load_fuf() → forecast_fuf() must reproduce identical forecasts."""
+    ts, m = fue.load_fuf(_SPAIN_FUF)
+    fr_orig = m.forecast_fuf()
+
+    fuf_path = str(tmp_path / "roundtrip.inp")
+    m.write_fuf(horizon=m._fuf_horizon, sigma2=m._fuf_sigma2, path=fuf_path)
+
+    ts2, m2 = fue.load_fuf(fuf_path)
+    assert m2._fuf_horizon == m._fuf_horizon
+    assert abs(m2._fuf_sigma2 - m._fuf_sigma2) < 1e-9
+
+    fr2 = m2.forecast_fuf()
+    import numpy as np
+    assert np.allclose(fr2.level, fr_orig.level, atol=1e-10)
+    assert np.allclose(fr2.level_std, fr_orig.level_std, atol=1e-10)

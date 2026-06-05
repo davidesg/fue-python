@@ -349,6 +349,34 @@ class Model:
         from .report import write_pre as _write_pre
         _write_pre(self, path=path)
 
+    def write_fuf(self, horizon, sigma2=None, path=None):
+        """
+        Write a fuf forecast input file.
+
+        The file contains the model's current parameter values (fitted if
+        available, initial otherwise) plus the "Forecast horizon / sigma2"
+        section that fuf/forecast_fuf require.
+
+        Parameters
+        ----------
+        horizon : int
+            Steps ahead to forecast.
+        sigma2 : float, optional
+            Innovation variance. Defaults to the fitted sigma2 (if the model
+            has been fitted) or the fuf sigma2 stored on the model.
+        path : str or None
+            Write to file; return as string if None.
+        """
+        if sigma2 is None:
+            if self._result is not None:
+                sigma2 = self._result.sigma2
+            elif hasattr(self, "_fuf_sigma2"):
+                sigma2 = self._fuf_sigma2
+            else:
+                raise ValueError("write_fuf: sigma2 required (model not fitted)")
+        from .report import write_fuf as _write_fuf
+        return _write_fuf(self, horizon=horizon, sigma2=sigma2, path=path)
+
     def plot_residuals(self, lags=24):
         from .plots import plot_residual_diagnostics
         self._require_fit()

@@ -1011,6 +1011,162 @@ def write_pre(model, path):
         fh.write(out)
 
 
+def _extract_initial(model):
+    """Return the same dict shape as _extract_fitted but using initial parameter values."""
+    omega_vals = [[w for w in itv.omega] for itv in model.interventions]
+    delta_vals = [[d for d in itv.delta] for itv in model.interventions]
+    ar   = [list(f) for f in model.ar]
+    ar_s = [list(f) for f in model.ar_s]
+    ma   = [list(f) for f in model.ma]
+    ma_s = [list(f) for f in model.ma_s]
+    ar_f_phi2 = [ff.coef for ff in model.ar_f]
+    ma_f_th2  = [ff.coef for ff in model.ma_f]
+    mu_val = model.mu0
+    nones = lambda vals: [[None] * len(v) for v in vals]
+    return {
+        'omega_vals': omega_vals, 'omega_se': nones(omega_vals),
+        'delta_vals': delta_vals, 'delta_se': nones(delta_vals),
+        'ar': ar,    'ar_se':   [[None] * len(f) for f in ar],
+        'ar_s': ar_s, 'ar_s_se': [[None] * len(f) for f in ar_s],
+        'ma': ma,    'ma_se':   [[None] * len(f) for f in ma],
+        'ma_s': ma_s, 'ma_s_se': [[None] * len(f) for f in ma_s],
+        'ar_f_phi2': ar_f_phi2, 'ar_f_se': [None] * len(ar_f_phi2),
+        'ma_f_th2':  ma_f_th2,  'ma_f_se': [None] * len(ma_f_th2),
+        'mu_val': mu_val, 'mu_se': None,
+    }
+
+
+def write_fuf(model, horizon, sigma2, path=None):
+    """
+    Write a fuf forecast input file.
+
+    Same format as the .pre file but with the FUF header and an extra
+    "Forecast horizon / sigma2" section after the observations line.
+
+    Works with both fitted and unfitted models: fitted params are written
+    for a fitted model; initial param values for an unfitted one.
+
+    Parameters
+    ----------
+    model : Model
+    horizon : int
+        Steps ahead to forecast.
+    sigma2 : float
+        Estimated innovation variance.
+    path : str or None
+        Write to file; return as string if None.
+    """
+    f  = _extract_fitted(model, model._result) if model._result is not None \
+         else _extract_initial(model)
+    ts = model.series
+
+    out = ""
+
+    # ── Header ───────────────────────────────────────────────────────────────
+    out += ("************************************************\n"
+            "*        Input file for program FUF            *\n"
+            "* Copyright (C) 2009 David E. Guerrero         *\n"
+            "************************************************\n\n")
+
+    # ── Frequency ────────────────────────────────────────────────────────────
+    out += "** Frequency of time series: either 1(A), 4(Q) or 12(M):\n"
+    out += f" {ts.freq}\n"
+
+    # ── Observations + start + name ──────────────────────────────────────────
+    out += "** Number of observations and starting date of time series:\n"
+    begyear, begtime = ts.start
+    if ts.freq > 1:
+        out += f" {ts.nobs} {begtime:2d} {begyear} {ts.name}\n"
+    else:
+        outyear = begyear + ts.nobs - 1
+        out += f" {ts.nobs} {outyear:2d} {begyear} {ts.name}\n"
+
+    # ── Forecast horizon (fuf-only) ──────────────────────────────────────────
+    out += "** Forecast horizon and estimated innovation variance:\n"
+    out += f"{int(horizon)}  {sigma2:.10g}\n"
+
+    # ── Deterministic variables ───────────────────────────────────────────────
+    out += "** Number of deterministic variables (including seasonal components):\n"
+    ndet = len(model.interventions)
+    if ndet > 0:
+        out += f"{ndet}\n**\n"
+        for itv in model.interventions:
+            out += _itv_name_line(itv, begyear, begtime, ts.freq) + "\n"
+        omega_orders = [len(itv.omega) - 1 for itv in model.interventions]
+        out += "**\n"
+        out += " ".join(str(s) for s in omega_orders) + " \n"
+        out += "**\n"
+        for i, itv in enumerate(model.interventions):
+            for val, free in zip(f['omega_vals'][i], itv.omega_free):
+                flag = "1" if free else "0"
+                out += f"{val:.6f}  {flag}\n"
+            out += "**\n"
+        delta_orders = [len(itv.delta) for itv in model.interventions]
+        out += " ".join(str(s) for s in delta_orders) + " \n"
+        for i, itv in enumerate(model.interventions):
+            if len(itv.delta) > 0:
+                out += "**\n"
+                for val, free in zip(f['delta_vals'][i], itv.delta_free):
+                    flag = "1" if free else "0"
+                    out += f"{val:.4f}  {flag}"
+                out += "\n"
+    else:
+        out += " 0\n"
+
+    # ── ARMA ─────────────────────────────────────────────────────────────────
+    out += "**Number and orders of regular AR operators:\n"
+    out += _arma_body(model.ar, model.ar_free, f['ar'])
+    out += " Number and orders of annual AR operators:\n"
+    out += _arma_body(model.ar_s, model.ar_s_free, f['ar_s'])
+    out += " Number and orders of regular MA operators:\n"
+    out += _arma_body(model.ma, model.ma_free, f['ma'])
+    out += " Number and orders of anual MA operators:\n"
+    out += _arma_body(model.ma_s, model.ma_s_free, f['ma_s'])
+    out += " Number and frequencies of regular AR(2) operators with fixed frequency:\n"
+    out += _ffixed_body(model.ar_f, f['ar_f_phi2'])
+    out += " Number and frequencies of regular MA(2) operators with fixed frequency:\n"
+    out += _ffixed_body(model.ma_f, f['ma_f_th2'])
+
+    # ── Mu ───────────────────────────────────────────────────────────────────
+    out += " Mean parameter (mu):\n"
+    if model.estimate_mu:
+        out += f"{f['mu_val']:.6f} 1\n"
+    else:
+        out += "0\n"
+
+    # ── Box-Cox + differences ─────────────────────────────────────────────────
+    out += "** Box-Cox lambda, regular differences and complete annual differences:\n"
+    out += f"{model.boxlam:.2f} {model.d} {model.D}\n"
+
+    # ── ifadf ────────────────────────────────────────────────────────────────
+    out += "** Individual factors of the annual difference (from freq 0.0): \n"
+    if ts.freq > 1:
+        n_ifadf = ts.freq // 2 + 1
+        ifadf = list(model.ifadf) + [0] * (n_ifadf - len(model.ifadf))
+        out += " " + " ".join(str(v) for v in ifadf[:n_ifadf]) + "\n"
+    else:
+        out += " 0\n"
+
+    # ── cbands + refactor ────────────────────────────────────────────────────
+    out += "** ACF/PACF bands (0 Automatic) and reescaling factor: \n"
+    out += f" 0.00 {model.refactor:.2f}\n"
+
+    # ── Data ─────────────────────────────────────────────────────────────────
+    out += "** Time series (stochastic and non-standard deterministic variables): \n"
+    custom_itvs = [(i, itv) for i, itv in enumerate(model.interventions)
+                   if itv.type == "custom" and itv.data is not None]
+    for k in range(ts.nobs):
+        row = f"{ts.data[k]:.10f} "
+        for _, itv in custom_itvs:
+            row += f"   {itv.data[k]}"
+        out += row + "\n"
+
+    if path is None:
+        return out
+    with open(path, "w") as fh:
+        fh.write(out)
+
+
 def _itv_name_line(itv, begyear, begtime, freq):
     """Return the detvar name line as written in fue .pre files."""
     t = itv.type

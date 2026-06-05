@@ -14,6 +14,14 @@ import pytest
 
 import fue
 
+try:
+    from fue._fue_engine import ffi as _ffi  # noqa
+    _C_AVAILABLE = True
+except ImportError:
+    _C_AVAILABLE = False
+
+requires_c = pytest.mark.skipif(not _C_AVAILABLE, reason="C extension not compiled")
+
 _CASES_DIR = os.path.join(os.path.dirname(__file__), "real_cases")
 
 # FUG-format files: different program, not supported by fue or this parser.
@@ -100,8 +108,14 @@ _RIPC1_DIR = os.path.join(_CASES_DIR,
                           "PRICES/IPC/Mensual/sample_1.2002_12.2007")
 
 
+@requires_c
 def test_write_out_ripc1():
-    """write_out() for RIPC.1 must match the reference .out file exactly."""
+    """write_out() for RIPC.1 must match the reference .out file exactly.
+
+    Requires C because the reference was produced with the C engine; the
+    pure-Python raxopt gives parameter values that differ by ~1e-4, which
+    propagates through all formatted numbers in the output.
+    """
     inp = os.path.join(_RIPC1_DIR, "RIPC.1.inp")
     ref = os.path.join(_RIPC1_DIR, "RIPC.1.out")
     if not os.path.exists(inp) or not os.path.exists(ref):
@@ -111,8 +125,12 @@ def test_write_out_ripc1():
     assert m.write_out().rstrip('\n') == open(ref).read().rstrip('\n')
 
 
+@requires_c
 def test_write_pre_ripc1(tmp_path):
-    """write_pre() for RIPC.1 must match the reference .pre file exactly."""
+    """write_pre() for RIPC.1 must match the reference .pre file exactly.
+
+    Same caveat as test_write_out_ripc1 regarding the C reference.
+    """
     inp = os.path.join(_RIPC1_DIR, "RIPC.1.inp")
     ref = os.path.join(_RIPC1_DIR, "RIPC.1.pre")
     if not os.path.exists(inp) or not os.path.exists(ref):

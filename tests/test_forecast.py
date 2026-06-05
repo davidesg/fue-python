@@ -14,9 +14,6 @@ import math
 import numpy as np
 import pytest
 
-pytest.importorskip("fue._fue_engine",
-                    reason="C extension not compiled — skip forecast tests")
-
 from fue import TimeSeries, Model, Intervention, ForecastResult
 
 # First 30 annual observations from the SFNY.2 dataset (1852-1881)

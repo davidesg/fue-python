@@ -12,9 +12,6 @@ import os
 import re
 import pytest
 
-pytest.importorskip("fue._fue_engine",
-                    reason="C extension not compiled — skip real-case tests")
-
 import fue
 
 _CASES_DIR = os.path.join(os.path.dirname(__file__), "real_cases")
@@ -95,3 +92,33 @@ def test_real_case_loglik(rel, ref_sigma2, ref_loglik, stol, ltol):
     assert abs(r.loglik - ref_loglik) < ltol, (
         f"{rel}: loglik {r.loglik:.8f} != ref {ref_loglik:.8f} (tol {ltol})"
     )
+
+
+# ── write_out / write_pre regression tests (RIPC.1) ──────────────────────────
+
+_RIPC1_DIR = os.path.join(_CASES_DIR,
+                          "PRICES/IPC/Mensual/sample_1.2002_12.2007")
+
+
+def test_write_out_ripc1():
+    """write_out() for RIPC.1 must match the reference .out file exactly."""
+    inp = os.path.join(_RIPC1_DIR, "RIPC.1.inp")
+    ref = os.path.join(_RIPC1_DIR, "RIPC.1.out")
+    if not os.path.exists(inp) or not os.path.exists(ref):
+        pytest.skip("RIPC.1.inp or RIPC.1.out not present")
+    _, m = fue.load(inp)
+    m.fit()
+    assert m.write_out().rstrip('\n') == open(ref).read().rstrip('\n')
+
+
+def test_write_pre_ripc1(tmp_path):
+    """write_pre() for RIPC.1 must match the reference .pre file exactly."""
+    inp = os.path.join(_RIPC1_DIR, "RIPC.1.inp")
+    ref = os.path.join(_RIPC1_DIR, "RIPC.1.pre")
+    if not os.path.exists(inp) or not os.path.exists(ref):
+        pytest.skip("RIPC.1.inp or RIPC.1.pre not present")
+    _, m = fue.load(inp)
+    m.fit()
+    pre_path = tmp_path / "RIPC.1.pre"
+    m.write_pre(str(pre_path))
+    assert pre_path.read_text() == open(ref).read()

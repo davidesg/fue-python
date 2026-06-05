@@ -220,6 +220,41 @@ def test_forecast_fuf_spain_std():
 
 
 @_spain_fuf_missing
+def test_write_fuf_out_table():
+    """
+    write_fuf_out() forecast table must match the fuf-1.08.1 reference
+    (forecast_S.2.out) character-for-character.
+    """
+    _SPAIN_OUT = os.path.join(
+        os.path.dirname(_SPAIN_FUF), "forecast_S.2.out"
+    )
+    if not os.path.exists(_SPAIN_OUT):
+        pytest.skip("forecast_S.2.out not present")
+
+    ts, m = fue.load_fuf(_SPAIN_FUF)
+    fr = m.forecast_fuf()
+    got = m.write_fuf_out(fr, inp_name="forecast_S.2.inp",
+                          out_name="forecast_S.2.out")
+
+    got_lines = got.splitlines()
+    ref_lines = open(_SPAIN_OUT, encoding="latin-1").read().splitlines()
+
+    def _find(lines, marker):
+        return next(i for i, l in enumerate(lines) if marker in l)
+
+    g0 = _find(got_lines, "FORECAST REPORT")
+    r0 = _find(ref_lines, "FORECAST REPORT")
+
+    # compare all 62 lines from the table section (header + 50 data rows + blank)
+    for i in range(62):
+        gi = got_lines[g0 + i] if g0 + i < len(got_lines) else ""
+        ri = ref_lines[r0 + i] if r0 + i < len(ref_lines) else ""
+        assert gi == ri, (
+            f"Table line +{i}: ref={ri!r} got={gi!r}"
+        )
+
+
+@_spain_fuf_missing
 def test_write_fuf_roundtrip(tmp_path):
     """write_fuf() → load_fuf() → forecast_fuf() must reproduce identical forecasts."""
     ts, m = fue.load_fuf(_SPAIN_FUF)

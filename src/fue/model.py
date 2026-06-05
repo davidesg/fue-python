@@ -377,6 +377,22 @@ class Model:
         from .report import write_fuf as _write_fuf
         return _write_fuf(self, horizon=horizon, sigma2=sigma2, path=path)
 
+    def write_fuf_out(self, fr, path=None, inp_name="", out_name=""):
+        """
+        Generate a forecast report in fuf .out format.
+
+        Parameters
+        ----------
+        fr : ForecastResult  (from model.forecast_fuf())
+        path : str or None
+            Write to file; return as string if None.
+        inp_name, out_name : str
+            Optional file-name labels shown in the header.
+        """
+        from .report import write_fuf_out as _write_fuf_out
+        return _write_fuf_out(self, fr, path=path,
+                              inp_name=inp_name, out_name=out_name)
+
     def plot_residuals(self, lags=24):
         from .plots import plot_residual_diagnostics
         self._require_fit()

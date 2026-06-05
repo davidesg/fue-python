@@ -28,6 +28,53 @@ import numpy as np
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
+def write_fuf_out(model, fr, path=None, inp_name="", out_name=""):
+    """
+    Generate a forecast report in fuf .out format.
+
+    The output mirrors fuf-1.08.1's output: a forecast table (observed history
+    + future forecasts) followed by residual diagnostics, ACF, PACF, and the
+    calibration of distortions table.
+
+    Parameters
+    ----------
+    model : Model  (fitted or unfitted; parameters read from initial values)
+    fr : ForecastResult  (from model.forecast_fuf())
+    path : str or None
+        Write to file; return as string if None.
+    inp_name : str
+        Name shown in the "Input file" header line.
+    out_name : str
+        Name shown in the "Output file" header line.
+
+    Returns
+    -------
+    str
+    """
+    from .cast_us import eval_at_params
+    raw = eval_at_params(model)
+    residuals = np.asarray(raw['residuals'])
+
+    ts    = model.series
+    freq  = ts.freq if ts.freq > 0 else 1
+    n_eff = len(residuals)
+    ornsop = ts.nobs - n_eff
+
+    lines = []
+    _fuf_section_header(lines, model, fr, inp_name, out_name)
+    _fuf_section_forecast_table(lines, model, fr, residuals, ornsop)
+    _section_residual_stats(lines, ts, residuals, freq, ornsop)
+    _section_plot(lines, ts, residuals, freq, ornsop)
+    _section_histogram(lines, residuals)
+    _section_corr(lines, model, residuals, n_eff, freq)
+
+    text = "\n".join(lines)
+    if path is not None:
+        with open(path, "w") as fh:
+            fh.write(text + "\n")
+    return text
+
+
 def write_out(model, path=None):
     """
     Generate an estimation report in fue .out format.
@@ -1165,6 +1212,133 @@ def write_fuf(model, horizon, sigma2, path=None):
         return out
     with open(path, "w") as fh:
         fh.write(out)
+
+
+def _fuf_count_npar(model):
+    """Count total free parameters for a fuf model (fitted or unfitted)."""
+    n = 0
+    for itv in model.interventions:
+        n += sum(1 for f in itv.omega_free if f)
+        n += sum(1 for f in itv.delta_free if f)
+    n += _count_nparma(model)
+    if model.estimate_mu:
+        n += 1
+    return n
+
+
+def _fuf_obs_to_date_str(k1, begyear, begtime, freq):
+    """Return date string (e.g. '3/2024' or '2024') for 1-based obs index k1."""
+    total = begtime - 1 + k1 - 1   # 0-based offset from start
+    if freq > 1:
+        period = total % freq + 1
+        year   = begyear + total // freq
+        return f"{period}/{year}"
+    else:
+        year = begyear + total
+        return str(year)
+
+
+def _fuf_section_header(lines, model, fr, inp_name, out_name):
+    ts   = model.series
+    npar = _fuf_count_npar(model)
+    lines.append("")
+    if inp_name:
+        lines.append(f"Input file             : {inp_name}")
+    if out_name:
+        lines.append(f"Output file            : {out_name}")
+    lines.append("Estimation method      : exact maximum likelihood")
+    lines.append("Check for invertibility: constrained search")
+    lines.append("")
+    lines.append(f"Observations: {ts.nobs}.")
+    lines.append(f"Parameters  : {npar}.")
+    lines.append("")
+
+
+def _fuf_section_forecast_table(lines, model, fr, residuals, ornsop):
+    from .forecast import _boxcox   # reuse Box-Cox helper
+    ts      = model.series
+    freq    = ts.freq if ts.freq > 0 else 1
+    L       = fr.horizon
+    nobs    = ts.nobs
+    boxlam  = model.boxlam
+    refactor = model.refactor
+    begyear, begtime = ts.start
+
+    # Date of last obs (= forecast origin)
+    last_month, last_year = _fuf_obs_to_date_str(nobs, begyear, begtime, freq), None
+    # Actually compute (month, year) separately for the FORECAST ORIGIN line
+    total_last = begtime - 1 + nobs - 1
+    if freq > 1:
+        fo_period = total_last % freq + 1
+        fo_year   = begyear + total_last // freq
+        fo_str    = f"{fo_period:2d}/{fo_year}"
+    else:
+        fo_str = str(begyear + total_last)
+
+    lines.append("FORECAST REPORT: ")
+    lines.append(f"VARIABLE NAME: {ts.name}")
+    lines.append(f"FORECAST ORIGIN : {fo_str}")
+    lines.append(f"LEAD TIME FOR FORECASTING: {L}")
+    lines.append("")
+    lines.append(" +---------------------------------------------------------------+")
+    lines.append(" |      |     LEVEL      |           VARIATION           |       |")
+    lines.append(" | DATE +----------------+-------------------------------+  ERR  |")
+    lines.append(" |      |  VALUE   | STD | TRIMEST | STD |  ANUAL  | STD |       |")
+    lines.append(" |      |          |     | /MONT   |     |         |     |       |")
+    lines.append(" +---------------------------------------------------------------+")
+
+    # ── History rows: last L+1 observed values ────────────────────────────────
+    # obs k (1-indexed): k from nobs-L to nobs
+    for k in range(nobs - L, nobs + 1):
+        if k < 1:
+            continue
+        date_str  = _fuf_obs_to_date_str(k, begyear, begtime, freq)
+        level_val = ts.data[k - 1]
+
+        # monthly/period variation: 100*(nt[k] - nt[k-1]) / refactor
+        if k > 1:
+            diff1 = 100.0 * (_boxcox(ts.data[k-1], boxlam, refactor)
+                             - _boxcox(ts.data[k-2], boxlam, refactor)) / refactor
+        else:
+            diff1 = 0.0
+
+        # annual variation: 100*(nt[k] - nt[k-freq]) / refactor
+        if k > freq:
+            annual = 100.0 * (_boxcox(ts.data[k-1], boxlam, refactor)
+                              - _boxcox(ts.data[k-1-freq], boxlam, refactor)) / refactor
+        else:
+            annual = 100.0 * _boxcox(ts.data[k-1], boxlam, refactor) / refactor
+
+        # residual for this obs (0-indexed residuals start at obs ornsop+1)
+        res_idx = k - ornsop - 1
+        if 0 <= res_idx < len(residuals):
+            err = residuals[res_idx]
+            lines.append(
+                f" {date_str:>7s}{level_val:9.4f}     -{diff1:9.4f}      -{annual:10.4f}"
+                f"     -{err:9.4f} "
+            )
+        else:
+            # obs before residual window: show without ERR
+            lines.append(
+                f" {date_str:>7s}{level_val:9.4f}     -{diff1:9.4f}      -{annual:10.4f}"
+                f"     -"
+            )
+
+    # ── Forecast rows ─────────────────────────────────────────────────────────
+    for h in range(L):
+        k = nobs + h + 1   # 1-indexed forecast obs
+        date_str = _fuf_obs_to_date_str(k, begyear, begtime, freq)
+        level_val = fr.level[h]
+        lstd      = fr.level_std[h] * refactor
+        diff1     = fr.diff1[h]
+        dstd      = fr.diff1_std[h]
+        annual    = fr.seasonal_diff[h]
+        astd      = fr.seasonal_diff_std[h]
+        lines.append(
+            f" {date_str:>7s}{level_val:9.4f}{lstd:7.4f}{diff1:8.4f}{dstd:8.4f}"
+            f"{annual:9.4f}{astd:7.4f} "
+        )
+    lines.append("")
 
 
 def _itv_name_line(itv, begyear, begtime, freq):

@@ -393,11 +393,10 @@ class Model:
         return _write_fuf_out(self, fr, path=path,
                               inp_name=inp_name, out_name=out_name)
 
-    def plot_residuals(self, lags=24):
-        from .plots import plot_residual_diagnostics
+    def plot_residuals(self, lags=None):
+        from .plots import plot_model_diagnostics
         self._require_fit()
-        plot_residual_diagnostics(self._result.residuals,
-                                  lags=lags, title=self.series.name)
+        plot_model_diagnostics(self, lags=lags)
 
     # ── Internal ──────────────────────────────────────────────────────────
 

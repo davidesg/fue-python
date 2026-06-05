@@ -212,13 +212,28 @@ la flexibilidad del optimizador Python.
 
 ## Historial de mediciones
 
-Reproducir: `pytest tests/test_performance.py::TestCvsPython::test_summary_table -v -s`
+Reproducir: `pytest tests/test_performance.py::test_summary -v -s`
 
-| Fecha | Commit | Caso | C (ms) | Python (ms) | Factor | Notas |
-|-------|--------|------|-------:|------------:|-------:|-------|
-| 2026-06-04 | 53e1699 | AR(1) | 0.1 | 7.8 | ×90 | Etapa 1 completada |
-| 2026-06-04 | 53e1699 | SFNY.2 | 2.7 | 653 | ×240 | |
-| 2026-06-04 | 53e1699 | RIPC.1 | 37 | 6577 | ×174 | |
-| 2026-06-05 | f8d22bb | AR(1) | 0.1 | 6.2 | ×71 | test_performance.py añadido |
-| 2026-06-05 | f8d22bb | SFNY.2 | 2.7 | 773 | ×289 | |
-| 2026-06-05 | f8d22bb | RIPC.1 | 42 | 7864 | ×186 | |
+### 2026-06-05 · commit 4790cbf · 3 casos (batería inicial)
+
+| Caso | fr | n | p | C (ms) | Py (ms) | Factor |
+|------|----|---|---|-------:|--------:|-------:|
+| AR(1) | 1 | 30 | 1 | 0.1 | 6.2 | ×71 |
+| SFNY.2 | 1 | 62 | 6 | 2.7 | 773 | ×289 |
+| RIPC.1 | 12 | 72 | 14 | 42 | 7864 | ×186 |
+
+### 2026-06-05 · commit siguiente · 11 casos (batería ampliada)
+
+| Caso | fr | n | p | C (ms) | Py (ms) | Factor |
+|------|----|---|---|-------:|--------:|-------:|
+| AR(1) | 1 | 30 | 1 | 0.1 | 7.0 | ×60 |
+| IMA(1,1) | 1 | 30 | 1 | 0.1 | 6.2 | ×75 |
+| ARMA(1,1) | 1 | 30 | 2 | 0.1 | 33.9 | ×228 |
+| SFNY.2 | 1 | 62 | 6 | 3.2 | 781 | ×244 |
+| GDP/R.1 | 4 | 68 | 1 | 0.1 | 2.9 | ×34 |
+| GDP/R.2 | 4 | 68 | 3 | 0.2 | 27.8 | ×140 |
+| IPC-T/R.3 | 4 | 68 | 4 | 0.9 | 162 | ×172 |
+| IPC-T/R.5 | 4 | 68 | 7 | 0.8 | 361 | ×428 |
+| RIPC.0 | 12 | 78 | 13 | 10.8 | 3283 | ×304 |
+| RIPC.1 | 12 | 72 | 14 | 43.5 | 9228 | ×212 |
+| RIPC.3 | 12 | 78 | 17 | 25.2 | 14058 | ×559 |

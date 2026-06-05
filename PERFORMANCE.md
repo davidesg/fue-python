@@ -1,4 +1,56 @@
-# FUE — Rendimiento del estimador a lo largo de la migración
+# FUE — Arquitectura y rendimiento del estimador
+
+---
+
+## Arquitectura actual (2026-06-05)
+
+```
+model.fit()  /  fue model.inp  (CLI)
+    └── _engine.estimate(model)
+            │
+            ├── _fue_engine.abi3.so presente?  ──YES──► lib.fue_estimate()
+            │                                            C puro (cffi):
+            │                                            cast_us + raxopt + flikam + elf
+            │                                            (fue_api.c + GSL)
+            │
+            └── NO (ImportError) ──────────────────────► estimate_py(model)
+                                                         Python puro:
+                                                         cast_us_py + L-BFGS-B
+                                                         + flikam_scalar + elf_scalar
+```
+
+**Módulos siempre en Python puro** (sin C, sin GSL):
+
+| Módulo | Función |
+|--------|---------|
+| `series.py` | `TimeSeries` — datos y metadatos |
+| `model.py` | `Model` — especificación, `fit()`, `forecast()` |
+| `intervention.py` | `Intervention`, `FixedFreqFactor` |
+| `inp.py` | Parser `.inp` — `fue.load()` |
+| `report.py` | Informe ASCII `.out` — `write_out()`, `write_pre()` |
+| `forecast.py` | Pronóstico ARMAX — `Model.forecast()` |
+| `diagnostics.py` | ACF, PACF, Jarque-Bera, Ljung-Box |
+| `plots.py` | Gráficos (matplotlib) |
+| `cli.py` | Entrada CLI — `fue model.inp` |
+| `elfvarma.py` | `elf_scalar` (Mauricio 1995), `flikam_scalar` (Melard 1984) |
+| `cast_us.py` | `cast_us_py`, `estimate_py` — estimador Python puro |
+
+**Módulo condicional (C cuando disponible, Python como fallback):**
+
+| Módulo | Con C | Sin C |
+|--------|-------|-------|
+| `_engine.py` | llama `lib.fue_estimate()` vía `_fue_engine.abi3.so` | llama `estimate_py()` |
+
+**Cómo forzar el camino Python puro:**
+
+```bash
+FUE_SKIP_C=1 pip install fue     # no compila .so; Python puro permanente
+fue modelo                        # usa C si .so presente, Python si no
+```
+
+---
+
+## Registro de rendimiento del estimador a lo largo de la migración
 
 Este documento registra el coste de cada etapa de la migración C→Python
 y establece la base para la decisión sobre el modelo híbrido definitivo.

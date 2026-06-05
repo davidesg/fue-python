@@ -162,6 +162,51 @@ class Model:
             raise RuntimeError(f"FUE estimation failed: {msg}")
         return self
 
+    def forecast_fuf(self, horizon=None, sigma2=None):
+        """
+        Compute forecasts using the current parameter values as fixed estimates.
+
+        This mirrors the fuf workflow: parameters are read from the model as-is
+        (no re-estimation).  Residuals are computed in a single forward pass.
+
+        If the model was loaded from a fuf file (via fue.load_fuf()), the
+        horizon and sigma2 from the file are used when not explicitly provided.
+
+        Parameters
+        ----------
+        horizon : int, optional
+            Forecast horizon (number of steps ahead). Required if the model
+            was not loaded from a fuf file.
+        sigma2 : float, optional
+            Innovation variance.  If None and the model has a stored fuf sigma2
+            (from load_fuf), that value is used; otherwise it is estimated from
+            the data at the provided parameter values.
+
+        Returns
+        -------
+        ForecastResult
+        """
+        if horizon is None:
+            horizon = getattr(self, "_fuf_horizon", None)
+        if horizon is None:
+            raise ValueError("forecast_fuf: horizon must be provided")
+        if sigma2 is None:
+            sigma2 = getattr(self, "_fuf_sigma2", None)
+
+        from .cast_us import eval_at_params
+        raw = eval_at_params(self)
+        if raw["ifault"] != 0:
+            raise RuntimeError(f"forecast_fuf: eval_at_params failed (ifault={raw['ifault']})")
+        if sigma2 is None:
+            sigma2 = raw["sigma2"]
+
+        # Build a synthetic FitResult using the provided sigma2
+        raw_with_sigma = {**raw, "sigma2": sigma2}
+        result = FitResult(raw_with_sigma)
+
+        from .forecast import forecast as _forecast
+        return _forecast(self, result, int(horizon))
+
     # ── Results ───────────────────────────────────────────────────────────
 
     @property

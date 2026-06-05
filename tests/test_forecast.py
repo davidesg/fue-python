@@ -11,9 +11,11 @@ machine precision.
 """
 
 import math
+import os
 import numpy as np
 import pytest
 
+import fue
 from fue import TimeSeries, Model, Intervention, ForecastResult
 
 # First 30 annual observations from the SFNY.2 dataset (1852-1881)
@@ -154,3 +156,64 @@ def test_forecast_sfny2_vs_fuf():
             f"h={h+1} level_std: got {fr.level_std[h]*100:.4f}%, expected {ref_lstd[h]}%"
         assert abs(round(fr.diff1[h], 2) - ref_diff1[h]) < 0.01, \
             f"h={h+1} diff1: got {fr.diff1[h]:.4f}%, expected {ref_diff1[h]}%"
+
+
+# ── fuf workflow tests ────────────────────────────────────────────────────────
+
+_SPAIN_FUF = "/home/david/Dropbox/Inflation Volatility/Analisis/Spain/forecast_b2025/forecast_S.2.inp"
+_spain_fuf_missing = pytest.mark.skipif(
+    not os.path.exists(_SPAIN_FUF), reason="Spain forecast_S.2.inp not present"
+)
+
+
+@_spain_fuf_missing
+def test_load_fuf_parses_horizon_and_sigma2():
+    ts, m = fue.load_fuf(_SPAIN_FUF)
+    assert m._fuf_horizon == 24
+    assert abs(m._fuf_sigma2 - 0.0626657397) < 1e-9
+
+
+@_spain_fuf_missing
+def test_load_fuf_model_not_fitted():
+    ts, m = fue.load_fuf(_SPAIN_FUF)
+    assert m._result is None
+
+
+@_spain_fuf_missing
+def test_forecast_fuf_spain_levels():
+    """
+    forecast_fuf() on Spain S.2 must match fuf-1.08.1 reference levels.
+
+    Reference values from forecast_S.2.out (4/2026 – 8/2026).
+    Tolerance 0.01 CPI units (fuf output is 4 d.p.).
+    """
+    ts, m = fue.load_fuf(_SPAIN_FUF)
+    fr = m.forecast_fuf()
+    assert fr.horizon == 24
+
+    # fuf reference: first 5 forecast steps (h=1..5), level in CPI units
+    ref_level = [103.6396, 104.0094, 104.2105, 103.5493, 103.7625]
+    for h, ref in enumerate(ref_level):
+        assert abs(fr.level[h] - ref) < 0.01, (
+            f"h={h+1} level: got {fr.level[h]:.4f}, expected {ref}"
+        )
+
+
+@_spain_fuf_missing
+def test_forecast_fuf_spain_std():
+    """
+    forecast_fuf() level_std * refactor must match fuf's STD column.
+
+    fuf reports STD in the same CPI units as the level (refactor=100).
+    Our level_std is in log units; multiply by refactor to convert.
+    """
+    ts, m = fue.load_fuf(_SPAIN_FUF)
+    fr = m.forecast_fuf()
+
+    # fuf reference STD for h=1..5 (from forecast_S.2.out)
+    ref_std = [0.2503, 0.4313, 0.5826, 0.7114, 0.8234]
+    for h, ref in enumerate(ref_std):
+        got = fr.level_std[h] * m.refactor
+        assert abs(got - ref) < 0.005, (
+            f"h={h+1} level_std*refactor: got {got:.4f}, expected {ref}"
+        )

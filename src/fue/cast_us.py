@@ -488,3 +488,64 @@ def estimate_lbfgsb_py(model):
     (e.g. near unit roots).  Standard errors via finite-difference Hessian.
     """
     return _estimate_core(model, optimizer="lbfgsb")
+
+
+# ── eval_at_params ────────────────────────────────────────────────────────────
+
+def eval_at_params(model):
+    """Evaluate the model at its initial parameter values (no optimisation).
+
+    Used by the fuf forecast workflow: the file already contains the fitted
+    parameters as initial values, so we just need one forward pass to get
+    the residuals and log-likelihood for forecasting.
+
+    Returns the same dict shape as _engine.estimate(), but with:
+    - ifault = 0 (always, since we're not running the optimizer)
+    - std_errors / cov_matrix = zeros (not estimated)
+    - sigma2 = point estimate from elf_scalar at the provided params
+    """
+    ts     = model.series
+    spec   = build_est_spec(model)
+    x0     = _build_initial_x(model)
+    npar   = len(x0)
+    ornsop = spec.ornsop
+    n_eff  = ts.nobs - ornsop
+
+    _empty = {
+        "ifault": 6, "npar": npar, "nresiduals": n_eff,
+        "sigma2": 0.0, "loglik": 0.0, "aic": 0.0, "bic": 0.0,
+        "params": x0.copy(), "std_errors": np.zeros(npar),
+        "cov_matrix": np.zeros((npar, npar)),
+        "residuals": np.zeros(n_eff),
+    }
+
+    do_chkma = model.chkma
+    p, q, phi, theta, mu, w, fault = cast_us_py(x0, spec)
+    if fault or len(w) == 0:
+        return _empty
+
+    _, f1, f2, a_res, ifault_e = elf_scalar(
+        n_eff, p, q, phi, theta, w,
+        sigma2=1.0, mu=mu, do_chkma=do_chkma, compute_residuals=True,
+    )
+    if ifault_e:
+        return _empty
+
+    sigma2_hat = f1 / n_eff if n_eff > 0 else 1.0
+    logelf_c   = _logelf_c(n_eff, f1, f2)
+    aic        = -2.0 * logelf_c + 2.0 * npar
+    bic        = -2.0 * logelf_c + npar * math.log(n_eff) if n_eff > 0 else 0.0
+
+    return {
+        "ifault":     0,
+        "npar":       npar,
+        "nresiduals": n_eff,
+        "sigma2":     sigma2_hat,
+        "loglik":     logelf_c,
+        "aic":        aic,
+        "bic":        bic,
+        "params":     x0,
+        "std_errors": np.zeros(npar),
+        "cov_matrix": np.zeros((npar, npar)),
+        "residuals":  a_res,
+    }

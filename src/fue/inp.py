@@ -19,6 +19,8 @@ def load(path):
     Parse a fue .inp file and return (TimeSeries, Model).
 
     The returned Model is unfitted; call .fit() to estimate parameters.
+    If the file is in fuf format (contains the forecast horizon/sigma2 section),
+    the extra fields are stored in model._fuf_horizon and model._fuf_sigma2.
 
     Parameters
     ----------
@@ -34,6 +36,37 @@ def load(path):
     if not path.endswith(".inp") and not path.endswith(".pre"):
         path += ".inp"
     return _InpParser(path).parse()
+
+
+def load_fuf(path):
+    """
+    Parse a fuf forecast specification file and return (TimeSeries, Model).
+
+    fuf files are like fue .inp files but contain an extra section after the
+    observations line: "** Forecast horizon and estimated innovation variance"
+    with two values: L (forecast horizon) and sigma2 (estimated variance).
+    All parameter values in the file are treated as pre-estimated (fixed).
+
+    Parameters
+    ----------
+    path : str or path-like
+        Path to the fuf .inp file.
+
+    Returns
+    -------
+    ts : TimeSeries
+    model : Model  (unfitted; call model.forecast_fuf() to get forecasts)
+    """
+    path = str(path)
+    if not path.endswith(".inp") and not path.endswith(".pre"):
+        path += ".inp"
+    ts, model = _InpParser(path).parse()
+    if not hasattr(model, "_fuf_horizon"):
+        raise ValueError(
+            f"{path}: not a fuf file — missing 'Forecast horizon' section. "
+            "Use fue.load() for regular fue .inp files."
+        )
+    return ts, model
 
 
 # ── Internal parser ───────────────────────────────────────────────────────────
@@ -207,6 +240,16 @@ class _InpParser:
             begyear = int(obs_toks[2])
             begtime = 1
             name    = obs_toks[3] if len(obs_toks) > 3 else "series"
+
+        # [fuf only] Optional: "Forecast horizon and estimated innovation variance"
+        # fuf files insert this section between observations and det-vars.
+        fuf_horizon = None
+        fuf_sigma2  = None
+        if "forecast" in self._peek_key():
+            self._skip_sep()
+            fuf_toks   = self._next_data()
+            fuf_horizon = int(fuf_toks[0])
+            fuf_sigma2  = float(fuf_toks[1])
 
         # [3.2] Number of deterministic variables
         self._skip_sep()
@@ -423,6 +466,9 @@ class _InpParser:
             mu=mu, estimate_mu=estimate_mu,
             boxlam=boxlam, refactor=refactor,
         )
+        if fuf_horizon is not None:
+            model._fuf_horizon = fuf_horizon
+            model._fuf_sigma2  = fuf_sigma2
         return ts, model
 
 

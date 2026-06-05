@@ -1,5 +1,25 @@
 """
 Generate .out-style estimation reports matching fue's ASCII output format.
+
+Known differences from fue.c .out output (by design, not bugs):
+
+1. Header block (file names, estimation method, observations, convergence info):
+   fue.c writes this at the top of .out before the parameter table.
+   In the Python port the CLI (cli.py) prints it to stdout; write_out() omits
+   it so the returned string is self-contained and reusable without a CLI context.
+
+2. Transformed-Differenced-Stochastic series w[]:
+   fue.c writes the full w[] vector (nobs values) between the operator
+   coefficients and the sigma section.  This is a diagnostic dump, not part
+   of the published report format.  write_out() omits it intentionally.
+
+3. Last-digit rounding in residual plot values:
+   Minor accumulation from different floating-point print paths (~1 ULP).
+   Irrelevant for interpretation.
+
+4. Label padding in residual statistics:
+   "Mean:" / "Minimum:" etc. have slightly different left-padding.
+   Cosmetic only.
 """
 
 import math

@@ -357,7 +357,8 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
                    + log_detom + f1 / sigma2))
 
     # [13]: exact residuals via cres
-    if compute_residuals:
+    # When g=0 (p=q=0) there is no initial-state correction; a is already exact.
+    if compute_residuals and g > 0:
         a = _cres_scalar(n, g, nlim, rxi, M_save, L, vechh, a)
 
     return logelf, f1, f2, a, 0

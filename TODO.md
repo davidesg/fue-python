@@ -1,7 +1,7 @@
 # FUE Python — Estado de la migración C → Python
 
 Referencia: `fue-1.13.1` es el código C fuente de verdad.  
-Última actualización: 2026-06-06
+Última actualización: 2026-06-06 (rev 2)
 
 ---
 
@@ -19,7 +19,7 @@ Referencia: `fue-1.13.1` es el código C fuente de verdad.
 | Gráficos diagnósticos | ✅ completo | Matplotlib |
 | Extensión C cffi | ✅ opcional | GSL + cffi |
 | CLI `fue` | ✅ completo | Python puro |
-| CLI `fuf` | ⏳ pendiente | — |
+| CLI `fuf` | ✅ completo | Python puro |
 | Tests | ✅ 628 passing, 1 skipped | — |
 
 ---
@@ -141,6 +141,15 @@ Tolerancias: loglik < 1e-4, params < 1e-4 (C vs Python).
 
 **`report.py`** — `write_fuf_out()`: informe de pronóstico formato fuf
 
+**`cli.py`** — CLI `fue`:
+- `fue model [eml|aml] [chk|nochk] [-f [horizon]]`
+- Con `-f`: genera `forecast_model.inp` (fuf format) con sección "Forecast horizon/sigma2"
+- Cabecera del `.out` incluye `Input file` y `Output file`
+
+**`fuf_cli.py`** — CLI `fuf`:
+- `fuf forecast_model` — lee `forecast_model.inp`, escribe `forecast_model.out`
+- No reestima; usa parámetros y sigma2 del fichero fuf
+
 ---
 
 ## FASE 6 — Informes `.out` / `.pre` ✅
@@ -174,14 +183,17 @@ Parámetros estimados como valores iniciales para reiniciar la estimación.
 
 Dos figuras con proporciones exactas del gnuplot de `fue.c`:
 
-**Figura 1** (4 paneles, proporciones gnuplot):
+**Figura 1** (3 paneles: residuos + ACF/PACF apilados):
+- Título `A.<stem>` centrado con `fig.suptitle()` (stem del fichero `.inp`)
 - Residuos estandarizados en el tiempo
-- ACF de residuos (barras con banda 95%)
-- PACF de residuos (barras con banda 95%)
-- Q-Q normal con línea de referencia
+- ACF de residuos con banda 95% (título `acf`, igual que C)
+- PACF de residuos con banda 95% (título `pacf`, igual que C)
 
 **Figura 2** (histograma):
 - Histograma de residuos con curva normal superpuesta
+- Mismo título `A.<stem>`
+
+`model._inp_stem` se guarda al cargar con `fue.load()`.
 
 Función auxiliar `_snap_series_max` / `_snap_cmax` replica la elección de escala de gnuplot.
 
@@ -215,7 +227,6 @@ Cuatro papers que cubren toda la implementación:
 
 ### Alta prioridad
 - [ ] **`COPYING`**: añadir fichero GPL-2.0 completo al repositorio *(pospuesto)*
-- [ ] **CLI `fuf`**: añadir entry point `fuf` en `pyproject.toml`; implementar `fue/fuf_cli.py`
 
 ### Media prioridad
 - [ ] **Gráfico de pronóstico**: figura con historia + futuro + bandas de confianza

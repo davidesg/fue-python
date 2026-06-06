@@ -122,7 +122,8 @@ def test_write_out_ripc1():
         pytest.skip("RIPC.1.inp or RIPC.1.out not present")
     _, m = fue.load(inp)
     m.fit()
-    assert m.write_out().rstrip('\n') == open(ref).read().rstrip('\n')
+    assert (m.write_out(inp_name="RIPC.1.inp", out_name="RIPC.1.out").rstrip('\n')
+            == open(ref).read().rstrip('\n'))
 
 
 @requires_c

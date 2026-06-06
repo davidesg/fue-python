@@ -323,7 +323,7 @@ class Model:
 
     # ── Diagnostics / plots ───────────────────────────────────────────────
 
-    def write_out(self, path=None):
+    def write_out(self, path=None, inp_name="", out_name=""):
         """
         Generate an estimation report in fue .out format.
 
@@ -331,6 +331,11 @@ class Model:
         ----------
         path : str or None
             Write to this file path, or return as a string if None.
+        inp_name : str
+            Label for the "Input file" header line.
+        out_name : str
+            Label for the "Output file" header line.
+            If empty and *path* is given, the basename of *path* is used.
 
         Returns
         -------
@@ -338,7 +343,7 @@ class Model:
         """
         self._require_fit()
         from .report import write_out as _write_out
-        return _write_out(self, path=path)
+        return _write_out(self, path=path, inp_name=inp_name, out_name=out_name)
 
     def write_pre(self, path):
         """

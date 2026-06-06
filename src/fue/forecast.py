@@ -159,7 +159,7 @@ def _unscramble(factors, s_factors, freq):
         ar1k = np.empty(len(factor) + 1)
         ar1k[0] = -1.0
         ar1k[1:] = factor
-        new_p = np.zeros(size_r); new_p[0] = -1.0; tmp[0] = -1.0
+        new_p = np.zeros(size_r); tmp[0] = -1.0
         for i in range(p1 + 1):
             for j in range(len(factor) + 1):
                 new_p[j + i] -= ar1k[j] * tmp[i]
@@ -178,7 +178,7 @@ def _unscramble(factors, s_factors, freq):
         ar2k = np.empty(len(factor) + 1)
         ar2k[0] = -1.0
         ar2k[1:] = factor
-        new_p = np.zeros(size_a); new_p[0] = -1.0; tmp[0] = -1.0
+        new_p = np.zeros(size_a); tmp[0] = -1.0
         for i in range(p2 + 1):
             for j in range(len(factor) + 1):
                 new_p[j + i] -= ar2k[j] * tmp[i]

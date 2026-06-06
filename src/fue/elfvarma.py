@@ -281,7 +281,13 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
         try:
             M = cholesky(mtmp0, lower=True)
         except np.linalg.LinAlgError:
-            return logelf, f1, f2, a, 3
+            # Near-zero negative eigenvalue from floating point rounding — retry
+            # with a minimal diagonal shift (1e-10 × max diagonal element).
+            _shift = max(1e-14, 1e-10 * _maxoffl)
+            try:
+                M = cholesky(mtmp0 + np.eye(g) * _shift, lower=True)
+            except np.linalg.LinAlgError:
+                return logelf, f1, f2, a, 3
 
     # MA invertibility — reject before spending time on the sequence
     if q > 0 and do_chkma:

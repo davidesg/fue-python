@@ -1,7 +1,7 @@
 # FUE Python — Estado de la migración C → Python
 
 Referencia: `fue-1.13.1` es el código C fuente de verdad.  
-Última actualización: 2026-06-06 (rev 2)
+Última actualización: 2026-06-06 (rev 3)
 
 ---
 
@@ -17,6 +17,7 @@ Referencia: `fue-1.13.1` es el código C fuente de verdad.
 | Generación de `.pre` | ✅ completo | Python puro |
 | Generación de `.fuf` | ✅ completo | Python puro |
 | Gráficos diagnósticos | ✅ completo | Matplotlib |
+| Gráfico de pronóstico | ✅ completo | Matplotlib |
 | Extensión C cffi | ✅ opcional | GSL + cffi |
 | CLI `fue` | ✅ completo | Python puro |
 | CLI `fuf` | ✅ completo | Python puro |

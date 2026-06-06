@@ -1,3 +1,5 @@
 recursive-include csrc *.c *.h
 include setup.py
 include src/fue/_build_cffi.py
+include README.md
+include COPYING

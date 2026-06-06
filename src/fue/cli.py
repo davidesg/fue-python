@@ -142,11 +142,15 @@ def main(argv=None):
     print()
 
     # Write .out
-    model.write_out(out_path)
+    model.write_out(out_path, inp_name=os.path.basename(inp_path),
+                    out_name=os.path.basename(out_path))
     print(f"Written: {out_path}")
 
-    # Write .pre / forecast .inp
-    model.write_pre(pre_path)
+    # Write .pre or forecast .inp (fuf format)
+    if forecast_flag:
+        model.write_fuf(forecast_horizon, path=pre_path)
+    else:
+        model.write_pre(pre_path)
     print(f"Written: {pre_path}")
 
     # LaTeX (.tex) — not yet implemented

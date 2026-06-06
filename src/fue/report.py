@@ -8,12 +8,7 @@ Known differences from fue.c .out output (by design, not bugs):
    In the Python port the CLI (cli.py) prints it to stdout; write_out() omits
    it so the returned string is self-contained and reusable without a CLI context.
 
-2. Transformed-Differenced-Stochastic series w[]:
-   fue.c writes the full w[] vector (nobs values) between the operator
-   coefficients and the sigma section.  This is a diagnostic dump, not part
-   of the published report format.  write_out() omits it intentionally.
-
-3. Last-digit rounding in residual plot values:
+2. Last-digit rounding in residual plot values:
    Minor accumulation from different floating-point print paths (~1 ULP).
    Irrelevant for interpretation.
 
@@ -166,7 +161,6 @@ def _build_report(model, inp_name="", out_name=""):
     _section_params(lines, model, r, fitted)
     _section_boxcox(lines, model, freq)
     _section_arma_ops(lines, model, fitted, freq, ornsop)
-    _section_w_series(lines, r)
     _section_sigma(lines, r, sigma, sigma2, n_eff)
     _section_hq(lines, model, sigma2, n_eff)
     _section_matrices(lines, r)
@@ -436,15 +430,6 @@ def _section_arma_ops(lines, model, fitted, freq, ornsop):
         lines.append(f"  theta[{k:2d}] = {-ma_poly[k]:15.10f}")
     lines.append("")
 
-
-def _section_w_series(lines, r):
-    """Transformed-Differenced-Stochastic series w[i] (only when Python engine)."""
-    if r.w is None or len(r.w) == 0:
-        return
-    lines.append("Transformed-Differenced-Stochastic series: ")
-    for i, v in enumerate(r.w, start=1):
-        lines.append(f"  w[{i:3d}]    = {v:15.10f}")
-    lines.append("")
 
 
 def _section_sigma(lines, r, sigma, sigma2, n_eff):

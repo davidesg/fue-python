@@ -1,7 +1,21 @@
 """
-cast_us_py — pure-Python estimator core.
+cast_us_py — pure-Python exact ML estimator for scalar ARMAX models.
 
 Mirrors the C chain:  populate_globals → cast_us → est(cast_us, …) → elf.
+
+Implements the exact ML estimation procedure described in:
+
+    Mauricio (1995) "Exact Maximum Likelihood Estimation of Stationary Vector
+    ARMA Models", J. Am. Statist. Ass. 90, 282-291.  [JASA95]
+    Working-paper version: Documento de Trabajo 9316, Universidad Complutense.
+
+The inner loop uses flikam_scalar (Mélard 1984 AS 197) to evaluate the
+approximate likelihood quickly at each BFGS step.  After convergence,
+elf_scalar (Mauricio 1997 AS 311) computes the exact likelihood and residuals.
+
+The BFGS optimizer is raxopt (Dennis & Schnabel 1983, Algorithm A9.4.1).
+The objective function is scaled so F(x₀) = 1 — Mauricio (1995) Section 3,
+eq. (3.5) — which keeps the objective in (0,1) and improves conditioning.
 
 Public entry points
 -------------------
@@ -9,6 +23,19 @@ build_est_spec(model)        Pre-compute fixed data (DataMat, rnsop, …).
 cast_us_py(x, est_spec)      Map parameter vector x → (p, q, phi, theta, mu, w, ifault).
 estimate_py(model)           Full pure-Python ML estimator; returns the same dict
                              as _engine.estimate().
+eval_at_params(model)        Evaluate at model's current parameters (no optimisation).
+
+References
+----------
+Kohn & Ansley (1982) J. Statist. Comput. Simul. 15, 273-283.
+Mélard (1984) Applied Statistics 33, 104-114.          [AS197]
+Dennis & Schnabel (1983) Prentice-Hall, ch. 9.         [D&S83]
+Mauricio (1995) J. Am. Statist. Ass. 90, 282-291.      [JASA95]
+Mauricio (1997) Applied Statistics 46, 157-171.        [AS311]
+
+Copyright (C) 1995-2009 José Alberto Mauricio (original C estimation engine)
+Copyright (C) 2009-2026 A.B. Treadway, D.E. Guerrero (fue integration)
+License: GPL-2.0-or-later
 """
 
 import math
@@ -344,10 +371,18 @@ def _logelf_c(n, f1, f2):
 # ── Shared estimation core ────────────────────────────────────────────────────
 
 def _estimate_core(model, optimizer="raxopt"):
-    """Shared core for estimate_py and estimate_raxopt_py.
+    """Shared estimation core (Mauricio 1995 Section 3 procedure).
 
-    optimizer: "raxopt"  — Dennis-Schnabel BFGS (matches C, faster per-iter)
-               "lbfgsb"  — scipy L-BFGS-B (may find better global optima)
+    1. Build initial parameter vector x₀ from model specification.
+    2. Evaluate flikam_scalar at x₀ to get Π₁₀ and Π₂₀ [JASA95 eq.3.2-3.3].
+    3. Minimise the scaled objective F(x) = Π(x)/Π₀ ∈ (0,1) [JASA95 eq.3.5]
+       using raxopt (Dennis-Schnabel BFGS) or scipy L-BFGS-B.
+    4. Final evaluation with elf_scalar (exact, with residuals).
+    5. Standard errors from the BFGS Cholesky factor B:
+         cov[:,i] = 2·F_opt·cholsol(B, e_i) / n   [JASA95 Section 3]
+
+    optimizer: "raxopt"  Dennis-Schnabel BFGS [D&S83 A9.4.1] — matches C exactly
+               "lbfgsb"  scipy L-BFGS-B — may escape poor local optima
     """
     ts    = model.series
 
@@ -480,20 +515,26 @@ def _estimate_core(model, optimizer="raxopt"):
 # ── estimate_py ───────────────────────────────────────────────────────────────
 
 def estimate_py(model):
-    """Pure-Python ML estimator using the Dennis-Schnabel BFGS optimizer.
+    """Exact ML estimation using the Mauricio (1995) BFGS procedure.
 
-    Mirrors the C estimation chain exactly: same raxopt algorithm, same
-    normalised objective, same BFGS Cholesky factor for covariance.
+    Implements the full estimation chain of Mauricio (1995) [JASA95 Section 3]:
+    - Objective: Mélard (1984) fast likelihood in the BFGS inner loop
+    - Optimizer: Dennis & Schnabel (1983) factorised BFGS [D&S83 A9.4.1]
+    - Final eval: Mauricio (1997) exact likelihood + residuals [AS311]
+    - Covariance: from BFGS Cholesky factor at convergence
+
     Returns the same dict as _engine.estimate().
     """
     return _estimate_core(model, optimizer="raxopt")
 
 
 def estimate_lbfgsb_py(model):
-    """Pure-Python ML estimator using scipy L-BFGS-B.
+    """Exact ML estimation using scipy L-BFGS-B.
 
-    May find strictly better optima than raxopt on ill-conditioned problems
-    (e.g. near unit roots).  Standard errors via finite-difference Hessian.
+    Alternative to estimate_py: may find better optima on ill-conditioned
+    problems (near unit roots, flat likelihood surfaces).  Standard errors
+    computed via finite-difference Hessian rather than the BFGS factor.
+    Returns the same dict as _engine.estimate().
     """
     return _estimate_core(model, optimizer="lbfgsb")
 

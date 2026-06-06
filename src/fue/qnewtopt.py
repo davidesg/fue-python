@@ -1,31 +1,58 @@
 """
-Pure-Python port of qnewtopt.c: Factorized BFGS Quasi-Newton optimizer.
+qnewtopt.py — Factorised BFGS Quasi-Newton optimizer.
 
-Source: Dennis & Schnabel (1983), Numerical Methods for Unconstrained
-        Optimization and Nonlinear Equations, Algorithm A9.4.1.
-Original C: Copyright (C) José Alberto Mauricio, 1995.
-Python port: fue project.
+Python port of qnewtopt.c, the optimisation engine in fue.  The algorithm is
+the factorised BFGS method of Dennis & Schnabel (1983), Chapter 9, with the
+Cholesky factor B of the approximate Hessian maintained explicitly so that
+
+    B · B^T ≈ ∇²F(x_k)
+
+at each iterate x_k.  This avoids forming and inverting the full Hessian.
+
+The main entry point is raxopt (= "rax optimizer"), which matches the C
+function raxopt() in qnewtopt.c exactly:
+  - Initial Hessian: B = I  (implies a gradient descent first step)
+  - Line search: cubic backtracking [D&S83 Algorithm A6.3.1]
+  - BFGS update: rank-1 QR update of B [D&S83 Algorithm A9.4.2]
+  - Convergence: scaled gradient and step criteria [D&S83 §7.2.1]
+
+The Cholesky factor B returned on exit is used directly to compute the
+parameter covariance matrix via cholsol(B, e_i) without a separate Hessian
+inversion — this is the approach used by Mauricio (1995) for covariance
+estimation [JASA95 Section 3].
+
+References
+----------
+Dennis & Schnabel (1983) "Numerical Methods for Unconstrained Optimization
+    and Nonlinear Equations", Prentice-Hall.  [D&S83]
+    Algorithm A9.4.1: main loop (raxopt)
+    Algorithm A6.3.1: line search (_lnsrch)
+    Algorithm A9.4.2: BFGS Cholesky update (_bfgsfac)
+Mauricio (1995) J. Am. Statist. Ass. 90, 282-291.  Sections 3, use of BFGS
+    for scaled MLE objective [JASA95]
 
 Public API
 ----------
-raxopt(func, x0, ...) -> (x, f, B, termcode)
-    Minimize func starting from x0.  Returns optimal x, function value f,
-    lower-triangular Cholesky factor B of the approximate Hessian at x, and
-    a convergence code.
+raxopt(func, x0, ...) -> (x, f, B, termcode, niter, gnorm)
+    Minimise func starting from x0.
 
 cdgrad(func, x, eta) -> g
-    Central-difference gradient of func at x.
+    Central-difference gradient.
 
 _cholsol(L, b) -> x
-    Solve L @ L.T @ x = b  (L lower-triangular Cholesky factor).
+    Solve L @ L^T @ x = b  (L lower-triangular).
 
 Termination codes
 -----------------
-1  Gradient criterion satisfied (||scaled_grad||_inf <= gradtol)
-2  Step-size criterion satisfied (||scaled_step||_inf <= steptol)
+1  Gradient criterion satisfied  ‖scaled_grad‖_∞ ≤ gradtol  [D&S83 §7.2.1]
+2  Step-size criterion satisfied  ‖scaled_step‖_∞ ≤ steptol
 3  Line-search failed to find a lower point
 4  Iteration limit reached
-5  Five consecutive maximum-length steps taken
+5  Five consecutive maximum-length steps (likely near a flat region)
+
+Copyright (C) 1995-2002 José Alberto Mauricio (original C)
+Copyright (C) 2009-2026 A.B. Treadway, D.E. Guerrero (fue integration)
+License: GPL-2.0-or-later
 """
 
 import math
@@ -284,31 +311,35 @@ def _bfgsfac(xk, xkp1, gk, gkp1, eta, B):
 # ── Main optimizer ────────────────────────────────────────────────────────────
 
 def raxopt(func, x0, maxits=500, nrits=10, gradtol=None, steptol=None):
-    """Factorized BFGS Quasi-Newton optimizer (Dennis & Schnabel 1983).
+    """Factorised BFGS Quasi-Newton minimiser [D&S83 Algorithm A9.4.1].
 
-    Minimises func starting from x0.  The objective must satisfy
-    func(x0) == 1.0 (normalised) — this matches the fue convention where
-    objcfunc is normalised by initial sumsq and det-factor.
+    The objective should satisfy func(x0) ≈ 1 (scaled) so the initial
+    Hessian approximation B=I is appropriate — this matches the fue
+    convention where objcfunc is normalised by the initial sumsq and
+    det-factor [JASA95 eq.3.5].
 
     Parameters
     ----------
-    func    : callable  f(x) -> float, x modified in-place is fine.
-    x0      : array_like  initial parameters (copied internally).
-    maxits  : int   maximum iterations (default 500, matches fue_defaults).
-    nrits   : int   report interval (accepted but ignored in Python).
-    gradtol : float gradient stopping tolerance (default macheps^(1.1/3)).
-    steptol : float step-size stopping tolerance (default macheps^(2/3)).
+    func    : callable  f(x) → float
+    x0      : array_like  initial parameters (copied internally)
+    maxits  : int   maximum iterations (default 500)
+    nrits   : int   accepted but ignored (reserved for progress reporting)
+    gradtol : float ‖scaled gradient‖_∞ stopping tolerance
+              default = macheps^(1.1/3) ≈ 1.82e-6  [fue_defaults() grtol]
+    steptol : float ‖scaled step‖_∞ stopping tolerance
+              default = macheps^(2/3) ≈ 3.67e-11  [fue_defaults() sptol]
 
     Returns
     -------
-    x        : ndarray  optimal parameters.
-    f        : float    objective value at x.
-    B        : ndarray (n×n) lower-triangular Cholesky factor of the
-               approximate Hessian at x.  Use _cholsol(B, e_i) to get
-               columns of H^{-1} for covariance computation.
-    termcode : int  see module docstring for codes.
-    niter    : int  number of iterations performed.
-    gnorm    : float  gradient norm at termination.
+    x        : ndarray       optimal parameters
+    f        : float         objective value at x
+    B        : ndarray (n×n) lower-triangular Cholesky factor B of the
+               approximate Hessian H ≈ B B^T at x.
+               The parameter covariance matrix is C = 2·f·H⁻¹/n, computed
+               column-by-column as C[:,i] = 2·f·_cholsol(B, e_i)/n.
+    termcode : int           see module docstring
+    niter    : int           iterations performed
+    gnorm    : float         ‖gradient‖₂ at termination
     """
     if gradtol is None:
         gradtol = _GRTOL

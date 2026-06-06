@@ -1,17 +1,44 @@
 """
-elfvarma.py  —  Log-likelihood for scalar ARMA(p,q) models.
+elfvarma.py  —  Exact log-likelihood for scalar ARMA(p,q) models.
 
-Two algorithms, both specialized to the univariate (m=1) case:
+Two algorithms, both specialised to the univariate (m=1) case:
 
-  flikam_scalar   Mélard (1984) AS 197.  Used in the optimizer inner loop.
-  elf_scalar      Mauricio (1995) JASA 90, 282-291.  Used for final evaluation.
+  flikam_scalar   Mélard (1984) "Algorithm AS 197: A Fast Algorithm for the
+                  Exact Likelihood of Autoregressive-Moving Average Models",
+                  Applied Statistics 33, 104-114.
+                  Kalman-filter recursions with automatic switch to quick
+                  recursions when h_t² converges to 1.  Used inside the BFGS
+                  inner loop because it is fast for large n.
+
+  elf_scalar      Mauricio (1997) "Algorithm AS 311: The Exact Likelihood
+                  Function of a Vector Autoregressive Moving Average Model",
+                  Applied Statistics 46, 157-171.
+                  Direct computation of the Cholesky factor of Σ_Y (Ansley
+                  1979 innovations form, adapted to the multivariate case and
+                  specialised here to m=1).  See also:
+                  Mauricio (2002) "An Algorithm for the Exact Likelihood of a
+                  Stationary Vector Autoregressive-Moving Average Model",
+                  J. Time Series Analysis 23, 473-486.
+                  Used for the single final evaluation after convergence so
+                  that exact residuals and the exact log-likelihood are
+                  available.
 
 fue always uses m=1; the general vector-ARMA case is not needed here.
 
 All arrays are 0-indexed NumPy arrays.  phi[0]=φ₁, theta[0]=θ₁, etc.
 qq is always 1.0 (fue_api.c normalises by sigma2).
 
-Copyright (C) 1995 José Alberto Mauricio (original C); 2026 Python port.
+References
+----------
+Ansley (1979) Biometrika 66, 59-65.
+Mélard (1984) Applied Statistics 33, 104-114.          [AS197]
+Mauricio (1995) J. Am. Statist. Ass. 90, 282-291.      [JASA95]
+Mauricio (1997) Applied Statistics 46, 157-171.        [AS311]
+Mauricio (2002) J. Time Series Analysis 23, 473-486.   [JTSA02]
+
+Copyright (C) 1995-2002 José Alberto Mauricio (original Fortran/C algorithms)
+Copyright (C) 2009-2026 A.B. Treadway, D.E. Guerrero (fue integration)
+License: GPL-2.0-or-later
 """
 
 import numpy as np
@@ -44,16 +71,21 @@ def chekma_scalar(theta):
 # ── cgamma: autocovariances and cross-covariances for scalar ARMA(p,q) ─────────
 
 def _cgamma_scalar(p, q, phi, theta):
-    """Compute initial covariances needed by elf_scalar.
+    """Theoretical autocovariance and cross-covariance matrices for ARMA(p,q).
+
+    Implements subroutine CGAMMA from Mauricio (1997) AS 311, which is a
+    corrected version (Mauricio 1995b) of the Kohn & Ansley (1982) algorithm.
+
+    Solves the Yule-Walker system [AS311 eqs. 6a-6b] for:
+
+        Γ(k) = σ⁻² E[w̃_t w̃_{t-k}]   k = 0, …, p-1
+        Λ_{wa}(k) = σ⁻² E[w̃_t a_{t-k}]   k = 0, −1, …, −(q-1)
 
     Returns
     -------
-    gamma_arr : ndarray, shape (p,)
-        gamma_arr[k] = E[w_t w_{t-k}] for k = 0 … p-1.
-    gamwa : dict  {int → float}
-        gamwa[k] = E[w_t a_{t-k}] for k = 0, -1, …, -(q-1).
-    ifault : int
-        1 if the Yule-Walker system is singular (AR near unit-root).
+    gamma_arr : ndarray (p,)   Γ(k) for k = 0 … p-1
+    gamwa     : dict {int→float}  Λ_{wa}(k) for k = 0, −1, …, −(q-1)
+    ifault    : int   1 if Yule-Walker system is singular (AR near unit circle)
     """
     # ── Cross-covariances gamwa[0 .. -(q-1)] ──────────────────────────────────
     gamwa = {}
@@ -130,26 +162,37 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
                xitol=1e-3, do_chkma=True, compute_residuals=False):
     """Exact log-likelihood of a scalar ARMA(p,q) model.
 
+    Implements subroutine ELF2 of Mauricio (1997) AS 311 (steps a-k), which
+    computes the exact innovations form of the log-likelihood:
+
+        l(β,σ²|w) = -½[n·log(2πσ²) + log|I + M'H'HM| + S/σ²]   [AS311 eq.2]
+
+    where S = η'η - h̃'(I + M'H'HM)⁻¹h̃  [AS311 eq.3].
+
+    The computation is carried out without any explicit matrix inversion,
+    using Cholesky factorisations and forward/backward substitutions only.
+
     Parameters
     ----------
     n         : number of observations
     p, q      : AR and MA orders
     phi       : ndarray (p,)  AR coefficients φ₁…φ_p  (0-indexed)
     theta     : ndarray (q,)  MA coefficients θ₁…θ_q  (0-indexed)
-    w         : ndarray (n,)  mean-subtracted, differenced series
-    sigma2    : concentrated noise variance (1.0 during optimisation)
-    xitol     : truncation tolerance for Green's function (default 1e-3)
-    do_chkma  : check MA invertibility
-    compute_residuals : whether to return exact residuals
+    w         : ndarray (n,)  mean-subtracted differenced series
+    sigma2    : noise variance (1.0 during optimisation; σ̂² = f1/n at optimum)
+    xitol     : truncation tolerance for the Ξ_k sequence (default 1e-3)
+    do_chkma  : check MA invertibility before evaluating
+    compute_residuals : compute exact residuals â via subroutine CRES
 
     Returns
     -------
-    logelf : float   exact log-likelihood
-    f1     : float   quadratic form  Σa²  (before σ² adjustment)
-    f2     : float   determinant factor (see Mauricio 1995 eq. [11])
-    a      : ndarray (n,)  residuals (zeros if compute_residuals=False)
-    ifault : int    0=OK, 1=Q not PD, 2=AR unit root, 3=non-stationary,
-                    4=MA non-invertible, 5=numerical
+    logelf : float   exact log-likelihood value
+    f1     : float   quadratic form S = η'η - λ'λ  (σ²=1, used to get σ̂²=f1/n)
+    f2     : float   determinant factor exp(log|I+M'H'HM|/n)
+    a      : ndarray (n,)  exact residuals (zeros unless compute_residuals=True)
+    ifault : int    0=OK, 2=AR near unit root (CGAMMA singular),
+                    3=V₁ΩV₁ᵀ not PD (non-stationary), 4=MA non-invertible,
+                    5=I+M'H'HM not PD
     """
     phi   = np.asarray(phi,   dtype=float)
     theta = np.asarray(theta, dtype=float)
@@ -158,9 +201,11 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
     g     = max(p, q)
     logelf = f1 = f2 = 0.0
 
-    # [0]: qq = 1.0  →  q1 = 1.0, q1inv = 1.0, detq = 1.0
+    # (a) Q = 1 → Cholesky q1 = 1, q1inv = 1, |Q| = 1  (trivial for m=1)
 
-    # [2]: autocovariances (only needed when p > 0)
+    # (b) Autocovariances Γ(k) for k=0..p-1 and Λ_{wa}(k) for k=0,−1..−(q-1)
+    #     via subroutine CGAMMA (Kohn & Ansley 1982, improved in Mauricio 1995b)
+    #     [AS311 eqs. 6a-6b, 9316 eq. 2.17]
     gamma_arr = np.array([])
     gamwa     = {}
     if p > 0:
@@ -168,8 +213,8 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
         if ifault:
             return logelf, f1, f2, a, 2
 
-    # [3.1]: mtmp1 = Ω v₁ᵀ  (shape (p+q) × g)
-    # For m=1: mtmp1[i-1, j-1] accumulates scalar contributions.
+    # (c) V₁ΩV₁ᵀ  (g×g, g = max(p,q)) — [AS311 eq. (c), JTSA02 eq.15-17]
+    # mtmp1[i-1, j-1] = (ΩV₁ᵀ)_{i,j}  used as intermediate for V₁ΩV₁ᵀ
     mtmp1 = np.zeros((p + q, g)) if (p + q) > 0 and g > 0 else np.zeros((1, 1))
 
     for i in range(1, p + 1):
@@ -205,7 +250,7 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
                     acc -= theta[theta_idx]         # qq=1 absorbed
             mtmp1[i - 1, j - 1] = acc
 
-    # [3.2]: mtmp0 = v₁ Ω v₁ᵀ  (g × g, upper triangle then symmetrised)
+    # (c) continued: mtmp0 = V₁ΩV₁ᵀ  (g×g, upper triangle then symmetrised)
     mtmp0 = np.zeros((g, g))
     for i in range(1, g + 1):
         for j in range(i, g + 1):
@@ -224,9 +269,8 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
         for j in range(i + 1, g):
             mtmp0[j, i] = mtmp0[i, j]
 
-    # [3.3]: Cholesky of mtmp0 → M (lower triangular).
-    # C choldcp special-cases a numerically-zero matrix: sets M=0, ifault=0.
-    # This happens e.g. for pure MA(q) at theta≈0 (no initial state uncertainty).
+    # (c) M = chol(V₁ΩV₁ᵀ)  lower-triangular — [AS311 eq. (c)]
+    # A numerically-zero mtmp0 (e.g. pure MA at θ≈0) sets M=0 without error.
     _sqrteps = 1.49e-8   # sqrt(macheps)
     _maxoffl  = max(abs(mtmp0[i, i]) for i in range(g)) if g > 0 else 0.0
     _zero_M   = (_maxoffl <= _sqrteps)
@@ -239,12 +283,14 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
         except np.linalg.LinAlgError:
             return logelf, f1, f2, a, 3
 
-    # [4.1]: check MA invertibility
+    # MA invertibility — reject before spending time on the sequence
     if q > 0 and do_chkma:
         if chekma_scalar(theta):
             return logelf, f1, f2, a, 4
 
-    # [4.2]: Green's function rxi[0..nlim]  (scalar, m=1: rxi[k] is a scalar)
+    # (d) Green's function sequence Ξ_k (scalar: rxi[k]) — [AS311 eq. (d)]
+    # Ξ_0 = I; Ξ_k = Σ_{j=1}^{min(q,k)} Θ_j Ξ_{k-j}
+    # rxi[k] = 0 for k > nlim (convergence of the MA operator)
     rxi = np.zeros(n)
     rxi[0] = 1.0
     r = 0
@@ -267,7 +313,9 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
     nlim = r
     # Premultiply by q1inv = 1.0: rxi unchanged (m=1 trivial)
 
-    # [5.1]: conditional residuals a[t] = (w[t]-mu) − Σφ_j(w[t-j]-mu) + Σθ_j a[t-j]
+    # (e) Conditional innovations η_i — [AS311 eq. (e), JTSA02 eq.22]
+    # â_{0i} = w̃_i - Σ_{j=1}^p Φ_j w̃_{i-j} + Σ_{j=1}^q Θ_j â_{0,i-j}
+    # For m=1 with Q=1: η_i = R·â_{0i} = â_{0i}
     for t in range(n):
         val = w[t] - mu
         for j in range(1, p + 1):
@@ -277,9 +325,8 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
             if t - j >= 0:
                 val += theta[j - 1] * a[t - j]
         a[t] = val
-    # [5.2]: premultiply by q1inv = 1.0: a unchanged
 
-    # [6.1]: h = Σ_{j=1..g} Σ_{i=0..nlim} rxi[i] * a[i+j]
+    # (f) h̃_j = Σ_{i=0}^{n-j} Ξ_i^T η_{i+j}  then M^T h̃ — [AS311 eq. (f), JTSA02 eq.19]
     vechh = np.zeros(g)
     for j in range(1, g + 1):
         acc = 0.0
@@ -298,37 +345,26 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
     # Save M for residuals if needed
     M_save = M.copy() if compute_residuals else None
 
-    # [7]: H'H  (g × g symmetric)
+    # [g] H'H  (g × g symmetric) — AS311 step (g), m=1 case.
+    # First column: (H'H)_{i,1} = Σ_{k=0}^{n-i} Ξ_k Ξ_{k+i-1}   [AS311 eq.20]
+    # Remaining lower triangle by recursion:
+    #   (H'H)_{i,j} = (H'H)_{i-1,j-1} - Ξ_{n-i+1} Ξ_{n-j+1}     [AS311 eq.21]
     HtH = np.zeros((g, g))
     for i in range(1, g + 1):
         for k in range(0, n - i + 1):
             if k + i - 1 <= nlim:
-                jl = 1 if i == 1 else g      # upper block width
-                for jj in range(1, (1 if i == 1 else g) + 1):
-                    HtH[i - 1, jj - 1] += rxi[k] * rxi[k + i - 1]
-    # Actually redo [7] faithfully:
-    HtH = np.zeros((g, g))
-    for i in range(1, g + 1):
-        for k in range(0, n - i + 1):
-            if k + i - 1 <= nlim:
-                # first block (i=1): all j from 1..1 (m=1)
-                jl = 1
-                for jj in range(1, 2):
-                    HtH[i - 1, jj - 1] += rxi[k] * rxi[k + i - 1]
+                HtH[i - 1, 0] += rxi[k] * rxi[k + i - 1]
     for i in range(2, g + 1):
         for j in range(2, i + 1):
-            # Cumulative update: HtH[i-1,j-1] = HtH[i-2,j-2] − rxi[n-i]*rxi[n-j]
             s = 0.0
             if (n - i <= nlim) and (n - j <= nlim):
                 s = rxi[n - i] * rxi[n - j]
             HtH[i - 1, j - 1] = HtH[i - 2, j - 2] - s
-    # Symmetrise
     for i in range(g):
         for j in range(i + 1, g):
             HtH[i, j] = HtH[j, i]
 
-    # [8.1-8.3]: L = chol(I + Mᵀ H'H M)
-    # If M=0 then I + Mᵀ H'H M = I, so L=I and detom=1.
+    # (h) L = chol(I + M^T H'H M), |I + M^T H'H M| = |L|² — [AS311 eq. (h), JTSA02 eq.16]
     if _zero_M:
         L     = np.eye(g)
         detom = 1.0
@@ -341,23 +377,24 @@ def elf_scalar(n, p, q, phi, theta, w, sigma2=1.0, mu=0.0,
             return logelf, f1, f2, a, 5
         detom = float(np.prod(np.diag(L)) ** 2)
 
-    # [9]: forward substitution L λ = vechh  (if M=0, vechh=0 → stays 0)
+    # (i) Forward substitution L λ = M^T h̃ — [AS311 eq. (i)]
     if not _zero_M:
         vechh = solve_triangular(L, vechh, lower=True)
 
-    # [10]: quadratic form f1 = Σa² − Σλ²
+    # (j) Quadratic form S = η'η − λ'λ — [AS311 eq. (j), JTSA02 eq.15, 9316 eq.2.15]
     f1 = float(np.dot(a, a) - np.dot(vechh, vechh))
 
-    # [11]: f2 = detq * exp(log(detom)/n)  with detq=1.0
+    # Determinant factor f2 = exp(log|I+M'H'HM| / n)  [JTSA02 eq.14, 9316 eq.2.16]
     log_detom = np.log(detom) if detom > 0 else 0.0
     f2 = float(np.exp(log_detom / n))
 
-    # [12]: log-likelihood
+    # Log-likelihood  l = -½[n·log(2πσ²) + log|I+M'H'HM| + S/σ²]  [AS311 eq.2]
     logelf = float(-0.5 * (n * (_LOG2PI + np.log(sigma2))
                    + log_detom + f1 / sigma2))
 
-    # [13]: exact residuals via cres
-    # When g=0 (p=q=0) there is no initial-state correction; a is already exact.
+    # (k) Exact residuals â via subroutine CRES — [AS311 eq. (k), JTSA02 eq.23]
+    # â = â₀ - D_{Θ,n}⁻¹ [ M(I+M'H'HM)⁻¹M'h̃ ; 0 ]
+    # When g=0 (pure white noise) the initial-state correction is zero.
     if compute_residuals and g > 0:
         a = _cres_scalar(n, g, nlim, rxi, M_save, L, vechh, a)
 
@@ -495,28 +532,40 @@ def _twacf_scalar(p, q, phi, theta):
 
 def flikam_scalar(n, p, q, phi, theta, mu, w, xitol=1e-3, do_chkma=True,
                   compute_residuals=False):
-    """Mélard (1984) scalar ARMA log-likelihood.
+    """Fast approximate log-likelihood for scalar ARMA(p,q) models.
 
-    Direct Python port of flikam() in usmelard.c (m=1 specialisation).
+    Implements subroutine FLIKAM of Mélard (1984) "Algorithm AS 197",
+    Applied Statistics 33, 104-114, specialised to m=1.
+
+    The algorithm uses Kalman-filter recursions [AS197 eqs. 5-9] for the
+    first r+1 observations (where r = max(p,q)), then switches to the quick
+    recursions [AS197 eq. 12] once h_t² converges to 1 within tolerance xitol.
+
+    The log-likelihood is the innovations form:
+        l = -½n·log(2π) - ½·log(Πh_t²)^{1/n} - ½·Σ(â_t/h_t)²   [AS197 eq.2-3]
+
+    Used inside the BFGS inner loop.  For the final evaluation after
+    convergence, elf_scalar provides exact residuals and the exact likelihood.
 
     Parameters
     ----------
-    n, p, q   : obs count, AR/MA orders
-    phi       : ndarray (p,)
-    theta     : ndarray (q,)
-    mu        : float  mean (0 after subtract in cast_us)
-    w         : ndarray (n,)  mean-subtracted differenced series
-    xitol     : switching tolerance (default 1e-3)
-    do_chkma  : check MA invertibility
-    compute_residuals : return innovations in `at`
+    n, p, q   : observation count, AR order, MA order
+    phi       : ndarray (p,)  AR coefficients (0-indexed)
+    theta     : ndarray (q,)  MA coefficients (0-indexed)
+    mu        : float   process mean
+    w         : ndarray (n,)  (mean-subtracted differenced) series
+    xitol     : switching tolerance — quick recursions start when |h_t²−1| < xitol
+    do_chkma  : check MA invertibility (via companion matrix eigenvalues)
+    compute_residuals : fill `at` with innovations during quick-recursion phase
 
     Returns
     -------
-    sumsq  : float  Σ(innovation²/variance)
-    fact   : float  determinant factor
-    loglik : float  log-likelihood (sigma2=1)
-    at     : ndarray (n,)  innovations (residuals)
-    ifault : int  0=OK, 1=singular, 2=unit root, 3=non-stationary, 4=non-invertible
+    sumsq  : float  Σ(â_t/h_t)²  [AS197 eq.3, numerator of MLE σ̂²]
+    fact   : float  (Π h_t²)^{1/n}  [AS197 determinant factor]
+    loglik : float  log-likelihood value (σ²=1)
+    at     : ndarray (n,)  scaled innovations â_t/h_t (zeros unless compute_residuals)
+    ifault : int   0=OK, 2=AR unit root, 3=h_t²≤0 (non-stationary),
+                   4=MA non-invertible
     """
     phi   = np.asarray(phi,   dtype=float)
     theta = np.asarray(theta, dtype=float)

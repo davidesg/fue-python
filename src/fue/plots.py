@@ -182,9 +182,6 @@ def plot_acf_pacf(residuals, npar=0, freq=1, lags=None, title="",
     _draw_acf_panel(ax_pacf, lag_x, pc, band, cmax, freq, lags, 'pacf')
     ax_pacf.set_xlabel('')
 
-    if title:
-        ax_acf.set_title(f"acf — {title}", loc='left', fontsize=11, pad=2)
-
     if standalone:
         plt.show()
     return fig
@@ -272,7 +269,8 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
     r     = model._result.residuals
     npar  = model._result.npar
     freq  = model.series.freq
-    title = f"A.{model.series.name}"
+    name  = model._inp_stem or model.series.name
+    title = f"A.{name}"
 
     if lags is None:
         lags = _default_lags(len(r), freq)
@@ -296,9 +294,10 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
     ax_acf  = fig1.add_subplot(gs[0, 1])
     ax_pacf = fig1.add_subplot(gs[1, 1])
 
-    plot_residuals_ts(r, model=model, title=title, ax=ax_ser)
+    fig1.suptitle(title, fontweight='bold', fontsize=15)
+    plot_residuals_ts(r, model=model, title="", ax=ax_ser)
     plot_acf_pacf(r, npar=npar, freq=freq, lags=lags,
-                  title=title, ax_acf=ax_acf, ax_pacf=ax_pacf)
+                  ax_acf=ax_acf, ax_pacf=ax_pacf)
 
     # Figure 2: histogram
     fig2, ax_h = plt.subplots(figsize=(5, 5))

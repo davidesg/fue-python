@@ -35,7 +35,10 @@ def load(path):
     path = str(path)
     if not path.endswith(".inp") and not path.endswith(".pre"):
         path += ".inp"
-    return _InpParser(path).parse()
+    ts, model = _InpParser(path).parse()
+    from pathlib import Path as _Path
+    model._inp_stem = _Path(path).stem
+    return ts, model
 
 
 def load_fuf(path):

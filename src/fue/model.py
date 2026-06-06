@@ -123,6 +123,7 @@ class Model:
         self.eml           = bool(eml)
         self.chkma         = bool(chkma)
         self._result       = None
+        self._inp_stem     = ""
 
     # ── Model building helpers ────────────────────────────────────────────
 

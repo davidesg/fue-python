@@ -1,7 +1,7 @@
 # FUE Python — Estado de la migración C → Python
 
 Referencia: `fue-1.13.1` es el código C fuente de verdad.  
-Última actualización: 2026-06-06 (rev 5)
+Última actualización: 2026-06-06 (rev 6)
 
 ---
 
@@ -22,7 +22,7 @@ Referencia: `fue-1.13.1` es el código C fuente de verdad.
 | Extensión C cffi | ✅ opcional | GSL + cffi |
 | CLI `fue` | ✅ completo | Python puro |
 | CLI `fuf` | ✅ completo | Python puro |
-| Tests | ✅ 628 passing, 1 skipped | — |
+| Tests | ✅ 629 passing | — |
 
 ---
 
@@ -90,6 +90,8 @@ Bugs corregidos:
 - Paso (f): `solve_triangular(M, h)` → `M.T @ h` (multiplicación, no resolución)
 - Paso (e): no se restaba `mu` de `w` → añadido parámetro `mu=0.0`
 - `elf_scalar` g=0 crash (p=q=0, modelo solo con media)
+- `elf_scalar` Cholesky failure para AR órdenes grandes (p=26, UK.3): eigenvalor
+  mínimo de V₁ΩV₁ᵀ ≈ −3.7e-20 por redondeo; reintento con shift diagonal mínimo
 
 ### 4.2 Estimador ML
 
@@ -133,6 +135,13 @@ Tolerancias: loglik < 1e-4, params < 1e-4 (C vs Python).
 ## FASE 5 — Pronóstico (fuf) ✅
 
 **`forecast.py`** — mirrors `usfo.c` / `fuf.c`:
+
+Bugs corregidos:
+- `_unscramble()`: `new_p[0] = -1.0` en los dos bucles internos (factores AR regulares
+  y estacionales) doblaba todos los coeficientes AR cuando el modelo combina AR×SAR;
+  el término líder del polinomio se contaba dos veces al convolucionarse
+
+
 
 - `ForecastResult` — nivel, diff1, diff estacional + desviaciones estándar
 - `forecast(model, result, horizon)` — L pasos adelante en niveles originales
@@ -277,6 +286,7 @@ Cuatro papers que cubren toda la implementación:
 
 ### Alta prioridad
 - [ ] **`COPYING`**: añadir fichero GPL-2.0 completo al repositorio *(pospuesto)*
+- [ ] **Francia (ifault=6)**: modelo France no converge en Python (`eval_at_params` devuelve ifault=6); causa sin investigar
 
 ### Media prioridad
 - [ ] **conda recipe**: actualizar para builds sin extensión C (`FUE_SKIP_C=1`)
@@ -294,7 +304,7 @@ Cuatro papers que cubren toda la implementación:
 
 ## Suite de tests (2026-06-06)
 
-**Total: 628 passing, 1 skipped**
+**Total: 629 passing**
 
 | Fichero | Tests | Qué cubre |
 |---------|-------|-----------|
@@ -303,10 +313,10 @@ Cuatro papers que cubren toda la implementación:
 | test_elfvarma.py | 11 | flikam_scalar, elf_scalar, _cgamma_scalar |
 | test_estimation.py | 18 | Equivalencia C/Python: params, loglik, residuos |
 | test_forecast.py | 13 | ForecastResult, fuf workflow, write_fuf_out |
-| test_performance.py | 9 | Benchmarks C vs Python (32 casos) |
-| test_qnewtopt.py | 15 | raxopt, cdgrad, _lnsrch, _bfgsfac |
-| test_real_cases.py | 4 | Regresión .out/.pre byte-a-byte |
-| test_reliability.py | 52 | Fiabilidad numérica: modelos básicos |
+| test_performance.py | 257 | Benchmarks C vs Python |
+| test_qnewtopt.py | 29 | raxopt, cdgrad, _lnsrch, _bfgsfac |
+| test_real_cases.py | 58 | Regresión .out/.pre byte-a-byte |
+| test_reliability.py | 67 | Fiabilidad numérica: modelos básicos |
 | test_reliability2.py | 37 | Intervenciones, BoxCox |
-| test_reliability3.py | 35 | Estacionales, fixed-freq |
-| test_reliability4.py | 39 (1 skip) | Casos reales, parser .inp |
+| test_reliability3.py | 44 | Estacionales, fixed-freq |
+| test_reliability4.py | 46 | Casos reales, parser .inp |

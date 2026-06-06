@@ -311,6 +311,144 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
     return fig1, fig2
 
 
+def plot_forecast(model, fr, save_prefix=None):
+    """Forecast graphic matching C fuf forecast_graphic output.
+
+    Two panels: top = seasonal-diff history + forecast + confidence bands;
+    bottom = ERR residuals as impulses with ±2σ bands.
+
+    Parameters
+    ----------
+    model : Model  (must have _result set — call forecast_fuf() first)
+    fr : ForecastResult
+    save_prefix : str, optional
+        If given, saves <save_prefix>_forecast.png
+    """
+    import math
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as mticker
+    from .forecast import _boxcox
+
+    if model._result is None:
+        raise RuntimeError("plot_forecast: model._result not set — call forecast_fuf() first")
+
+    ts      = model.series
+    nobs    = ts.nobs
+    freq    = ts.freq if ts.freq > 0 else 1
+    L       = fr.horizon
+    refactor = model.refactor
+    boxlam  = model.boxlam
+    raw     = ts.data
+
+    residuals = np.asarray(model._result.residuals)
+    err_L     = min(L, len(residuals))
+    err_vals  = 100.0 * residuals[-err_L:] / refactor
+
+    sigma_plot = math.sqrt(fr.sigma2)
+
+    # Historical annual variation in seasonal-diff units
+    hist_annual = np.array([
+        100.0 * (_boxcox(raw[nobs - L + i],        boxlam, refactor)
+                 - _boxcox(raw[nobs - L + i - freq], boxlam, refactor)) / refactor
+        for i in range(L)
+    ])
+
+    x_all  = np.arange(2 * L)
+    x_hist = np.arange(L)
+    x_fore = np.arange(L, 2 * L)
+    x_err  = np.arange(err_L)
+    y_all  = np.concatenate([hist_annual, fr.seasonal_diff])
+
+    # X-axis tick labels: year labels at freq-step intervals (mirrors C xtics logic)
+    begyear, begtime = ts.start
+
+    def _obs_yr_per(obs_1indexed):
+        total = begyear * freq + (begtime - 1) + (obs_1indexed - 1)
+        return int(total // freq), int(total % freq + 1)
+
+    prevby = previndex = None
+    for i in range(freq):
+        yr, per = _obs_yr_per(nobs - L + 1 + i)
+        if per == 1:
+            prevby, previndex = yr, i
+            break
+    if prevby is None:
+        prevby, _ = _obs_yr_per(nobs - L + 1)
+        previndex = 0
+
+    yr_step = 1 if freq == 12 else (2 if freq == 4 else 10)
+    x_step  = freq * yr_step if freq > 1 else 10
+
+    xtick_pos, xtick_lbl = [], []
+    cur_yr, cur_x = prevby, previndex
+    while cur_x < 2 * L:
+        xtick_pos.append(cur_x)
+        xtick_lbl.append(str(cur_yr))
+        cur_yr += yr_step
+        cur_x  += x_step
+
+    err_xtick_pos = [p for p in xtick_pos if p < L]
+    err_xtick_lbl = xtick_lbl[:len(err_xtick_pos)]
+
+    # prevcmax: start at 4σ, snap up if any ERR value exceeds it
+    prevcmax = 4.0 * sigma_plot
+    for v in np.abs(err_vals):
+        if v >= prevcmax:
+            prevcmax = float(v)
+    if   4.0 * sigma_plot < prevcmax <= 6.0 * sigma_plot:  prevcmax = 6.0 * sigma_plot
+    elif 6.0 * sigma_plot < prevcmax <= 7.0 * sigma_plot:  prevcmax = 7.0 * sigma_plot
+    elif prevcmax > 7.0 * sigma_plot:                       prevcmax = 10.0 * sigma_plot
+
+    # ---- Figure ----
+    name  = model._inp_stem or ts.name
+    fig, (ax_top, ax_bot) = plt.subplots(
+        2, 1, figsize=(9, 9),
+        gridspec_kw={'height_ratios': [1, 1]},
+    )
+    fig.suptitle(f"A.{name}", fontweight='bold', fontsize=15, y=0.98)
+    fig.subplots_adjust(hspace=0.40)
+
+    # -- Top panel: seasonal-diff series --
+    _tj_spines(ax_top, ('left', 'bottom'))
+    ax_top.plot(x_all,  y_all,      'k-',  lw=1.8, zorder=3)
+    ax_top.plot(x_hist, hist_annual, 'ko', ms=4,    zorder=4)
+    ax_top.plot(x_fore, fr.seasonal_diff + fr.seasonal_diff_std, 'k--', lw=1.4, zorder=2)
+    ax_top.plot(x_fore, fr.seasonal_diff - fr.seasonal_diff_std, 'k--', lw=1.4, zorder=2)
+    ax_top.axvline(L - 0.5, color='0.5', lw=1.0, zorder=1)
+    ax_top.axhline(0,       color='k',   lw=0.8, zorder=1)
+    if xtick_pos:
+        ax_top.set_xticks(xtick_pos)
+        ax_top.set_xticklabels(xtick_lbl, fontsize=10)
+    ax_top.set_xlim(-0.5, 2 * L - 0.5)
+    ax_top.tick_params(axis='both', direction='out', labelsize=10)
+    ax_top.set_title('LRC anual (%)', loc='left', fontsize=11)
+
+    # -- Bottom panel: ERR --
+    _tj_spines(ax_bot, ('left', 'bottom'))
+    ax_bot.vlines(x_err, 0, err_vals, colors='k', lw=1.8, zorder=3)
+    ax_bot.axhline( 2 * sigma_plot, color='k', lw=1.0, ls='--', zorder=2)
+    ax_bot.axhline(-2 * sigma_plot, color='k', lw=1.0, ls='--', zorder=2)
+    ax_bot.axhline(0,               color='k', lw=1.2, zorder=2)
+    margin = 0.1 * sigma_plot
+    ax_bot.set_ylim(-(prevcmax + margin), prevcmax + margin)
+    yt = np.arange(0, prevcmax + 0.05 * sigma_plot, 2 * sigma_plot)
+    ax_bot.set_yticks(np.concatenate([-yt[1:][::-1], yt]))
+    ax_bot.yaxis.set_major_formatter(mticker.FormatStrFormatter('%.1f'))
+    ax_bot.tick_params(axis='both', direction='out', labelsize=10)
+    if err_xtick_pos:
+        ax_bot.set_xticks(err_xtick_pos)
+        ax_bot.set_xticklabels(err_xtick_lbl, fontsize=10)
+    ax_bot.set_xlim(-0.5, L - 0.5)
+    ax_bot.set_title('ERR', loc='left', fontsize=11)
+
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
+
+    if save_prefix:
+        fig.savefig(f"{save_prefix}_forecast.png", dpi=150, bbox_inches='tight')
+
+    return fig
+
+
 def plot_residual_diagnostics(residuals, lags=24, title=""):
     """Legacy wrapper — prefer plot_model_diagnostics(model)."""
     import matplotlib.pyplot as plt

@@ -96,3 +96,12 @@ def main(argv=None):
     out_name = os.path.basename(out_path)
     model.write_fuf_out(fr, path=out_path, inp_name=inp_name, out_name=out_name)
     print(f"Written: {out_path}")
+
+    try:
+        from .plots import plot_forecast
+    except ImportError:
+        from fue.plots import plot_forecast
+    fig = plot_forecast(model, fr, save_prefix=base)
+    import matplotlib.pyplot as plt
+    plt.close(fig)
+    print(f"Written: {base}_forecast.png")

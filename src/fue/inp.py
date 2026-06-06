@@ -69,6 +69,11 @@ def load_fuf(path):
             f"{path}: not a fuf file — missing 'Forecast horizon' section. "
             "Use fue.load() for regular fue .inp files."
         )
+    from pathlib import Path as _Path
+    stem = _Path(path).stem
+    if stem.startswith("forecast_"):
+        stem = stem[len("forecast_"):]
+    model._inp_stem = stem
     return ts, model
 
 

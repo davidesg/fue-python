@@ -208,6 +208,7 @@ class Model:
         # Build a synthetic FitResult using the provided sigma2
         raw_with_sigma = {**raw, "sigma2": sigma2}
         result = FitResult(raw_with_sigma)
+        self._result = result
 
         from .forecast import forecast as _forecast
         return _forecast(self, result, int(horizon))

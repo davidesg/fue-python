@@ -24,22 +24,38 @@ _BANNER = f"FUF {_VERSION}: Copyright (C) 2026 A.B. Treadway & D.E. Guerrero"
 
 
 def _parse_args(argv):
-    for a in argv:
+    title  = None
+    source = None
+    sps    = None
+    positional = []
+
+    i = 0
+    while i < len(argv):
+        a = argv[i]
         if a in ("-h", "--help"):
             print(_BANNER)
             print()
-            print("Usage: fuf forecast_input")
+            print("Usage: fuf forecast_input [--title TEXT] [--source TEXT] [--sps TEXT]")
             print()
             print("  forecast_input   fuf input file (omit .inp extension)")
+            print("  --title TEXT     descriptive title for HTML report")
+            print("  --source TEXT    data source label (e.g. INE, Eurostat)")
+            print("  --sps TEXT       SPS name for report header")
             sys.exit(0)
         if a == "--version":
             print(_BANNER)
             sys.exit(0)
+        if a in ("--title", "--source", "--sps") and i + 1 < len(argv):
+            val = argv[i + 1]
+            if a == "--title":  title  = val
+            if a == "--source": source = val
+            if a == "--sps":    sps    = val
+            i += 2
+        else:
+            positional.append(a)
+            i += 1
 
-    if not argv:
-        return None
-
-    return argv[0]
+    return positional[0] if positional else None, title, source, sps
 
 
 def main(argv=None):
@@ -53,7 +69,7 @@ def main(argv=None):
         print("       fuf --help  for details")
         sys.exit(1)
 
-    input_arg = _parse_args(argv)
+    input_arg, report_title, report_source, report_sps = _parse_args(argv)
 
     base = input_arg
     if base.endswith(".inp"):
@@ -110,5 +126,10 @@ def main(argv=None):
         from .report_forecast import write_forecast_report
     except ImportError:
         from fue.report_forecast import write_forecast_report
-    html_path = write_forecast_report(model, fr, path=base + ".html")
+    html_path = write_forecast_report(
+        model, fr, path=base + ".html",
+        title=report_title,
+        source=report_source,
+        sps_name=report_sps,
+    )
     print(f"Written: {html_path}")

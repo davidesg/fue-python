@@ -22,6 +22,16 @@ src/fue/_fue_engine*.so
 examples/*.out
 examples/*.png
 
+# Generated outputs in tests/ (fuf runs, HTML reports, PNG charts, LaTeX artefacts)
+# NB: reference *.out files (RIPC.1.out etc.) ARE tracked — only ignore generated ones
+tests/**/forecast_*
+tests/**/fuf_*
+tests/**/*_forecast.png
+tests/**/*.html
+tests/**/*.aux
+tests/**/*.log
+tests/**/*.pdf
+
 # Artefactos de fue ejecutado con flags como nombre de archivo
 /--*.out
 /--*.pre

@@ -1,7 +1,7 @@
 # FUE Python — Estado de la migración C → Python
 
 Referencia: `fue-1.13.1` es el código C fuente de verdad.  
-Última actualización: 2026-06-06 (rev 3)
+Última actualización: 2026-06-06 (rev 4)
 
 ---
 
@@ -18,6 +18,7 @@ Referencia: `fue-1.13.1` es el código C fuente de verdad.
 | Generación de `.fuf` | ✅ completo | Python puro |
 | Gráficos diagnósticos | ✅ completo | Matplotlib |
 | Gráfico de pronóstico | ✅ completo | Matplotlib |
+| Informe HTML de pronóstico | ✅ completo | Jinja2 + SVG |
 | Extensión C cffi | ✅ opcional | GSL + cffi |
 | CLI `fue` | ✅ completo | Python puro |
 | CLI `fuf` | ✅ completo | Python puro |
@@ -205,6 +206,27 @@ Función auxiliar `_snap_series_max` / `_snap_cmax` replica la elección de esca
 - Panel inferior: ERR residuos como impulsos con ±2σ; rango y snap igual que C (`prevcmax`)
 - X-ticks: etiquetas de año a intervalos `freq` (12→anual, 4→bienal)
 - Generado automáticamente por `fuf_cli.py` como `<base>_forecast.png`
+
+---
+
+## FASE 9 — Informe HTML de pronóstico ✅
+
+**`report_forecast.py`** — `write_forecast_report(model, fr, path, narrative=None, pdf=False)`:
+
+Genera un fichero `.html` auto-contenido con CSS y SVG embebidos. Diseño moderno (system fonts, tabla responsiva, print CSS para PDF vía navegador). Estructura:
+
+1. **Cabecera**: nombre del modelo, origen de previsión, horizonte, σ², AIC, BIC, npar
+2. **Tabla**: últimos `freq` valores históricos + L previsiones (nivel, σ, Δ mensual/trim, σ, Δ anual, σ, ERR)
+3. **Gráfico de previsión** (SVG inline): variación anual histórico + pronóstico + banda ±1σ
+4. **Gráfico ERR** (SVG inline): residuos como impulsos + bandas ±2σ
+5. **Narrativa** (opcional): sección HTML libre para texto LLM-generado
+
+**Stack**: Jinja2 (opcional, `pip install "fue[report]"`) + matplotlib SVG embebido.  
+**PDF**: `pdf=True` + `pip install "fue[pdf]"` genera también `.pdf` vía weasyprint.  
+**CLI**: `fuf_cli.py` llama automáticamente a `write_forecast_report` → genera `<base>.html`.
+
+**Diseñado para automatización IA**: la función acepta `narrative` (HTML string) para insertar
+análisis LLM entre los gráficos y las conclusiones. Python genera los datos; el LLM genera el texto.
 
 ---
 

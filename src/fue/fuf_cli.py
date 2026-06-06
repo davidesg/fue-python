@@ -105,3 +105,10 @@ def main(argv=None):
     import matplotlib.pyplot as plt
     plt.close(fig)
     print(f"Written: {base}_forecast.png")
+
+    try:
+        from .report_forecast import write_forecast_report
+    except ImportError:
+        from fue.report_forecast import write_forecast_report
+    html_path = write_forecast_report(model, fr, path=base + ".html")
+    print(f"Written: {html_path}")

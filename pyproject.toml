@@ -27,7 +27,9 @@ fuf = "fue.fuf_cli:main"
 # pip install "fue[c-engine]" — record cffi as an explicit runtime dep when
 # the C extension is used (mostly useful for lockfiles / conda packaging).
 c-engine = ["cffi>=1.15"]
-dev = ["pytest>=7", "pandas"]
+report   = ["jinja2>=3.0"]
+pdf      = ["jinja2>=3.0", "weasyprint>=60"]
+dev      = ["pytest>=7", "pandas"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

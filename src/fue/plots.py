@@ -96,7 +96,7 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
 
     _tj_spines(ax)
     ax.plot(xs, z, color='k', linewidth=0.9,
-            marker='o', markersize=3, markerfacecolor='k',
+            marker='o', markersize=5, markerfacecolor='k',
             markeredgewidth=0, zorder=3)
     ax.axhline(0,  color='k',   lw=0.8, linestyle='-',  zorder=2)
     ax.axhline( 2, color='0.3', lw=1.2, linestyle='--', zorder=2)
@@ -114,8 +114,8 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
     y_max = int(abs_max)   # already snapped to even integer by _snap_series_max
     ax.set_ylim(-y_max - 0.15, y_max + 0.15)
     ax.set_yticks(range(-y_max, y_max + 1, 2))
-    ax.tick_params(axis='y', direction='out', labelsize=9)
-    ax.tick_params(axis='x', direction='out', labelsize=8)
+    ax.tick_params(axis='y', direction='out', labelsize=10)
+    ax.tick_params(axis='x', direction='out', labelsize=10)
     x_pad = 0.3 / freq
     ax.set_xlim(xs[0] - x_pad, xs[-1] + x_pad)
 
@@ -124,9 +124,9 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
     ax.set_xlabel(
         f"$\\bar{{w}}$ = {rmean * scale:.2f}  ({se * scale:.2f})"
         f"    $\\hat{{\\sigma}}_w$ = {rstd * scale:.2f}",
-        fontsize=9,
+        fontsize=11,
     )
-    ax.set_title(title, fontweight='bold', fontsize=12)
+    ax.set_title(title, fontweight='bold', fontsize=13)
 
     if standalone:
         fig.tight_layout()
@@ -177,13 +177,13 @@ def plot_acf_pacf(residuals, npar=0, freq=1, lags=None, title="",
     _draw_acf_panel(ax_acf,  lag_x, rc, band, cmax, freq, lags, 'acf')
     lb = _lb(r, lags=lags, df_correction=npar)
     lb_stat = lb["statistic"][0]
-    ax_acf.set_xlabel(f"Q({lags - npar}) = {lb_stat:.1f}", fontsize=8)
+    ax_acf.set_xlabel(f"Q({lags - npar}) = {lb_stat:.1f}", fontsize=10)
 
     _draw_acf_panel(ax_pacf, lag_x, pc, band, cmax, freq, lags, 'pacf')
     ax_pacf.set_xlabel('')
 
     if title:
-        ax_acf.set_title(f"acf — {title}", loc='left', fontsize=9, pad=2)
+        ax_acf.set_title(f"acf — {title}", loc='left', fontsize=11, pad=2)
 
     if standalone:
         plt.show()
@@ -272,7 +272,7 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
     r     = model._result.residuals
     npar  = model._result.npar
     freq  = model.series.freq
-    title = model.series.name
+    title = f"A.{model.series.name}"
 
     if lags is None:
         lags = _default_lags(len(r), freq)
@@ -298,7 +298,7 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
 
     plot_residuals_ts(r, model=model, title=title, ax=ax_ser)
     plot_acf_pacf(r, npar=npar, freq=freq, lags=lags,
-                  ax_acf=ax_acf, ax_pacf=ax_pacf)
+                  title=title, ax_acf=ax_acf, ax_pacf=ax_pacf)
 
     # Figure 2: histogram
     fig2, ax_h = plt.subplots(figsize=(5, 5))
@@ -420,8 +420,8 @@ def _draw_acf_panel(ax, lag_x, vals, band, cmax, freq, lags, label):
     """One ACF or PACF panel: impulse style, confidence bands, seasonal grid."""
     _tj_spines(ax, sides=('left',))
 
-    # impulse line width: thicker for few lags (gnuplot lw 9 vs lw 7)
-    lw_imp = 1.8 if lags >= 30 else 2.5
+    # impulse line width: slightly thicker for few lags
+    lw_imp = 2.2 if lags >= 30 else 3.0
     ax.vlines(lag_x, 0, vals, colors='k', linewidth=lw_imp, zorder=3)
     ax.axhline( band, color='k', lw=1.0, linestyle='--', zorder=2)
     ax.axhline(-band, color='k', lw=1.0, linestyle='--', zorder=2)
@@ -444,12 +444,12 @@ def _draw_acf_panel(ax, lag_x, vals, band, cmax, freq, lags, label):
     half = cmax / 2.0
     ax.set_ylim(-cmax, cmax)
     ax.set_yticks([-cmax, -half, 0.0, half, cmax])
-    ax.yaxis.set_tick_params(direction='out', labelsize=7)
+    ax.yaxis.set_tick_params(direction='out', labelsize=9)
     ax.set_xticks(grid_lags)
-    ax.set_xticklabels([str(x) for x in grid_lags], fontsize=7)
+    ax.set_xticklabels([str(x) for x in grid_lags], fontsize=9)
     ax.tick_params(axis='x', direction='out', length=3)
     ax.set_xlim(0.5, n_lags + 0.5)
-    ax.set_title(label, loc='left', fontsize=9, pad=2)
+    ax.set_title(label, loc='left', fontsize=11, pad=2)
 
 
 def _ci_bound(n, confidence):

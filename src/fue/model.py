@@ -49,6 +49,9 @@ class FitResult:
         self.std_errors = data['std_errors']
         self.cov_matrix = data['cov_matrix']
         self.residuals  = data['residuals']
+        self.niter      = data.get('niter')
+        self.gnorm      = data.get('gnorm')
+        self.termcode   = data.get('termcode')
 
 
 class Model:

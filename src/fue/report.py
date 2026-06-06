@@ -75,7 +75,7 @@ def write_fuf_out(model, fr, path=None, inp_name="", out_name=""):
     return text
 
 
-def write_out(model, path=None):
+def write_out(model, path=None, inp_name="", out_name=""):
     """
     Generate an estimation report in fue .out format.
 
@@ -84,6 +84,11 @@ def write_out(model, path=None):
     model : Model  (must be fitted)
     path : str or None
         If given, write to this file path.  If None, return the text.
+    inp_name : str
+        Label shown in "Input file" header line.
+    out_name : str
+        Label shown in "Output file" header line.  If empty and *path* is
+        given, the basename of *path* is used.
 
     Returns
     -------
@@ -91,7 +96,10 @@ def write_out(model, path=None):
     """
     if model._result is None:
         raise RuntimeError("Model has not been fitted. Call .fit() first.")
-    text = "\n".join(_build_report(model))
+    if not out_name and path:
+        import os
+        out_name = os.path.basename(path)
+    text = "\n".join(_build_report(model, inp_name=inp_name, out_name=out_name))
     if path is not None:
         with open(path, "w") as fh:
             fh.write(text + "\n")
@@ -100,7 +108,47 @@ def write_out(model, path=None):
 
 # ── Top-level report builder ───────────────────────────────────────────────────
 
-def _build_report(model):
+_TERMCODE_MSG = {
+    1: "GRADIENT STOPPING CRITERIUM SATISFIED TO WITHIN TOLERANCE LIMITS",
+    2: "STEP STOPPING CRITERIUM SATISFIED TO WITHIN TOLERANCE LIMITS",
+    3: "RELATIVE GRADIENT SMALL, CURRENT ITERATE MAY BE A LOCAL MINIMIZER",
+    4: "INITIAL GRADIENT SMALL, INITIAL ITERATE MAY BE A LOCAL MINIMIZER",
+    5: "MAXIMUM CONSECUTIVE STEP LIMIT EXCEEDED",
+}
+
+
+def _section_header(lines, model, inp_name, out_name):
+    r  = model._result
+    ts = model.series
+
+    if inp_name:
+        lines.append(f"Input file             : {inp_name}")
+    if out_name:
+        lines.append(f"Output file            : {out_name}")
+    method = "exact maximum likelihood" if model.eml else "approximate maximum likelihood"
+    lines.append(f"Estimation method      : {method}")
+    chk = "constrained search" if model.chkma else "unconstrained search"
+    lines.append(f"Check for invertibility: {chk}")
+    lines.append("")
+    lines.append(f"Observations: {ts.nobs}.")
+    lines.append(f"Parameters  : {r.npar}.")
+    lines.append("")
+
+    if r.termcode is not None:
+        msg = _TERMCODE_MSG.get(r.termcode, f"TERMINATION CODE {r.termcode}")
+        lines.append(f"**** {msg}")
+        gnorm_str = f"{r.gnorm:.4f}" if r.gnorm is not None else "N/A"
+        niter_str = str(r.niter) if r.niter is not None else "N/A"
+        lines.append(
+            f"**** CONVERGENCE OBTAINED AFTER {niter_str} ITERATIONS"
+            f" [GRADIENT NORM = {gnorm_str}]"
+        )
+    elif not r.converged:
+        lines.append("**** CONVERGENCE NOT ACHIEVED")
+    lines.append("")
+
+
+def _build_report(model, inp_name="", out_name=""):
     r      = model._result
     ts     = model.series
     freq   = ts.freq if ts.freq > 0 else 1
@@ -113,6 +161,7 @@ def _build_report(model):
     fitted = _extract_fitted(model, r)
 
     lines = []
+    _section_header(lines, model, inp_name, out_name)
     _section_params(lines, model, r, fitted)
     _section_boxcox(lines, model, freq)
     _section_arma_ops(lines, model, fitted, freq, ornsop)

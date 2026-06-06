@@ -307,6 +307,8 @@ def raxopt(func, x0, maxits=500, nrits=10, gradtol=None, steptol=None):
                approximate Hessian at x.  Use _cholsol(B, e_i) to get
                columns of H^{-1} for covariance computation.
     termcode : int  see module docstring for codes.
+    niter    : int  number of iterations performed.
+    gnorm    : float  gradient norm at termination.
     """
     if gradtol is None:
         gradtol = _GRTOL
@@ -316,7 +318,7 @@ def raxopt(func, x0, maxits=500, nrits=10, gradtol=None, steptol=None):
     x0 = np.asarray(x0, dtype=float)
     n  = len(x0)
     if n == 0:
-        return x0.copy(), 1.0, np.eye(0), 1
+        return x0.copy(), 1.0, np.eye(0), 1, 0, 0.0
 
     xk = x0.copy()
 
@@ -357,4 +359,4 @@ def raxopt(func, x0, maxits=500, nrits=10, gradtol=None, steptol=None):
         gk   = gkp1
         fk   = fkp1
 
-    return xk, fk, B, termcode
+    return xk, fk, B, termcode, k, float(np.linalg.norm(gk))

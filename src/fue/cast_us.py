@@ -396,13 +396,16 @@ def _estimate_core(model, optimizer="raxopt"):
         return (sumsq / sumsq0) * (fact / fact0)
 
     # [3] Optimize
-    B_hess  = None    # Cholesky factor (raxopt only)
+    B_hess   = None    # Cholesky factor (raxopt only)
+    niter    = 0
+    gnorm    = 0.0
+    termcode = 1
     if npar == 0:
-        x_opt    = x0.copy()
-        obj_opt  = 1.0
+        x_opt     = x0.copy()
+        obj_opt   = 1.0
         converged = True
     elif optimizer == "raxopt":
-        x_opt, obj_opt, B_hess, termcode = raxopt(objective, x0)
+        x_opt, obj_opt, B_hess, termcode, niter, gnorm = raxopt(objective, x0)
         converged = termcode in (1, 2)
     else:
         opt = minimize(
@@ -410,9 +413,10 @@ def _estimate_core(model, optimizer="raxopt"):
             method="L-BFGS-B",
             options={"maxiter": 500, "ftol": 1e-14, "gtol": 1e-7},
         )
-        x_opt    = opt.x
-        obj_opt  = opt.fun
+        x_opt     = opt.x
+        obj_opt   = opt.fun
         converged = opt.success
+        niter     = opt.nit
 
     # [4] Final evaluation with elf_scalar (exact ML, compute residuals)
     p, q, phi, theta, mu, w, fault = cast_us_py(x_opt, spec)
@@ -466,6 +470,9 @@ def _estimate_core(model, optimizer="raxopt"):
         "std_errors": std_errors,
         "cov_matrix": cov,
         "residuals":  a_res,
+        "niter":      niter,
+        "gnorm":      gnorm,
+        "termcode":   termcode,
     }
 
 

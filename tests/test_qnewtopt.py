@@ -130,7 +130,7 @@ def test_raxopt_quadratic():
     x0 = np.zeros(3)
     f0 = 0.5 * float(x0 @ A @ x0) - float(b @ x0) + 1.0   # = 1.0
     f  = lambda x: (0.5 * float(x @ A @ x) - float(b @ x) + 1.0) / f0
-    x_opt, fval, B, tc = raxopt(f, x0)
+    x_opt, fval, B, tc, *_ = raxopt(f, x0)
     assert_allclose(x_opt, x_true, atol=1e-7)
     assert tc in (1, 2), f"unexpected termcode {tc}"
 
@@ -140,7 +140,7 @@ def test_raxopt_rosenbrock_2d():
     x0 = np.array([-1.2, 1.0])
     f0 = _rosenbrock(x0)
     f  = lambda x: _rosenbrock(x) / f0
-    x_opt, fval, B, tc = raxopt(f, x0)
+    x_opt, fval, B, tc, *_ = raxopt(f, x0)
     assert_allclose(x_opt, [1.0, 1.0], atol=1e-5)
     assert fval < 1e-10 / f0 + 1e-12   # near zero at minimum
 
@@ -151,7 +151,7 @@ def test_raxopt_termcode_gradient():
     x0 = np.array([0.5, 0.5])
     f0 = float(x0 @ A @ x0)
     f  = lambda x: float(x @ A @ x) / f0
-    _, _, _, tc = raxopt(f, x0)
+    _, _, _, tc, *_ = raxopt(f, x0)
     assert tc == 1
 
 
@@ -161,13 +161,13 @@ def test_raxopt_maxiter_termcode():
     x0 = np.array([-1.2, 1.0])
     f0 = _rosenbrock(x0)
     f  = lambda x: _rosenbrock(x) / f0
-    _, _, _, tc = raxopt(f, x0, maxits=5)
+    _, _, _, tc, *_ = raxopt(f, x0, maxits=5)
     assert tc == 4
 
 
 def test_raxopt_zero_params():
     """raxopt with n=0 returns immediately."""
-    x_opt, fval, B, tc = raxopt(lambda x: 1.0, np.array([]))
+    x_opt, fval, B, tc, *_ = raxopt(lambda x: 1.0, np.array([]))
     assert len(x_opt) == 0
     assert tc == 1
 

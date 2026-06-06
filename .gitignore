@@ -18,6 +18,10 @@ src/fue/_fue_engine*.so
 # Stray .o directories from gcc run in project root
 /home/
 
+# Generated outputs from examples/
+examples/*.out
+examples/*.png
+
 # Artefactos de fue ejecutado con flags como nombre de archivo
 /--*.out
 /--*.pre

@@ -193,9 +193,17 @@ Dos figuras con proporciones exactas del gnuplot de `fue.c`:
 - Histograma de residuos con curva normal superpuesta
 - Mismo título `A.<stem>`
 
-`model._inp_stem` se guarda al cargar con `fue.load()`.
+`model._inp_stem` se guarda al cargar con `fue.load()` y `fue.load_fuf()`.
 
 Función auxiliar `_snap_series_max` / `_snap_cmax` replica la elección de escala de gnuplot.
+
+`plot_forecast(model, fr)` — figura con historia + pronóstico + bandas:
+
+**Figura 1** (dos paneles):
+- Panel superior: variación estacional histórica (linespoints) + pronóstico + bandas dashed; separador vertical
+- Panel inferior: ERR residuos como impulsos con ±2σ; rango y snap igual que C (`prevcmax`)
+- X-ticks: etiquetas de año a intervalos `freq` (12→anual, 4→bienal)
+- Generado automáticamente por `fuf_cli.py` como `<base>_forecast.png`
 
 ---
 
@@ -229,8 +237,6 @@ Cuatro papers que cubren toda la implementación:
 - [ ] **`COPYING`**: añadir fichero GPL-2.0 completo al repositorio *(pospuesto)*
 
 ### Media prioridad
-- [ ] **Gráfico de pronóstico**: figura con historia + futuro + bandas de confianza
-      (equivalente a `gnuplot_File_PlotFueCast` en C)
 - [ ] **conda recipe**: actualizar para builds sin extensión C (`FUE_SKIP_C=1`)
 - [ ] **`pyproject.toml`**: marcar cffi/GSL como opcionales en las dependencias de build
 - [ ] **`Model.write_out` sin ajuste**: actualmente requiere `.fit()` previo;

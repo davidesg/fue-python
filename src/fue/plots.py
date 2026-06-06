@@ -76,7 +76,7 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
     rmean = r.mean()
     rstd  = r.std(ddof=0)
     z = (r - rmean) / rstd if rstd > 0 else r.copy()
-    abs_max = max(float(np.abs(z).max()), 2.5)
+    abs_max = _snap_series_max(float(np.abs(z).max()))
 
     freq = 1
     start_year, start_period = 1, 1
@@ -111,7 +111,7 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
             if x0 < yr <= x1 + 1.0 / freq:
                 ax.axvline(yr, color='k', lw=0.5, zorder=1)
 
-    y_max = int(np.ceil(abs_max / 2.0)) * 2
+    y_max = int(abs_max)   # already snapped to even integer by _snap_series_max
     ax.set_ylim(-y_max - 0.15, y_max + 0.15)
     ax.set_yticks(range(-y_max, y_max + 1, 2))
     ax.tick_params(axis='y', direction='out', labelsize=9)
@@ -155,14 +155,18 @@ def plot_acf_pacf(residuals, npar=0, freq=1, lags=None, title="",
     pc = _pacf(r, lags=lags)
 
     band = 2.0 / np.sqrt(n)
-    raw_max = max(float(np.abs(rc).max()), float(np.abs(pc).max()))
-    cmax = _round_cmax(max(raw_max, band * 1.2))
+    cmax = _snap_cmax(rc, pc)
+
+    # height ratio ACF:PACF matches gnuplot (0.46:0.385 for lags≥30, else 0.41:0.37)
+    h_acf, h_pacf = (0.46, 0.385) if lags >= 30 else (0.41, 0.37)
 
     standalone = ax_acf is None
     if standalone:
+        # width scaled to lags (mirrors gnuplot standalone ACF widths)
+        w = 5.5 if lags >= 30 else (4.0 if lags >= 15 else 3.0)
         fig, (ax_acf, ax_pacf) = plt.subplots(
-            2, 1, figsize=(5, 6),
-            gridspec_kw={'hspace': 0.12},
+            2, 1, figsize=(w, 6),
+            gridspec_kw={'height_ratios': [h_acf, h_pacf], 'hspace': 0.08},
             layout='constrained',
         )
     else:
@@ -273,11 +277,21 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
     if lags is None:
         lags = _default_lags(len(r), freq)
 
-    # Figure 1: residuals series (left) + stacked ACF/PACF (right)
-    fig1 = plt.figure(figsize=(13, 5), layout='constrained')
-    gs = gridspec.GridSpec(2, 2, figure=fig1,
-                           width_ratios=[1.65, 1.0],
-                           hspace=0.12, wspace=0.3)
+    # Layout parameters derived from gnuplot sizes (see gnuplot_graphics.c)
+    size2 = freq > 4           # SeriesSize: size==2 when freq>4
+    w_ratio, h_acf, h_pacf = _layout_params(size2, lags)
+
+    # Figure size: size==2 uses wider figure (gnuplot 2:1), size==1 uses ~1.5:1
+    figw = 15.0 if size2 else 12.0
+    figh = 5.5
+
+    fig1 = plt.figure(figsize=(figw, figh), layout='constrained')
+    gs = gridspec.GridSpec(
+        2, 2, figure=fig1,
+        width_ratios=[w_ratio, 1.0],
+        height_ratios=[h_acf, h_pacf],
+        hspace=0.06, wspace=0.05,
+    )
     ax_ser  = fig1.add_subplot(gs[:, 0])
     ax_acf  = fig1.add_subplot(gs[0, 1])
     ax_pacf = fig1.add_subplot(gs[1, 1])
@@ -299,7 +313,6 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
     return fig1, fig2
 
 
-# keep old name as alias for backward compat (model.py still calls it)
 def plot_residual_diagnostics(residuals, lags=24, title=""):
     """Legacy wrapper — prefer plot_model_diagnostics(model)."""
     import matplotlib.pyplot as plt
@@ -308,11 +321,15 @@ def plot_residual_diagnostics(residuals, lags=24, title=""):
     r = np.asarray(residuals, dtype=float)
     freq = 1
     lags = int(lags)
+    w_ratio, h_acf, h_pacf = _layout_params(False, lags)
 
-    fig1 = plt.figure(figsize=(13, 5), layout='constrained')
-    gs = gridspec.GridSpec(2, 2, figure=fig1,
-                           width_ratios=[1.65, 1.0],
-                           hspace=0.12, wspace=0.3)
+    fig1 = plt.figure(figsize=(12, 5.5), layout='constrained')
+    gs = gridspec.GridSpec(
+        2, 2, figure=fig1,
+        width_ratios=[w_ratio, 1.0],
+        height_ratios=[h_acf, h_pacf],
+        hspace=0.06, wspace=0.05,
+    )
     ax_ser  = fig1.add_subplot(gs[:, 0])
     ax_acf  = fig1.add_subplot(gs[0, 1])
     ax_pacf = fig1.add_subplot(gs[1, 1])
@@ -356,24 +373,67 @@ def _default_lags(n, freq):
     return 3 * (freq + 1)
 
 
-def _round_cmax(val):
-    """Round up to nearest 0.1 for a clean ACF y-axis range."""
-    return max(round(float(np.ceil(val * 10)) / 10.0, 1), 0.3)
+def _snap_series_max(val):
+    """Exact port of SeriesMax: min 4, snaps to {4, 6, 8, 10, 12}."""
+    v = max(val, 4.0)
+    if   v <= 4:  return 4
+    elif v <= 6:  return 6
+    elif v <= 8:  return 8
+    elif v <= 10: return 10
+    else:         return 12
+
+
+def _snap_cmax(rc, pc):
+    """Exact port of Acf_Pacf_Max: min 0.40, snaps to {0.40, 0.60, 0.80, 1.00}."""
+    cmax = 0.40
+    for v in np.concatenate([np.abs(rc), np.abs(pc)]):
+        if v > cmax:
+            cmax = float(v)
+    if   cmax <= 0.40:              cmax = 0.40
+    elif cmax <= 0.60:              cmax = 0.60
+    elif cmax <= 0.80:              cmax = 0.80
+    elif cmax <= 1.00:              cmax = 1.00
+    # > 1.0: return as-is (impossible for correlations, kept for safety)
+    return cmax
+
+
+def _layout_params(size2, lags):
+    """GridSpec width ratio and ACF/PACF height ratios from gnuplot sizes.
+
+    From gnuplot_graphics.c gnuplot_File_PlotSer_CorrSer:
+      size==2 (freq>4): figure 2,1 / residuals 1.32 / ACF 0.63 → ratio 2.10
+      size==1, lags≥15: figure 1.3,.87 / residuals 0.852 / ACF 0.423 → ratio 2.01
+      size==1, lags<15:  same residuals / ACF 0.383 → ratio 2.23
+    ACF/PACF heights: lags≥30 → 0.46/0.385, else → 0.41/0.37
+    """
+    if size2:
+        w_ratio = 2.10        # 1.32 / 0.63
+    elif lags >= 15:
+        w_ratio = 2.01        # 0.852 / 0.423
+    else:
+        w_ratio = 2.23        # 0.852 / 0.383
+
+    h_acf, h_pacf = (0.46, 0.385) if lags >= 30 else (0.41, 0.37)
+    return w_ratio, h_acf, h_pacf
 
 
 def _draw_acf_panel(ax, lag_x, vals, band, cmax, freq, lags, label):
     """One ACF or PACF panel: impulse style, confidence bands, seasonal grid."""
     _tj_spines(ax, sides=('left',))
-    ax.vlines(lag_x, 0, vals, colors='k', linewidth=2.5, zorder=3)
+
+    # impulse line width: thicker for few lags (gnuplot lw 9 vs lw 7)
+    lw_imp = 1.8 if lags >= 30 else 2.5
+    ax.vlines(lag_x, 0, vals, colors='k', linewidth=lw_imp, zorder=3)
     ax.axhline( band, color='k', lw=1.0, linestyle='--', zorder=2)
     ax.axhline(-band, color='k', lw=1.0, linestyle='--', zorder=2)
     ax.axhline(0,     color='k', lw=1.5, zorder=2)
 
+    # seasonal grid lines (at freq, 2*freq, 3*freq or at 3/6/9 for annual)
     n_lags = int(lag_x[-1])
     if freq > 1:
         grid_lags = [freq * m for m in range(1, 4) if freq * m <= n_lags]
     elif n_lags > 9:
-        gap = n_lags // 3
+        gap = round(n_lags / 3)   # iround(lags/3) in C
         grid_lags = [gap * m for m in range(1, 4) if gap * m <= n_lags]
     else:
         grid_lags = [x for x in (3, 6, 9) if x <= n_lags]
@@ -381,9 +441,11 @@ def _draw_acf_panel(ax, lag_x, vals, band, cmax, freq, lags, label):
     for xv in grid_lags:
         ax.axvline(xv, color='0.5', lw=0.8, zorder=1)
 
+    # y-ticks at cmax/2 intervals: -cmax, -cmax/2, 0, cmax/2, cmax
+    half = cmax / 2.0
     ax.set_ylim(-cmax, cmax)
-    ax.set_yticks([-cmax, 0.0, cmax])
-    ax.yaxis.set_tick_params(direction='out', labelsize=8)
+    ax.set_yticks([-cmax, -half, 0.0, half, cmax])
+    ax.yaxis.set_tick_params(direction='out', labelsize=7)
     ax.set_xticks(grid_lags)
     ax.set_xticklabels([str(x) for x in grid_lags], fontsize=7)
     ax.tick_params(axis='x', direction='out', length=3)

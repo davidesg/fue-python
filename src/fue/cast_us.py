@@ -470,6 +470,7 @@ def _estimate_core(model, optimizer="raxopt"):
         "std_errors": std_errors,
         "cov_matrix": cov,
         "residuals":  a_res,
+        "w":          w,
         "niter":      niter,
         "gnorm":      gnorm,
         "termcode":   termcode,

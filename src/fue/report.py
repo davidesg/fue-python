@@ -121,6 +121,7 @@ def _section_header(lines, model, inp_name, out_name):
     r  = model._result
     ts = model.series
 
+    lines.append("")   # reference .out starts with a blank line
     if inp_name:
         lines.append(f"Input file             : {inp_name}")
     if out_name:
@@ -165,6 +166,7 @@ def _build_report(model, inp_name="", out_name=""):
     _section_params(lines, model, r, fitted)
     _section_boxcox(lines, model, freq)
     _section_arma_ops(lines, model, fitted, freq, ornsop)
+    _section_w_series(lines, r)
     _section_sigma(lines, r, sigma, sigma2, n_eff)
     _section_hq(lines, model, sigma2, n_eff)
     _section_matrices(lines, r)
@@ -172,6 +174,7 @@ def _build_report(model, inp_name="", out_name=""):
     _section_plot(lines, ts, res, freq, ornsop)
     _section_histogram(lines, res)
     _section_corr(lines, model, res, n_eff, freq)
+    _section_acf_calibration(lines, model, res, n_eff, freq, ornsop)
     return lines
 
 
@@ -434,6 +437,16 @@ def _section_arma_ops(lines, model, fitted, freq, ornsop):
     lines.append("")
 
 
+def _section_w_series(lines, r):
+    """Transformed-Differenced-Stochastic series w[i] (only when Python engine)."""
+    if r.w is None or len(r.w) == 0:
+        return
+    lines.append("Transformed-Differenced-Stochastic series: ")
+    for i, v in enumerate(r.w, start=1):
+        lines.append(f"  w[{i:3d}]    = {v:15.10f}")
+    lines.append("")
+
+
 def _section_sigma(lines, r, sigma, sigma2, n_eff):
     se_sigma2 = sigma2 * math.sqrt(2.0 / n_eff)
     lines.append(f"sigma2: {sigma2:14.10f} ({se_sigma2:15.10f})")
@@ -526,15 +539,15 @@ def _section_residual_stats(lines, ts, res, freq, ornsop):
     lines.append(f"Unconditional residuals (seasonal period: {freq})")
     lines.append(f"{n} observations: {span}")
     lines.append("")
-    lines.append(f"{'Mean':>24s}: {mu:18.6f}")
-    lines.append(f"{'Standard error of mean':>24s}: {se:18.6f}")
-    lines.append(f"{'Variance':>24s}: {std**2:18.6f}")
-    lines.append(f"{'Standard deviation':>24s}: {std:18.6f}")
-    lines.append(f"{'Skewness':>24s}: {skew:18.6f}")
-    lines.append(f"{'Kurtosis':>24s}: {kurt:18.6f}")
-    lines.append(f"{'Jarque-Bera':>24s}: {jb:18.6f}")
-    lines.append(f"{'Minimum':>24s}: {res[imin]:18.6f}  {min_at}")
-    lines.append(f"{'Maximum':>24s}: {res[imax]:18.6f}  {max_at}")
+    lines.append(f"{'Mean':>22s}: {mu:18.6f}")
+    lines.append(f"{'Standard error of mean':>22s}: {se:18.6f}")
+    lines.append(f"{'Variance':>22s}: {std**2:18.6f}")
+    lines.append(f"{'Standard deviation':>22s}: {std:18.6f}")
+    lines.append(f"{'Skewness':>22s}: {skew:18.6f}")
+    lines.append(f"{'Kurtosis':>22s}: {kurt:18.6f}")
+    lines.append(f"{'Jarque-Bera':>22s}: {jb:18.6f}")
+    lines.append(f"{'Minimum':>22s}: {res[imin]:18.6f} {min_at}")
+    lines.append(f"{'Maximum':>22s}: {res[imax]:18.6f} {max_at}")
     lines.append("")
 
 
@@ -663,7 +676,7 @@ def _section_plot(lines, ts, res, freq, ornsop):
                 )
             else:
                 lines.append(
-                    f"                 |{i:7d}{asub:9d}/{aper:4d} {z:13.2f}        |"
+                    f"                 |{i:7d}{asub:9d}/{aper:4d}{z:13.2f}        |"
                 )
 
     lines.append("                 +------------------------------------------+")
@@ -915,6 +928,122 @@ def _plot_corr(lines, corr, lags, nobs, freq, nparma, is_acf):
     lines.append(GUIONS)
     lines.append(MARCAS)
     lines.append("")
+
+
+def _section_acf_calibration(lines, model, res, n_eff, freq, ornsop):
+    """Calibration of distortions of the ACF (port of PlotCalibACF in diagnose.c)."""
+    from .diagnostics import acf as _acf
+
+    n = n_eff
+    if n < 3 * (freq + 1):
+        lags = n - freq // 2
+    elif freq == 1 and n > 200:
+        lags = 45
+    elif freq == 1:
+        lags = 9
+    else:
+        lags = 3 * (freq + 1)
+    lags = max(1, lags)
+
+    mu  = float(res.mean())
+    var = float(res.var())   # ddof=0, same as C ser->var
+    if var < 1e-20:
+        return
+
+    acf_vals = _acf(res, lags=lags)
+
+    ts = model.series
+    use_dates = not ts.numbering
+    res_begyear, res_begtime = ts._obs_to_date(ornsop + 1)
+
+    def _obs_to_date_res(k_1based):
+        total = res_begyear * freq + (res_begtime - 1) + (k_1based - 1)
+        return total // freq, total % freq + 1
+
+    def _date_line(k_pos, i1, i2, c, is_first, r_j):
+        """Build one calibration line matching C format exactly."""
+        if use_dates:
+            if freq == 1:
+                y1, _ = _obs_to_date_res(i1)
+                y2, _ = _obs_to_date_res(i2)
+                if r_j > 0:
+                    date_str = f"{y1:12d} - {y2:4d}   " if is_first else f"{y1:13d} - {y2:4d}   "
+                else:
+                    date_str = f"{y1:12d} - {y2:4d}  " if is_first else f"{y1:13d} - {y2:4d}  "
+            else:
+                p1, y1 = _obs_to_date_res(i1)[1], _obs_to_date_res(i1)[0]
+                p2, y2 = _obs_to_date_res(i2)[1], _obs_to_date_res(i2)[0]
+                if r_j > 0:
+                    date_str = f"{p1:9d}/{y1:4d} - {p2:2d}/{y2:4d}"  # 24 chars
+                    indent   = "             " if not is_first else None  # 13 spaces
+                else:
+                    date_str = f"{p1:8d}/{y1:4d} - {p2:2d}/{y2:4d}"  # 23 chars
+                    indent   = "              " if not is_first else None  # 14 spaces
+        else:
+            if r_j > 0:
+                date_str = f"{i1:9d} - {i2:9d}"
+                indent   = "             " if not is_first else None
+            else:
+                date_str = f"{i1:9d} - {i2:9d}"
+                indent   = "              " if not is_first else None
+
+        if is_first:
+            prefix = f"  r({k_pos}) = {r_j:.3f}"
+        else:
+            if r_j > 0:
+                prefix = "             "   # 13 spaces
+            else:
+                prefix = "              "  # 14 spaces
+
+        return f"      |{prefix}{date_str}{c:13.3f}    |"
+
+    lines.append("      +------------------------------------------------------+")
+    lines.append("      |         Calibration of distortions of the ACF        |")
+    lines.append("      |                                                      |")
+    lines.append("      +------------------------------------------------------+")
+    lines.append("      |                                                      |")
+    if use_dates:
+        lines.append("      |     Lag                 Dates          Contribution  |")
+    else:
+        lines.append("      |     Lag             Observations       Contribution  |")
+    lines.append("      |                                                      |")
+
+    THRESH = 0.9999
+
+    for j in range(1, lags + 1):
+        r_j = acf_vals[j - 1]
+
+        contribs = []
+        for i in range(1, n - j + 1):
+            c = (res[i - 1] - mu) * (res[i + j - 1] - mu) / (n * var)
+            contribs.append((c, i, i + j))
+
+        if r_j > 0:
+            top = []
+            prev = None
+            for c, i1, i2 in sorted(contribs, key=lambda x: -x[0]):
+                if prev is None or c < prev * THRESH:
+                    top.append((c, i1, i2))
+                    prev = c
+                    if len(top) == 4:
+                        break
+        elif r_j < 0:
+            top = []
+            prev = None
+            for c, i1, i2 in sorted(contribs, key=lambda x: x[0]):
+                if prev is None or c > prev * THRESH:
+                    top.append((c, i1, i2))
+                    prev = c
+                    if len(top) == 4:
+                        break
+        else:
+            continue
+
+        for k, (c, i1, i2) in enumerate(top):
+            lines.append(_date_line(j, i1, i2, c, k == 0, r_j))
+        lines.append("      |                                                      |")
+
+    lines.append("      +------------------------------------------------------+")
 
 
 # ── Utility functions ──────────────────────────────────────────────────────────

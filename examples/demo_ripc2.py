@@ -44,7 +44,7 @@ for i, (p, se) in enumerate(zip(r.params, r.std_errors)):
 
 here = os.path.dirname(os.path.abspath(__file__))
 
-model.write_out(os.path.join(here, "RIPC.2.out"))
+model.write_out(os.path.join(here, "RIPC.2.out"), inp_name="RIPC.2.inp")
 print("\nSaved examples/RIPC.2.out")
 
 # ── Plots ──────────────────────────────────────────────────────────────────────

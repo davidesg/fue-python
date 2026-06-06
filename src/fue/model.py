@@ -52,6 +52,7 @@ class FitResult:
         self.niter      = data.get('niter')
         self.gnorm      = data.get('gnorm')
         self.termcode   = data.get('termcode')
+        self.w          = data.get('w')
 
 
 class Model:

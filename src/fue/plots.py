@@ -309,7 +309,6 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
         fig1.savefig(f"{save_prefix}_diag.png", dpi=150, bbox_inches='tight')
         fig2.savefig(f"{save_prefix}_hist.png", dpi=150, bbox_inches='tight')
 
-    plt.show()
     return fig1, fig2
 
 

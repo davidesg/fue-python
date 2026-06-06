@@ -286,7 +286,7 @@ Cuatro papers que cubren toda la implementación:
 
 ### Alta prioridad
 - [ ] **`COPYING`**: añadir fichero GPL-2.0 completo al repositorio *(pospuesto)*
-- [ ] **Francia (ifault=6)**: modelo France no converge en Python (`eval_at_params` devuelve ifault=6); causa sin investigar
+- [x] **Francia**: ifault=6 resuelto (era consecuencia del bug `_unscramble`); F.3.inp actualizado a origin=12/2025 (INSEE serie 001759970, base 2015); añadida al SPS como séptimo país
 
 ### Media prioridad
 - [ ] **conda recipe**: actualizar para builds sin extensión C (`FUE_SKIP_C=1`)

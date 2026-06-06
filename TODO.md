@@ -1,7 +1,7 @@
 # FUE Python — Estado de la migración C → Python
 
 Referencia: `fue-1.13.1` es el código C fuente de verdad.  
-Última actualización: 2026-06-06 (rev 4)
+Última actualización: 2026-06-06 (rev 5)
 
 ---
 
@@ -209,24 +209,43 @@ Función auxiliar `_snap_series_max` / `_snap_cmax` replica la elección de esca
 
 ---
 
-## FASE 9 — Informe HTML de pronóstico ✅
+## FASE 9 — Informe HTML de pronóstico SPS ✅
 
-**`report_forecast.py`** — `write_forecast_report(model, fr, path, narrative=None, pdf=False)`:
+**`report_forecast.py`** — `write_forecast_report(model, fr, path, title=None, source=None, sps_name=None, narrative=None, pdf=False)`:
 
-Genera un fichero `.html` auto-contenido con CSS y SVG embebidos. Diseño moderno (system fonts, tabla responsiva, print CSS para PDF vía navegador). Estructura:
+Genera un fichero `.html` auto-contenido con CSS y SVG embebidos.
 
-1. **Cabecera**: nombre del modelo, origen de previsión, horizonte, σ², AIC, BIC, npar
-2. **Tabla**: últimos `freq` valores históricos + L previsiones (nivel, σ, Δ mensual/trim, σ, Δ anual, σ, ERR)
-3. **Gráfico de previsión** (SVG inline): variación anual histórico + pronóstico + banda ±1σ
-4. **Gráfico ERR** (SVG inline): residuos como impulsos + bandas ±2σ
-5. **Narrativa** (opcional): sección HTML libre para texto LLM-generado
+### Diseño SPS (Sistema de Previsión y Seguimiento)
 
-**Stack**: Jinja2 (opcional, `pip install "fue[report]"`) + matplotlib SVG embebido.  
-**PDF**: `pdf=True` + `pip install "fue[pdf]"` genera también `.pdf` vía weasyprint.  
-**CLI**: `fuf_cli.py` llama automáticamente a `write_forecast_report` → genera `<base>.html`.
+**Layout**: dos columnas — tabla izquierda, gráficos derecha.
 
-**Diseñado para automatización IA**: la función acepta `narrative` (HTML string) para insertar
-análisis LLM entre los gráficos y las conclusiones. Python genera los datos; el LLM genera el texto.
+**Columna izquierda — tabla**:
+- `freq+1` filas históricas (ciclo completo + período actual)
+- `freq` filas de previsión (un año adelante), fondo azul claro
+- Fila en blanco (sin sombrear) + fila `H=horizonte` separadas
+- Columnas: DATE | LEVEL (Value, Std%) | Monthly % (Std%) | Annual % (Std%) | ERR
+- Separador (borde grueso) entre histórico y previsiones
+- Detalles del modelo (σ², AIC, BIC, npar, muestra) en sección colapsable
+
+**Columna derecha — gráfico único SVG (dos paneles, GridSpec)**:
+- Panel superior: variación anual — linespoints (línea entrecortada + círculos) para toda la serie (histórico+previsión), círculos mayores para histórico; bandas ±1σ en línea discontinua; separador vertical en origen de previsión; grid en años
+- Panel inferior: ERR — impulsos históricos; bandas ±2σ y línea cero terminan en el origen de previsión (spine truncado, `hlines` con xmax); grid en años históricos
+- Ambos paneles comparten misma figura → ejes x alineados pixel a pixel
+- Nota al pie: "Forecast bands ±1σ · ERR bands ±2σ"
+
+**Parámetros de presentación**:
+- `title`: título descriptivo de la serie (no del modelo), e.g. "Spain CPI Inflation"
+- `source`: fuente de datos, e.g. "INE"
+- `sps_name`: etiqueta SPS, e.g. "Spain Inflation"
+
+**CLI**: `fuf --title TEXT --source TEXT --sps TEXT forecast_model` genera `<base>.html` automáticamente.  
+**PDF**: `pdf=True` + `pip install "fue[pdf]"` vía weasyprint.  
+**Narrativa**: parámetro `narrative` (HTML) para texto generado por LLM.
+
+### Caso de referencia: España IPC
+- Fichero: `/Inflation Volatility/Analisis/Spain/forecast_b2025/forecast_S.2.inp`
+- Informe: `forecast_S.2.html`
+- Documentación interna SPS: `Spain_S2.md`
 
 ---
 

@@ -21,6 +21,8 @@ src/fue/_fue_engine*.so
 # Generated outputs from examples/
 examples/*.out
 examples/*.png
+# Temp HTML reports at project root
+*.html
 
 # Generated outputs in tests/ (fuf runs, HTML reports, PNG charts, LaTeX artefacts)
 # NB: reference *.out files (RIPC.1.out etc.) ARE tracked — only ignore generated ones

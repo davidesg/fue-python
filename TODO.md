@@ -1,7 +1,7 @@
 # FUE Python — Estado de la migración C → Python
 
 Referencia: `fue-1.13.1` es el código C fuente de verdad.  
-Última actualización: 2026-06-06 (rev 6)
+Última actualización: 2026-06-07 (rev 8)
 
 ---
 
@@ -66,6 +66,12 @@ Referencia: `fue-1.13.1` es el código C fuente de verdad.
 - [x] cibuildwheel Linux (manylinux_2_28) + macOS (x86_64 + arm64) + Windows (vcpkg)
 - [x] Job `build_pure_wheel` (FUE_SKIP_C=1) → `fue-*-py3-none-any.whl`
 - [x] MANIFEST.in incluye csrc/**; cadena sdist→wheel verificada
+- [x] README.md + COPYING (GPL-2.0) añadidos al repositorio
+- [x] pyproject.toml: license, authors, keywords, classifiers; setuptools<69 + license-files=[] → Metadata 2.1 (sin rechazo PyPI)
+- [x] datasets.py: `sfny()` y `ripc()` embebidos; quickstart.py workflow completo
+- [x] **Publicado en PyPI: https://pypi.org/project/fue/0.1.0/** (2026-06-07)
+  - `pip install fue` verificado ✅
+  - `pip install "fue[report]"` verificado ✅
 
 ---
 
@@ -285,7 +291,6 @@ Cuatro papers que cubren toda la implementación:
 ## Pendiente
 
 ### Alta prioridad
-- [ ] **`COPYING`**: añadir fichero GPL-2.0 completo al repositorio *(pospuesto)*
 - [x] **Francia**: ifault=6 resuelto (era consecuencia del bug `_unscramble`); F.3.inp actualizado a origin=12/2025 (INSEE serie 001759970, base 2015); añadida al SPS como séptimo país
 
 ### Media prioridad

@@ -1,7 +1,7 @@
 # FUE Python — Estado de la migración C → Python
 
 Referencia: `fue-1.13.1` es el código C fuente de verdad.  
-Última actualización: 2026-06-07 (rev 8)
+Última actualización: 2026-06-07 (rev 9)
 
 ---
 
@@ -69,7 +69,9 @@ Referencia: `fue-1.13.1` es el código C fuente de verdad.
 - [x] README.md + COPYING (GPL-2.0) añadidos al repositorio
 - [x] pyproject.toml: license, authors, keywords, classifiers; setuptools<69 + license-files=[] → Metadata 2.1 (sin rechazo PyPI)
 - [x] datasets.py: `sfny()` y `ripc()` embebidos; quickstart.py workflow completo
-- [x] **Publicado en PyPI: https://pypi.org/project/fue/0.1.0/** (2026-06-07)
+- [x] **Publicado en PyPI: https://pypi.org/project/fue/0.1.1/** (2026-06-07)
+  - 0.1.0: publicación inicial
+  - 0.1.1: David E. Guerrero como autor de contacto
   - `pip install fue` verificado ✅
   - `pip install "fue[report]"` verificado ✅
 

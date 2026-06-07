@@ -2,7 +2,7 @@
 # cffi is kept here so the build environment has it available when setup.py
 # attempts to compile the C extension.  The extension is skipped gracefully
 # when FUE_SKIP_C=1 or when GSL is absent — see setup.py.
-requires = ["setuptools>=60", "cffi>=1.15", "wheel"]
+requires = ["setuptools>=60,<69", "cffi>=1.15", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -21,7 +21,6 @@ classifiers     = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Mathematics",
-    "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -47,6 +46,9 @@ c-engine = ["cffi>=1.15"]
 report   = ["jinja2>=3.0"]
 pdf      = ["jinja2>=3.0", "weasyprint>=60"]
 dev      = ["pytest>=7", "pandas"]
+
+[tool.setuptools]
+license-files = []
 
 [tool.setuptools.packages.find]
 where = ["src"]

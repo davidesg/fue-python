@@ -22,8 +22,11 @@ from .forecast import ForecastResult
 from .diagnostics import acf, pacf, jarque_bera, ljung_box
 from .inp import load, load_fuf
 from .report import write_out, write_fuf, write_fuf_out
+from .report_forecast import write_forecast_report
+from . import datasets
 
 __version__ = "0.1.0"
 __all__ = ["TimeSeries", "Intervention", "Model", "FixedFreqFactor",
            "ForecastResult", "acf", "pacf", "jarque_bera", "ljung_box",
-           "load", "load_fuf", "write_out", "write_fuf", "write_fuf_out"]
+           "load", "load_fuf", "write_out", "write_fuf", "write_fuf_out",
+           "write_forecast_report", "datasets"]

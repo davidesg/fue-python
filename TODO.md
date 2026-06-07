@@ -309,7 +309,7 @@ Cuatro papers que cubren toda la implementación:
 
 ---
 
-## Suite de tests (2026-06-06)
+## Suite de tests (2026-06-07, fue 0.1.1)
 
 **Total: 629 passing**
 

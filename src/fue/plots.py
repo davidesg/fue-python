@@ -103,6 +103,7 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
     ax.axhline(-2, color='0.3', lw=1.2, linestyle='--', zorder=2)
 
     # seasonal dividers at year boundaries (every 2 years for long series)
+    tick_pos, tick_lbl = [], []
     if freq > 1:
         x0, x1 = xs[0], xs[-1]
         step = 2 if (x1 - x0) > 5 else 1
@@ -110,6 +111,11 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
         for yr in range(first_yr, int(x1) + 2, step):
             if x0 < yr <= x1 + 1.0 / freq:
                 ax.axvline(yr, color='k', lw=0.5, zorder=1)
+                tick_pos.append(yr)
+                tick_lbl.append(str(yr))
+    if tick_pos:
+        ax.set_xticks(tick_pos)
+        ax.set_xticklabels(tick_lbl, fontsize=10)
 
     y_max = int(abs_max)   # already snapped to even integer by _snap_series_max
     ax.set_ylim(-y_max - 0.15, y_max + 0.15)
@@ -205,7 +211,9 @@ def plot_histogram(residuals, title="", ax=None):
 
     sk = float(_skew(z, bias=False))
     ku = float(_kurt(z, fisher=True, bias=False))   # excess kurtosis
-    jb_stat = float(_jb(r)[0])
+    jb_stat, jb_pval = _jb(r)
+    jb_stat = float(jb_stat)
+    jb_pval = float(jb_pval)
 
     abs_max = float(np.abs(z).max())
     xmax = 4.0 if abs_max <= 4.0 else 8.0
@@ -235,7 +243,10 @@ def plot_histogram(residuals, title="", ax=None):
     ax.yaxis.set_tick_params(direction='out', labelsize=9)
     ax.xaxis.set_tick_params(direction='out', labelsize=9)
     ax.grid(True, which='major', lw=0.4, alpha=0.6, zorder=0)
-    ax.set_xlabel(f"S = {sk:.1f}     K = {ku:.1f}     JB = {jb_stat:.1f}", fontsize=10)
+    ax.set_xlabel(
+        f"S = {sk:.1f}     K = {ku:.1f}     JB = {jb_stat:.1f}  (p = {jb_pval:.3f})",
+        fontsize=10,
+    )
     ax.set_title(title, fontweight='bold', fontsize=11)
 
     if standalone:

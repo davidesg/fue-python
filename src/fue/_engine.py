@@ -14,7 +14,16 @@ def estimate(model):
 
     Tries the C extension first; falls back to the pure-Python estimator
     (scipy L-BFGS-B + elf_scalar) when the extension is not compiled.
+
+    When all ARMA/intervention parameters are fixed (npar=0), uses
+    eval_at_params to evaluate the likelihood at the fixed values without
+    optimisation — the C backend crashes in this case.
     """
+    from .cast_us import _build_initial_x
+    if len(_build_initial_x(model)) == 0:
+        from .cast_us import eval_at_params
+        return eval_at_params(model)
+
     try:
         from fue._fue_engine import ffi, lib
     except ImportError:

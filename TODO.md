@@ -292,6 +292,101 @@ Cuatro papers que cubren toda la implementación:
 
 ## Pendiente
 
+### Bugs pendientes
+
+#### `csrc/internal/nlatools.c` — `tensor()` crash con nrl < 0
+
+**Síntoma**: segfault / "double free or corruption (out)" al estimar cualquier modelo
+con AR (regular o AR_f) **más** MA_f.
+
+**Causa**: `elfvarma.c` llama `tensor(-q+1, 0, 1, m, 1, m)` para alojar `gamwa`.
+Con q ≥ 2 (MA_f aporta orden 2) resulta `nrl = -1`.  La asignación actual es:
+
+```c
+t = calloc(nrh + 1, ...);   // = calloc(1, ...)  — solo 1 slot, válido en t[0]
+```
+
+El bucle de inicialización luego hace `t[-1] = ...` → escribe antes del bloque
+asignado → corrupción del heap.
+
+**Fix pendiente**: cambiar la asignación a `calloc(nrh - nrl + 1, ...)` y devolver
+`t_alloc - nrl` para que `t[nrl..nrh]` sean válidos.  También cambiar
+`free_tensor`: `free(t + nrl)` en lugar de `free(t)`.
+
+**Impacto**: el backend C falla para modelos AR + MA_f.  El estimador Python puro
+(`cast_us.estimate_py`) no se ve afectado (usa dict para gamwa).
+
+**Alcance al corregir**: todos los tests deben rehacerse con el híbrido (C + Python)
+para verificar equivalencia numérica antes de liberar.
+
+**Workaround activo**: `art.formal_tests.dcd_f()` usa `estimate_py` para ambos
+modelos (libre y restringido).
+
+---
+
+#### Backend C — crash con AR_s + MA_s simultáneos (modelos SARIMA híbridos)
+
+**Síntoma**: segfault / "Aborted (core dumped)" al estimar cualquier modelo que
+combine operadores estacionales AR (ar_s, P≥1) **y** MA (ma_s, Q≥1) al mismo
+tiempo mediante el backend C.
+
+**Ejemplo mínimo que reproduce el crash**:
+```python
+import fue
+ts, _ = fue.inp.load("R.1.inp")   # serie trimestral, s=4
+m = fue.Model(ts, d=1, D=1, boxlam=0.0,
+              ma=[[-0.3]], ma_free=[[True]],
+              ar_s=[[0.0]], ar_s_free=[[True]],
+              ma_s=[[-0.3]], ma_s_free=[[True]])
+m.fit()   # → Aborted (core dumped)
+```
+
+**Causa probable**: misma raíz que el bug AR+MA_f anterior — el tensor `gamwa`
+en `elfvarma.c` se asigna con tamaño incorrecto cuando se combina el orden
+del factor AR estacional (s·P) con el MA estacional (s·Q), generando `nrl < 0`
+en la llamada a `tensor()`.
+
+**Impacto**: modelos SARIMA(p,d,q)(P,D,Q) con P≥1 y Q≥1 no se pueden estimar
+con el backend C.  El estimador Python puro (`estimate_py`) no se ve afectado.
+
+**Workaround activo**: `art.mcp_server._make_model` y `_build_inp` admiten
+parámetros `P, Q`, pero los tests de art solo cubren P=0,Q=1 (o P=1,Q=0).
+Hasta que se corrija, usar solo uno de los dos (AR_s OR MA_s, no ambos).
+
+**Fix pendiente**: mismo que el bug tensor() anterior — corregir la asignación
+en `nlatools.c:tensor()`.  Verificar que la corrección también elimina este crash.
+
+---
+
+#### Backend C — crash con p=0, q=0 (sin parámetros ARMA)
+
+**Síntoma**: `Segmentation fault` al llamar `.fit()` en un modelo sin parámetros ARMA
+(solo armónicos/intervenciones o modelo puro de ruido blanco diferenciado).
+
+**Ejemplo mínimo**:
+```python
+ts, m = fue.inp.load("serie.inp")  # serie cualquiera
+m.ar = []; m.ma = []               # sin ARMA
+m.fit()                            # → Segfault
+```
+
+**Causa probable**: `elf_scalar` no inicializa correctamente el vector de parámetros
+cuando g=0 (sin ARMA libre). El array de parámetros queda vacío o con puntero nulo,
+y la función de verosimilitud intenta indexar fuera del rango.
+
+**Impacto**: impide estimar modelos de solo armónicos sin ARMA, lo que es válido
+metodológicamente (modelo con solo estacionalidad determinista, paso previo a la
+identificación ARMA).
+
+**Workaround aplicado** (2026-06-13):
+- **Caso npar=0** (sin armónicos, p=q=0 fijo): `fue/_engine.py` detecta `len(_build_initial_x(model)) == 0` y enruta a `eval_at_params` (camino Python puro) sin llamar al backend C.
+- **Caso con armónicos** (p=q=0 pero n_harmonics>0): `art/mcp_server.py` `_build_inp` y `_make_model` añaden `ar=[[0.0]], ar_free=[[False]]` (AR(1) con φ=0 fijo) cuando `p=0 AND q=0`. Esto aporta nar=1 al backend C y evita el crash, sin alterar la verosimilitud (φ fijo en 0 no se estima).
+
+**Fix pendiente en C**: en `elf_scalar`, verificar g>0 antes de acceder al vector de
+parámetros; si g=0, devolver solo el valor de verosimilitud del ruido blanco puro.
+
+---
+
 ### Alta prioridad
 - [x] **Francia**: ifault=6 resuelto (era consecuencia del bug `_unscramble`); F.3.inp actualizado a origin=12/2025 (INSEE serie 001759970, base 2015); añadida al SPS como séptimo país
 

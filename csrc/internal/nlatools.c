@@ -441,6 +441,27 @@ int **imatrix( long nrl, long nrh, long ncl, long nch )
 
 /****************************************************************************/
 
+/* TODO (bug): tensor() is broken when nrl < 0.
+ *
+ * The call  gamwa = tensor(-q+1, 0, 1, m, 1, m)  in elfvarma.c (line ~109)
+ * uses nrl = -q+1.  For q >= 2 (MA_f contributes order 2, so q=2 with any AR)
+ * this gives nrl = -1.  The current allocation:
+ *
+ *     t = calloc(nrh + 1, ...)    →  calloc(1, ...)   (1 slot, valid at t[0])
+ *
+ * then the init loop writes t[-1] = ... → heap corruption → segfault / double-free.
+ *
+ * Fix: allocate  calloc(nrh - nrl + 1, ...)  and shift  t = t_alloc - nrl.
+ * Also fix free_tensor: free(t + nrl) instead of free(t).
+ *
+ * Impact: fue Python C backend crashes when any model combines AR (regular or AR_f)
+ * with MA_f.  The pure-Python estimator (cast_us.estimate_py) is unaffected because
+ * it uses a Python dict for gamwa.  Until this is fixed, art.dcd_f() forces
+ * estimate_py for both the free and constrained models.
+ *
+ * Workaround applied in: art-python/src/art/formal_tests.py:_fit_py()
+ * Documented in:         fue/TODO.md  (section "Bugs pendientes")
+ */
 double ***tensor( long nrl, long nrh, long ncl, long nch, long ndl, long ndh )
 {
    long i, j;

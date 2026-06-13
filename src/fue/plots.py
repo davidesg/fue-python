@@ -553,12 +553,12 @@ def _layout_params(size2, lags):
     return w_ratio, h_acf, h_pacf
 
 
-def _draw_acf_panel(ax, lag_x, vals, band, cmax, freq, lags, label):
+def _draw_acf_panel(ax, lag_x, vals, band, cmax, freq, lags, label, lw=None):
     """One ACF or PACF panel: impulse style, confidence bands, seasonal grid."""
     _tj_spines(ax, sides=('left',))
 
     # impulse line width: slightly thicker for few lags
-    lw_imp = 2.2 if lags >= 30 else 3.0
+    lw_imp = lw if lw is not None else (2.2 if lags >= 30 else 3.0)
     ax.vlines(lag_x, 0, vals, colors='k', linewidth=lw_imp, zorder=3)
     ax.axhline( band, color='k', lw=1.0, linestyle='--', zorder=2)
     ax.axhline(-band, color='k', lw=1.0, linestyle='--', zorder=2)

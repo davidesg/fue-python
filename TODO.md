@@ -390,6 +390,16 @@ parámetros; si g=0, devolver solo el valor de verosimilitud del ruido blanco pu
 ### Alta prioridad
 - [x] **Francia**: ifault=6 resuelto (era consecuencia del bug `_unscramble`); F.3.inp actualizado a origin=12/2025 (INSEE serie 001759970, base 2015); añadida al SPS como séptimo país
 
+### Media prioridad — Usar pyfug para gráficos diagnósticos
+
+- [ ] **Reemplazar `plots.py` con pyfug**: sustituir los gráficos matplotlib actuales
+  de `plot_model_diagnostics` y `plot_forecast` por los gráficos Jenkins-Treadway
+  de `pyfug.graphics`, para coherencia visual con FUG y ART.
+  - `plot_combined` → residuos + ACF/PACF en layout combinado
+  - `plot_acf_pacf` → ACF/PACF standalone de residuos
+  - `plot_histogram` → histograma de residuos con JB y p-valor
+  - Referencia pyfug: `/home/david/Dropbox/SRC/atws/fug/pyfug`
+
 ### Media prioridad
 - [ ] **conda recipe**: actualizar para builds sin extensión C (`FUE_SKIP_C=1`)
 - [ ] **`pyproject.toml`**: marcar cffi/GSL como opcionales en las dependencias de build

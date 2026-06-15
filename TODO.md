@@ -392,6 +392,10 @@ parámetros; si g=0, devolver solo el valor de verosimilitud del ruido blanco pu
 
 ### Media prioridad — Usar pyfug para gráficos diagnósticos
 
+**Contexto** (jun-2026): fue Python es usado directamente por Claude como herramienta
+de estimación en el flujo Box-Jenkins. Claude llama a `fue.Model` + `m.fit()` y luego
+usa pyfug para los gráficos diagnósticos de residuos. No hace falta un ART complejo.
+
 - [ ] **Reemplazar `plots.py` con pyfug**: sustituir los gráficos matplotlib actuales
   de `plot_model_diagnostics` y `plot_forecast` por los gráficos Jenkins-Treadway
   de `pyfug.graphics`, para coherencia visual con FUG y ART.
@@ -399,6 +403,16 @@ parámetros; si g=0, devolver solo el valor de verosimilitud del ruido blanco pu
   - `plot_acf_pacf` → ACF/PACF standalone de residuos
   - `plot_histogram` → histograma de residuos con JB y p-valor
   - Referencia pyfug: `/home/david/Dropbox/SRC/atws/fug/pyfug`
+
+  **Patrón de uso actual** (Claude directo, sin plots.py):
+  ```python
+  m = fue.Model(ts, boxlam=0.0, d=1, ar=[[...]], ar_free=[[True]])
+  for at in [81, 83, 218, 219]:
+      m = m.add_intervention('step', at=at)
+  m.fit()
+  resids = np.array(m.residuals.data)  # TimeSeries → ndarray
+  # npar = len(m.params); sigma = np.std(resids, ddof=0)
+  ```
 
 ### Media prioridad
 - [ ] **conda recipe**: actualizar para builds sin extensión C (`FUE_SKIP_C=1`)

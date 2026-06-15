@@ -471,7 +471,7 @@ def _make_charts_svg(model, fr) -> str:
     err_L      = min(L, len(residuals))
     err_vals   = 100.0 * residuals[-err_L:] / refactor
     x_err      = np.arange(err_L)
-    sigma_plot = math.sqrt(fr.sigma2)
+    sigma_plot = math.sqrt(fr.sigma2) * 100.0 / refactor  # always in % units
     prevcmax   = _prevcmax(err_vals, sigma_plot)
 
     # x-ticks: only historical years (< err_L)
@@ -547,7 +547,8 @@ def _table_data(model, fr):
                   if k > freq else
                   100.0 * _boxcox(raw[k-1], boxlam, refactor) / refactor)
         res_idx = k - ornsop - 1
-        err_str = _f2(residuals[res_idx]) if 0 <= res_idx < len(residuals) else "—"
+        err_str = (_f2(100.0 * residuals[res_idx] / refactor)
+                   if 0 <= res_idx < len(residuals) else "—")
         hist_rows.append({
             "date":   date,
             "level":  _f2(level),
@@ -561,7 +562,7 @@ def _table_data(model, fr):
     for h in range(L):
         k    = nobs + h + 1
         date = _fuf_obs_to_date_str(k, begyear, begtime, freq)
-        lstd = fr.level_std[h] * refactor
+        lstd = fr.level_std[h] * 100  # level_std is refactor-invariant; *100 gives %
         all_fore.append({
             "date":       date,
             "level":      _f2(fr.level[h]),

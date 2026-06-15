@@ -294,33 +294,34 @@ Cuatro papers que cubren toda la implementación:
 
 ### Bugs pendientes
 
-#### `csrc/internal/nlatools.c` — `tensor()` crash con nrl < 0
+#### ~~`csrc/internal/nlatools.c` — `tensor()` crash con nrl < 0~~ ✅ CORREGIDO (2026-06-15)
 
-**Síntoma**: segfault / "double free or corruption (out)" al estimar cualquier modelo
-con AR (regular o AR_f) **más** MA_f.
+**Síntoma resuelto**: segfault / "double free or corruption (out)" al estimar cualquier
+modelo con AR (regular o AR_f) **más** MA_f.
 
-**Causa**: `elfvarma.c` llama `tensor(-q+1, 0, 1, m, 1, m)` para alojar `gamwa`.
-Con q ≥ 2 (MA_f aporta orden 2) resulta `nrl = -1`.  La asignación actual es:
+**Causa**: `elfvarma.c` llamaba `tensor(-q+1, 0, 1, m, 1, m)` para alojar `gamwa`.
+Con q ≥ 2 (MA_f aporta orden 2) resultaba `nrl = -1`.  La asignación `calloc(nrh+1, ...)`
+solo reservaba 1 slot; el bucle de inicialización escribía en `t[-1]` → corrupción del heap.
 
+**Nota histórica**: el binario standalone fue-1.13.1 no sufría este crash porque las
+secciones Ar2f/Ma2f de `cast_us()` en `fue.c` están comentadas — los factores de
+frecuencia fija se leen pero no se incluyen en phi/theta, por lo que q nunca supera
+al orden del MA regular.  El híbrido Python (`fue_api.c`) sí expande Ma1f en theta
+(`q1 += 2`), lo que activaba el bug.
+
+**Fix aplicado** en `csrc/internal/nlatools.c`:
 ```c
-t = calloc(nrh + 1, ...);   // = calloc(1, ...)  — solo 1 slot, válido en t[0]
+/* tensor(): asignar nrh-nrl+1 slots y desplazar el puntero */
+t = (double ***)calloc( (size_t)(nrh - nrl + 1), sizeof(double **) );
+t -= nrl;   /* shift so t[nrl..nrh] are valid when nrl < 0 */
+
+/* free_tensor(): deshacer el desplazamiento antes de free() */
+if ( t ) { free( t[nrl][ncl] ); free( t[nrl] ); free( t + nrl ); }
 ```
 
-El bucle de inicialización luego hace `t[-1] = ...` → escribe antes del bloque
-asignado → corrupción del heap.
-
-**Fix pendiente**: cambiar la asignación a `calloc(nrh - nrl + 1, ...)` y devolver
-`t_alloc - nrl` para que `t[nrl..nrh]` sean válidos.  También cambiar
-`free_tensor`: `free(t + nrl)` en lugar de `free(t)`.
-
-**Impacto**: el backend C falla para modelos AR + MA_f.  El estimador Python puro
-(`cast_us.estimate_py`) no se ve afectado (usa dict para gamwa).
-
-**Alcance al corregir**: todos los tests deben rehacerse con el híbrido (C + Python)
-para verificar equivalencia numérica antes de liberar.
-
-**Workaround activo**: `art.formal_tests.dcd_f()` usa `estimate_py` para ambos
-modelos (libre y restringido).
+**Impacto del fix**: MEG (AR + MA_f testigo) ahora usa el backend C → 0.13s/frecuencia
+(vs ~215s con el estimador Python puro).  `art.formal_tests.dcd_f()` y `meg()`
+actualizados para usar `model.fit()` en lugar del workaround `_fit_py()`.
 
 ---
 

@@ -1084,10 +1084,15 @@ def _ffixed_body(ff_list, fitted_phi2):
     n = len(ff_list)
     if n == 0:
         return "0\n**"
-    body = str(n) + "\n**"
-    for ff, phi2 in zip(ff_list, fitted_phi2):
-        flag = "1" if ff.free else "0"
-        body += f"\n{ff.freq:.6f} {phi2:.4f} {flag}"
+    # C reader (fue/fuf [3.3.9-14]): fscanf(count) then fscanf every freq BEFORE
+    # the '**' separator, then one "coef free" line per factor. So count and all
+    # freqs share the first line; the freq must NOT be repeated on the coef line
+    # (doing so makes the C read the '**' as a float -> garbage/crash). Coef at
+    # .6f to preserve the estimated witness precision in forecasts.
+    body = f"{n} " + " ".join(f"{ff.freq:.6f}" for ff in ff_list) + "\n**"
+    for _ff, phi2 in zip(ff_list, fitted_phi2):
+        flag = "1" if _ff.free else "0"
+        body += f"\n{phi2:.6f} {flag}"
         body += "\n**"
     return body
 

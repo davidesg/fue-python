@@ -165,6 +165,8 @@ class Model:
             except ImportError:
                 msg = f"ifault={self._result.ifault}"
             raise RuntimeError(f"FUE estimation failed: {msg}")
+        from .cast_us import normalize_ma_invertibility
+        normalize_ma_invertibility(self)
         return self
 
     def forecast_fuf(self, horizon=None, sigma2=None):

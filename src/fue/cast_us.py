@@ -598,3 +598,72 @@ def eval_at_params(model):
         "cov_matrix": np.zeros((npar, npar)),
         "residuals":  a_res,
     }
+
+
+def normalize_ma_invertibility(model):
+    """Rewrite a fitted model's stored params/SE/cov into the INVERTIBLE MA
+    representation, in place.
+
+    The likelihood reflects a non-invertible MA to its invertible reciprocal
+    internally ([2] regular MA(1): |θ|>1 → 1/θ; [4] fixed-freq MA_f: coef<−1 →
+    1/coef), so the optimiser's raw x can sit on the non-invertible root while the
+    fit is identical. This normalises the *reported* point estimate to the invertible
+    root — matching the C engine's constrained-invertibility output — so params and
+    everything written to .pre/.out are consistent. Likelihood-invariant.
+
+    SE / cov are left as the unconstrained estimate: a reflection only fires near the
+    invertibility boundary (coef just past ±1), where SE is ≈invariant to the flip
+    (Jacobian 1/θ² ≈ 1) and the C engine's constrained SE matches the unconstrained
+    one to ~1%. (A delta transform 1/θ² would over-correct and disagree with fue-C.)
+
+    Walks the flat parameter vector in the canonical order (count_npar_build_par):
+    omega, delta, AR, AR_s, MA, MA_s, AR_f, MA_f, mu.
+    """
+    res = getattr(model, "_result", None)
+    if res is None or res.params is None:
+        return
+    p = np.array(res.params, dtype=float)
+    n = p.size
+    if n == 0:
+        return
+
+    k = 0
+    for itv in model.interventions:
+        k += sum(1 for f in itv.omega_free if f)
+    for itv in model.interventions:
+        k += sum(1 for f in itv.delta_free if f)
+
+    def _skip(factors, free_lists):
+        nonlocal k
+        for i, fac in enumerate(factors or []):
+            fl = free_lists[i] if free_lists and i < len(free_lists) else None
+            k += sum(1 for j in range(len(fac)) if fl is None or fl[j])
+
+    _skip(model.ar,   model.ar_free)
+    _skip(model.ar_s, model.ar_s_free)
+
+    flipped = []
+    # Regular MA — reflect first-order factors with |θ| > 1 (mirrors step [2]).
+    for i, fac in enumerate(model.ma or []):
+        fl = model.ma_free[i] if model.ma_free and i < len(model.ma_free) else None
+        npos = sum(1 for j in range(len(fac)) if fl is None or fl[j])
+        if len(fac) == 1 and npos == 1 and abs(p[k]) > 1.0:
+            flipped.append(k)
+        k += npos
+
+    _skip(model.ma_s, model.ma_s_free)
+    k += sum(1 for ff in (model.ar_f or []) if ff.free)
+
+    # Fixed-frequency MA_f — reflect coef < −1 (mirrors step [4]).
+    for ff in (model.ma_f or []):
+        if ff.free:
+            if p[k] < -1.0:
+                flipped.append(k)
+            k += 1
+
+    if not flipped:
+        return
+
+    for idx in flipped:
+        p[idx] = 1.0 / p[idx]
+    res.params = p.tolist() if isinstance(res.params, list) else p

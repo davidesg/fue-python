@@ -447,3 +447,49 @@ usa pyfug para los gráficos diagnósticos de residuos. No hace falta un ART com
 | test_reliability2.py | 37 | Intervenciones, BoxCox |
 | test_reliability3.py | 44 | Estacionales, fixed-freq |
 | test_reliability4.py | 46 | Casos reales, parser .inp |
+
+## Renderer determinista diagnóstico+ecuación (migración desde fue-C) — 2026-07-05
+
+**Contexto (del MCP `art` / estudio SF_MEG).** El MCP presenta el modelo estimado como el
+bloque canónico de dos ecuaciones (`art.describe.model_equation`) y le pide al LLM que lo
+muestre "TAL CUAL". Eso funciona pero **depende de que el LLM obedezca**: a veces reconstruye
+una tabla, cambia precisión o transcribe mal. La solución de fondo es un **renderer
+determinista**, y el fue-C ya produce esa salida combinada (instrumentos diagnósticos +
+ecuación). **Pendiente: migrar esa salida del C a fue-Python.**
+
+- [ ] Portar del fue-C el **reporte diagnóstico+ecuación** (una salida unificada, no solo el `.out`).
+- [ ] Consumir un **`model_equation_data`** estructurado (operadores, coefs, SE, μ, σ², ℓ, AIC/BIC)
+      construido con el unpacker canónico `fue.forecast._reconstruct_params` — sin re-parsear texto.
+- [ ] En el lado ART: poblar `Description.data` con ese estructurado y transportarlo en `_result`
+      (hoy se descarta); entonces el renderer/host presenta sin pasar por el LLM.
+
+Ver `~/Dropbox/SF_MEG/empirical/ART_MCP_REVIEW.md §2` (decisión: §2 diferido a esta migración).
+
+## Covarianza: factor BFGS acumulado vs Hessiano en el óptimo — EVALUAR (no cambiar de inicio) — 2026-07-05
+
+**Síntoma.** Re-estimar un modelo desde un `.pre` **sin modificar** (arranque ~en el óptimo) da
+SE **inflados** frente al ajuste original. Ej. FR_CPI (estudio SF_MEG): μ SE = 0.0717 (`.pre`-reload)
+vs 0.0156 (build fresco); el Hessiano de **diferencias finitas** en el MISMO óptimo da 0.0145
+(correcto, independiente del arranque). Mismo punto estimado, misma verosimilitud.
+
+**Causa.** `cast_us._estimate_core` (y `qnewtopt.c`) derivan la covarianza del **factor Cholesky del
+Hessiano BFGS acumulado** (`B_hess`; B parte de I y se refina con cada iteración), no de un Hessiano
+fresco en el óptimo. Con **pocas iteraciones** (arranque en el óptimo) B≈I → covarianza cruda. Es
+**path-dependiente**: el SE reportado depende de la trayectoria del optimizador, no solo del óptimo.
+
+**Por qué NO es un problema en la práctica.** El `.pre` se recarga para **modificar** el modelo, lo
+que aleja el nuevo óptimo del arranque y da iteraciones suficientes para acumular B bien. Solo muerde
+al **re-estimar idéntico** (tools de display: `model_equation_display`, `get_out_report`).
+
+**Por qué NO cambiar a la ligera (trade-off real).** El factor BFGS es **siempre definido-positivo**
+por construcción (Cholesky mantenido); un Hessiano de diferencias finitas puede salir **indefinido /
+mal condicionado cerca de fronteras** (varianzas negativas). Probablemente por eso Mauricio lo
+construyó así. Cambiar a `fdhess` afecta a TODOS los usuarios y podría alterar SE publicados.
+
+**Acción — EVALUAR (no fix de inicio):**
+- [ ] Revisar el **C original** (`qnewtopt.c`: cómo obtiene la covarianza) y los **papers/documentación
+      del motor** (Mauricio) para entender la decisión de diseño.
+- [ ] Evaluar con cuidado: covarianza vía `fdhess` en el óptimo (correcta, path-independiente) vs el
+      factor BFGS (siempre PD, barato). Posible híbrido: `fdhess` con salvaguarda de PD (fallback a BFGS).
+- [ ] Mitigación a nivel de **workflow** (sin tocar el motor): que los tools de display NO re-estimen un
+      `.pre` sin cambios; que carguen los SE del ajuste original (`.out`) o que el `.pre` guarde los SE.

@@ -7,6 +7,12 @@ C extension (_fue_engine) is not available.
 
 import numpy as np
 
+# Transport-struct capacities — must match the #defines in csrc/fue_api.h and
+# the cdef literals in _build_cffi.py.  Used only to turn an over-capacity model
+# into a clear ValueError instead of a raw cffi IndexError (see BUG-0002).
+_MAX_FACTORS = 32   # FUE_MAX_FACTORS: max AR/MA factors per block
+_MAX_POLYORD = 64   # FUE_MAX_POLYORD: max polynomial order per factor
+
 
 def estimate(model):
     """
@@ -56,7 +62,23 @@ def estimate(model):
     spec.eml         = 1 if model.eml else 0
 
     def _fill_factors(spec_arr, factors, free_lists):
+        # Capacity of the cffi transport struct (FueFactor coefs[FUE_MAX_POLYORD]
+        # and ar1/ar2/ma1/ma2[FUE_MAX_FACTORS] in csrc/fue_api.h).  The engine
+        # itself is dynamic; these only bound the marshalling buffer.  Raise a
+        # clear error instead of a raw cffi IndexError when a model exceeds them.
+        if len(factors) > _MAX_FACTORS:
+            raise ValueError(
+                f"{len(factors)} factors exceed the binding capacity of "
+                f"{_MAX_FACTORS} factors per block; rebuild the extension with a "
+                f"larger FUE_MAX_FACTORS in csrc/fue_api.h and _build_cffi.py."
+            )
         for i, factor in enumerate(factors):
+            if len(factor) > _MAX_POLYORD:
+                raise ValueError(
+                    f"factor of order {len(factor)} exceeds the binding capacity "
+                    f"of {_MAX_POLYORD}; rebuild the extension with a larger "
+                    f"FUE_MAX_POLYORD in csrc/fue_api.h and _build_cffi.py."
+                )
             spec_arr[i].order = len(factor)
             free = free_lists[i] if free_lists is not None else None
             for j, v in enumerate(factor):

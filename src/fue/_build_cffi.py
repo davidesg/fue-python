@@ -21,7 +21,9 @@ _INTERN = os.path.join(_ROOT, "internal")
 
 # cffi cannot process C preprocessor directives (#define, #ifdef, etc.).
 # We provide a macro-expanded cdef string with literal values instead.
-# Macro values: FUE_MAX_DETVARS=64, FUE_MAX_FACTORS=8, FUE_MAX_POLYORD=16.
+# Macro values: FUE_MAX_DETVARS=64, FUE_MAX_FACTORS=32, FUE_MAX_POLYORD=64.
+# These literals MUST match the #defines in csrc/fue_api.h exactly, or the
+# struct layout the extension compiles will disagree with what cffi marshals.
 _CDEF = """
 typedef struct {
     int    type;
@@ -29,20 +31,20 @@ typedef struct {
     double harmonic;
 
     int    nomega;
-    double omega[16];
-    int    omega_free[16];
+    double omega[64];
+    int    omega_free[64];
 
     int    ndelta;
-    double delta[16];
-    int    delta_free[16];
+    double delta[64];
+    int    delta_free[64];
 
     double *indicator_data;
 } FueIntervention;
 
 typedef struct {
     int    order;
-    double coefs[16];
-    int    coef_free[16];
+    double coefs[64];
+    int    coef_free[64];
 } FueFactor;
 
 typedef struct {
@@ -66,26 +68,26 @@ typedef struct {
     FueIntervention interventions[64];
 
     int       nar1;
-    FueFactor ar1[8];
+    FueFactor ar1[32];
 
     int       nar2;
-    FueFactor ar2[8];
+    FueFactor ar2[32];
 
     int       nma1;
-    FueFactor ma1[8];
+    FueFactor ma1[32];
 
     int       nma2;
-    FueFactor ma2[8];
+    FueFactor ma2[32];
 
     int    nar1f;
-    double ar1f_freq[8];
-    double ar1f_coef[8];
-    int    ar1f_free[8];
+    double ar1f_freq[32];
+    double ar1f_coef[32];
+    int    ar1f_free[32];
 
     int    nma1f;
-    double ma1f_freq[8];
-    double ma1f_coef[8];
-    int    ma1f_free[8];
+    double ma1f_freq[32];
+    double ma1f_coef[32];
+    int    ma1f_free[32];
 
     int    ifadf[8];
 

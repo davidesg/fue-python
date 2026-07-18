@@ -15,11 +15,17 @@
 extern "C" {
 #endif
 
-/* ── Hard limits (match Tusmodel capacity) ─────────────────────────────── */
+/* ── Transport-buffer limits ───────────────────────────────────────────── */
+/* These only size the FueModelSpec marshalling struct; the engine itself    */
+/* (Tusmodel) allocates AR/MA factors dynamically in fue_api.c, so it has no  */
+/* fixed cap.  The bounds below are deliberately generous — far beyond any    */
+/* realistic univariate model — so that the Python binding no longer crashes  */
+/* on long-order or many-factor models (BUG-0002).  Keep these three values   */
+/* in exact sync with the cdef literals in src/fue/_build_cffi.py.            */
 
 #define FUE_MAX_DETVARS  64   /* max interventions                         */
-#define FUE_MAX_FACTORS   8   /* max AR or MA factors per type             */
-#define FUE_MAX_POLYORD  16   /* max polynomial order per factor           */
+#define FUE_MAX_FACTORS  32   /* max AR or MA factors per type             */
+#define FUE_MAX_POLYORD  64   /* max polynomial order per factor           */
 
 /* ── Intervention types ─────────────────────────────────────────────────── */
 

@@ -1,11 +1,11 @@
 ---
 id: BUG-0002
 title: Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError
-status: open
+status: fixed
 severity: high
 component: binding
 found_in: 0.1.5
-fixed_in: 
+fixed_in: 0.1.6
 reported: 2026-07-18
 reporter: D. E. Guerrero
 tags:
@@ -108,32 +108,50 @@ reviewed together.)
 
 ## Fix
 
-Two options, in order of preference:
+**Applied** in 0.1.6. Confirmed that `fue_api.c` copies each factor into
+**dynamically allocated** engine structures (`Tm.Ar1[i] = vector(0, f->order)`,
+`Tm.Ar1 = calloc(NumAr1+1, …)`) and that the macros are referenced **nowhere** in
+the engine internals (`usmelard.c`, `elfvarma.c`, …) — the fixed arrays are a
+pure transport buffer, so raising the caps is safe and needs no engine change.
 
-1. **Size the marshalling to the model.** Compute the needed capacity from the
-   model (`max_order = max(len(f) for f in all_factors)`, `max_factors =
-   max(nar1, nar2, nma1, nma2)`) and either (a) generate the `cdef` with those
-   sizes, or (b) pass coefficients through a flat, length-prefixed `double[]`
-   buffer + counts (as `data` is already passed via `ffi.from_buffer`), removing
-   the fixed factor/coef arrays from the struct entirely. Option (b) is the clean
-   fix and mirrors how the C engine already consumes the data.
+Changes:
 
-2. **Raise the caps** to a safe bound (e.g. `coefs[64]`, `ar1[32]`) as a stopgap.
-   Cheap, but re-introduces the same failure mode for even larger models and
-   wastes struct space. Only acceptable as an interim measure.
+1. **Raise the transport caps** well beyond any realistic univariate model, in
+   lockstep across the C header and the cffi cdef:
+   - `csrc/fue_api.h`: `FUE_MAX_FACTORS 8 → 32`, `FUE_MAX_POLYORD 16 → 64`.
+   - `src/fue/_build_cffi.py`: the mirrored cdef literals `[8] → [32]`,
+     `[16] → [64]` (`coefs`, `coef_free`, `omega`, `delta`, `ar1..ma2`,
+     `ar1f_*`, `ma1f_*`). `interventions[64]` and `ifadf[8]` are unrelated and
+     left as-is.
+2. **Python guard** in `src/fue/_engine.py` `_fill_factors`: validate the factor
+   count against `_MAX_FACTORS` and each factor order against `_MAX_POLYORD`,
+   raising a clear `ValueError` naming the limit instead of a raw cffi
+   `IndexError`. Module constants `_MAX_FACTORS=32`, `_MAX_POLYORD=64` are kept
+   in sync with the header.
 
-Whichever is chosen, `_fill_factors` should also **validate** `len(factor)` and
-the factor count against the capacity and raise a clear `ValueError` ("AR order N
-exceeds binding capacity M; rebuild with larger cdef") instead of a raw cffi
-`IndexError`.
+A fully-dynamic marshalling (flat length-prefixed buffer, no fixed arrays)
+remains a possible future refinement, but the raised caps already exceed any
+realistic model and the guard makes the boundary explicit.
 
 ## Validation
 
-- Add a regression test that fits (or at least marshals) an AR(18) unfactored
-  model and a 9×AR(2) factorised model through the Python binding without
-  `IndexError`, and asserts `logelf` matches the fue-C reference
-  (EN.4 unfactored and factorised: −1600.09… / −1597.8503).
-- Guard test: a model one past the (new) cap raises `ValueError`, not `IndexError`.
-- Cross-check: for every model where both backends run, `logelf` agrees to ≥10
-  digits (already true for AR(16); extend the England battery once the cap is
-  lifted).
+Cross-backend on the real England annual series (n=258), the cases that used to
+crash — fue-C 1.13 (`/usr/local/bin/fue`) vs fue-Python 0.1.6:
+
+| Model                         | fue C            | fue Python       | Δ        |
+|-------------------------------|------------------|------------------|----------|
+| EN.4 = AR(18) unfactored      | −1590.8128831276 | −1590.8128831276 | 2.9e-11  |
+| EN.4 = 9 × AR(2) factorised   | −1597.8503371512 | −1597.8503371512 | <1e-10   |
+
+Both previously raised `IndexError` (`double[16]` / `FueFactor[8]`); both now
+estimate with `ifault=0` and match fue-C to 10–11 digits (optimizer tolerance).
+
+Regression tests `tests/test_bug_0002_binding_factor_caps.py` (fixtures
+`tests/real_cases/en4_ar18.inp`, `en4_fac9x2.inp`):
+- AR(18) unfactored and 9×AR(2) fit and match the fue-C references to 1e-6;
+- marshalling at the new cap (`coefs[63]`, `ar1[31]`) succeeds, one past
+  (`coefs[64]`, `ar1[32]`) still raises `IndexError` at the cffi layer;
+- a model one past the cap (`_MAX_FACTORS+1` factors, order `_MAX_POLYORD+1`)
+  raises a clear `ValueError`, not `IndexError`.
+
+Full suite green after rebuilding the extension.

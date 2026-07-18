@@ -37,6 +37,7 @@ dependencies    = [
 [project.scripts]
 fue = "fue.cli:main"
 fuf = "fue.fuf_cli:main"
+fue-bug = "fue.bug_cli:main"
 
 [project.optional-dependencies]
 # pip install "fue[c-engine]" — record cffi as an explicit runtime dep when

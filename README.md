@@ -90,6 +90,20 @@ fuf forecast_model
 | BFGS with Cholesky factor update | Dennis & Schnabel (1983) ch. 9 | Optimization (`raxopt`) |
 | Scaled objective Π(x)/Π₀ | Mauricio (1995) JASA §3 | Numerical conditioning |
 
+## Bug tracking
+
+Bugs are tracked in-repo under [`bugs/`](bugs/README.md) — one Markdown file per
+report (`BUG-NNNN-slug.md`) with a small frontmatter schema. A fix references the
+id in its commit, e.g. `fix(forecast): BUG-0001 …`.
+
+```bash
+fue-bug list                       # list reports (open marked with *)
+fue-bug show BUG-0001              # print a report
+fue-bug new "title" --component forecast   # file a new report
+fue-bug check                      # validate all reports (runs in CI, tests/test_bugs.py)
+fue-bug index                      # regenerate bugs/README.md
+```
+
 ## Authors and licence
 
 **fue** is developed by Arthur B. Treadway and David E. Guerrero, based on the

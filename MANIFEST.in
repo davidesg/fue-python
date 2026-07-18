@@ -3,3 +3,4 @@ include setup.py
 include src/fue/_build_cffi.py
 include README.md
 include COPYING
+recursive-include bugs *.md

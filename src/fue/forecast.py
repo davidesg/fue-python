@@ -453,6 +453,14 @@ def forecast(model, result, horizon):
     # w = varma1.nt = stochastic level = Box-Cox(data) - xi  (NOT raw Box-Cox!)
     # AR part : phi0[i] * (f1[l-i]  if l>i  else  w[nobs-i+l])
     # MA part : theta[j] * a[nobs-j+l-ornsop]  for l≤j  (else 0)
+    #
+    # BUG-0001: the mean drift is the constant intercept c = μ·φ(1) of the level
+    # recursion phi0(B)w = μ·φ(1) + a, added HERE each step — NOT as an accumulated
+    # l·μ afterwards (that double-counted the drift, over-shooting the level by
+    # μ·φ/(1-φ) in the transient, because the homogeneous recursion is seeded with
+    # drift-laden initial conditions). φ(1) = 1 - Σ φ_i, d-independent.
+    drift = mu * (1.0 - float(np.sum(phi_coefs))) if mu else 0.0
+
     f1 = np.zeros(L + 1)   # f1[0] unused
 
     for l in range(1, L + 1):
@@ -474,23 +482,13 @@ def forecast(model, result, horizon):
                 if 0 <= py_idx < len(residuals):
                     vtmp2 += theta_coefs[j - 1] * residuals[py_idx]
 
-        f1[l] = vtmp1 - vtmp2
+        f1[l] = vtmp1 - vtmp2 + drift
 
-    # [7] Add deterministic effects and mu drift
-    # Mirrors the active code in usfo.c (1.08.1):
-    #   with det vars  : add xi[nobs+l] directly; accumulate mu separately
-    #   without det vars: accumulate mu only
-    has_det = len(model.interventions) > 0
-    s2 = 0.0
-    for l in range(1, L + 1):
-        if has_det:
+    # [7] Add the deterministic effect (interventions/harmonics) at the forecast
+    # dates.  The mean drift is NOT added here — it is the intercept in [6].
+    if len(model.interventions) > 0:
+        for l in range(1, L + 1):
             f1[l] += xi[nobs + l]
-            if mu != 0.0:
-                s2 += mu
-                f1[l] += s2
-        else:
-            s2 += mu
-            f1[l] += s2
 
     # [8] Psi-weights ψ[0..L]  (impulse response of phi0 and theta)
     psi = np.zeros(L + 1)

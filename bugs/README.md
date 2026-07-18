@@ -4,9 +4,9 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  A fix commit references the id, e.g. `fix(forecast): BUG-0001 …`.
 
-**1 report(s), 1 open.**
+**1 report(s), 0 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
-| [BUG-0001](BUG-0001-forecast-mean-drift.md) | open | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | — |
+| [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 

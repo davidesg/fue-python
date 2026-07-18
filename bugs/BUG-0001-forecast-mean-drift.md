@@ -1,11 +1,11 @@
 ---
 id: BUG-0001
 title: Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted)
-status: open
+status: fixed
 severity: high
 component: forecast
 found_in: 0.1.4
-fixed_in:
+fixed_in: 0.1.5
 reported: 2026-07-18
 reporter: D. E. Guerrero
 tags:
@@ -74,27 +74,38 @@ the recursion, not `l·μ` afterwards.
 
 ## Fix
 
-Add the intercept `c = μ·(1 − Σ φ_i)` at each step of the level recursion and drop
-the `l·μ` accumulation.  In `forecast.py`:
+**Applied** in `src/fue/forecast.py` (step [6]–[7]): add the intercept
+`c = μ·(1 − Σ φ_i)` at each step of the level recursion and drop the `l·μ`
+accumulation.
 
 ```python
-c = mu * (1.0 - float(sum(phi_coefs)))   # μ·φ(1); d-independent
+drift = mu * (1.0 - float(np.sum(phi_coefs))) if mu else 0.0   # μ·φ(1); d-independent
 for l in range(1, L + 1):
     ...
-    f1[l] = vtmp1 - vtmp2 + c             # step [6]: + intercept
-# step [7]: keep only the deterministic xi[nobs+l]; remove the l·μ block
+    f1[l] = vtmp1 - vtmp2 + drift          # step [6]: + intercept
+# step [7]: keep only the deterministic xi[nobs+l]; the l·μ block is gone
 ```
 
 The same patch is applied and validated in the C reference (`fuf-1.08.1-fix`,
 `usfo.c`: `drift[k] = mu[k]*(1 − Σ phi[i][k][k])`, added in [1]; `l·μ` removed
 in [2]).
 
+**d=0 is catastrophic, not just biased.**  For a *stationary* model (no
+differencing) the accumulated `l·μ` adds a linear trend in the transformed space,
+so the level *explodes* (e.g. the SFNY.2 golden values were 1.30 → … → 100.32
+over 5 steps).  The fix converges to the mean.
+
 ## Validation
 
+- Fixed `forecast()` equals the mean-form closed form to machine precision
+  (≤1e-13) for d=1 ARIMA(1,1,0)+drift, AR(2), and d=0 stationary AR(1).
 - Closed form and the C fix agree with drtran to display precision.
 - Battery of 71 country models (8 countries, μ from 0 to 0.55): the patched C
   `fuf` matches drtran on every case where fuf runs (max |fix − drtran| ≤ 0.005,
   i.e. rounding), with over-shoots up to 2.8 index points removed; μ=0 models are
   a no-op (patched == original).  See drtran `docs/FUF_FORECAST_BUG.md`.
-- Regression test to add: `tests/test_bug_0001_forecast_drift.py` — the level
-  forecast of a synthetic ARIMA(1,1,0)+drift must equal the closed form.
+- Regression tests: `tests/test_bug_0001_forecast_drift.py` (closed-form match,
+  d=0 convergence, μ=0 no-op).  The fuf-homologation golden values in
+  `tests/test_forecast.py` (SFNY.2, Spain S.2) were regenerated with the fixed
+  fuf; the Spain reference `.out` lives in `tests/real_cases/`.  Full suite:
+  642 passed.

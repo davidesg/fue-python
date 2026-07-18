@@ -27,6 +27,7 @@ examples/*.png
 # Generated outputs in tests/ (fuf runs, HTML reports, PNG charts, LaTeX artefacts)
 # NB: reference *.out files (RIPC.1.out etc.) ARE tracked — only ignore generated ones
 tests/**/forecast_*
+!tests/real_cases/forecast_S.2.out
 tests/**/fuf_*
 tests/**/*_forecast.png
 tests/**/*.html

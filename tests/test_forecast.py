@@ -144,10 +144,15 @@ def test_forecast_sfny2_vs_fuf():
 
     fr = _forecast(m, _FixedResult(), 5)
 
-    # fuf reference (2-decimal LaTeX output) — tolerance 0.01
-    ref_level  = [1.30,  2.38,   7.38,   27.73,  100.32]
-    ref_lstd   = [19.25, 22.64,  22.67,  22.81,  22.86]
-    ref_diff1  = [31.47, 60.73, 113.03, 132.44,  128.57]
+    # Reference regenerated with the BUG-0001 fix.  This is a d=0 (stationary)
+    # model, where the old accumulated-l·μ drift was CATASTROPHIC: it added a
+    # linear trend in log-space, so the level exploded — the old golden values
+    # were [1.30, 2.38, 7.38, 27.73, 100.32].  With the fix the level converges,
+    # matching the mean-form forecast to machine precision.  The level STD is
+    # unchanged by the fix (the mean shift does not affect the variance).
+    ref_level  = [0.87,   0.79,   0.76,  0.77,  0.78]
+    ref_lstd   = [19.25, 22.64,  22.67, 22.81, 22.86]
+    ref_diff1  = [-8.47, -10.06,  -3.01,  1.09,  1.31]
 
     for h in range(5):
         assert abs(round(fr.level[h], 2) - ref_level[h]) < 0.01, \
@@ -191,8 +196,11 @@ def test_forecast_fuf_spain_levels():
     fr = m.forecast_fuf()
     assert fr.horizon == 24
 
-    # fuf reference: first 5 forecast steps (h=1..5), level in CPI units
-    ref_level = [103.6396, 104.0094, 104.2105, 103.5493, 103.7625]
+    # fuf reference: first 5 forecast steps (h=1..5), level in CPI units.
+    # Reference regenerated with fuf-1.08.1-fix (BUG-0001): the old values
+    # [103.6396, 104.0094, 104.2105, 103.5493, 103.7625] carried the +μφ/(1-φ)
+    # drift over-shoot (≈+0.064).
+    ref_level = [103.5752, 103.9187, 104.1090, 103.4444, 103.6556]
     for h, ref in enumerate(ref_level):
         assert abs(fr.level[h] - ref) < 0.01, (
             f"h={h+1} level: got {fr.level[h]:.4f}, expected {ref}"
@@ -222,14 +230,16 @@ def test_forecast_fuf_spain_std():
 @_spain_fuf_missing
 def test_write_fuf_out_table():
     """
-    write_fuf_out() forecast table must match the fuf-1.08.1 reference
+    write_fuf_out() forecast table must match the fuf reference
     (forecast_S.2.out) character-for-character.
+
+    Reference regenerated with fuf-1.08.1-fix (BUG-0001) and versioned in
+    tests/real_cases/, so this stays self-contained and correct.
     """
-    _SPAIN_OUT = os.path.join(
-        os.path.dirname(_SPAIN_FUF), "forecast_S.2.out"
-    )
+    _SPAIN_OUT = os.path.join(os.path.dirname(__file__),
+                              "real_cases", "forecast_S.2.out")
     if not os.path.exists(_SPAIN_OUT):
-        pytest.skip("forecast_S.2.out not present")
+        pytest.skip("forecast_S.2.out reference not present")
 
     ts, m = fue.load_fuf(_SPAIN_FUF)
     fr = m.forecast_fuf()

@@ -25,7 +25,7 @@ from .report import write_out, write_fuf, write_fuf_out
 from .report_forecast import write_forecast_report
 from . import datasets
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 __all__ = ["TimeSeries", "Intervention", "Model", "FixedFreqFactor",
            "ForecastResult", "acf", "pacf", "jarque_bera", "ljung_box",
            "load", "load_fuf", "write_out", "write_fuf", "write_fuf_out",

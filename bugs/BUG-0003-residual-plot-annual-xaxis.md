@@ -1,10 +1,11 @@
 ---
 id: BUG-0003
 title: plot_residuals_ts draws no year ticks or vertical dividers for annual series (freq==1) — X-axis unreadable
-status: open
+status: fixed
 severity: medium
 component: plots
 found_in: 0.1.6
+fixed_in: 0.1.7
 reported: 2026-07-18
 reporter: D. E. Guerrero
 tags:
@@ -57,16 +58,21 @@ auto-locator with per-observation decimal-year values.
 
 ## Fix
 
-Handle `freq == 1` in the same block: choose a sub-sampled year step (e.g. every
-20 years, or via `matplotlib.ticker.MaxNLocator`) over the decimal-year span,
-call `set_xticks`/`set_xticklabels`, and draw the matching vertical gridlines —
-mirroring the fue (C) residual-panel layout.  The `freq > 1` path keeps its
-2-year seasonal dividers.
+**Applied** in 0.1.7 (`src/fue/plots.py`, `plot_residuals_ts`).  Added an annual
+(`freq == 1`) branch to the tick block, replicating fue (C)
+`gnuplot_File_PlotSer_CorrSer`: year labels every **20 years anchored at the begin
+year** (fue C step `2*f*10 = 20`, label `tsby + 20*i` → 1768, 1788, …, 2008), with
+a vertical divider at each labelled year except the first (fue C draws `set arrow`
+from `i=1` while labels start at `i=0`).  This deliberately anchors to the series
+start, **not** to round centuries, so the panel matches fue (C) exactly.  The
+`freq > 1` path is unchanged (2-year seasonal dividers, fue C step `2*f`).
 
 ## Validation
 
-- Visual: the residual panel for GE days / GEP matches the fue (C) PDF (year ticks
-  ~every 20 years with vertical lines; ±2 dashed lines; thin line + dots).
-- Unit test: for `freq == 1`, after `plot_residuals_ts`, `ax.get_xticks()` is
-  non-empty, spans the sample years, and has a sane count (e.g. ≤ ~15 ticks over
-  two centuries) rather than one-per-observation.
+- fue (C) parity: for a Geneva-like annual series (start 1768, 248 obs) the ticks
+  are `1768, 1788, …, 2008` — identical values and spacing to
+  `gnuplot_File_PlotSer_CorrSer` (`tsby + 20*i`).
+- Regression test `tests/test_bug_0003_residual_plot_annual.py`: for `freq == 1`
+  the x-ticks are non-empty, anchored at the begin year, spaced exactly 20 years,
+  and within the sample span (13 ticks, not one-per-observation); the `freq > 1`
+  path still produces year dividers.

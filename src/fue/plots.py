@@ -102,10 +102,11 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
     ax.axhline( 2, color='0.3', lw=1.2, linestyle='--', zorder=2)
     ax.axhline(-2, color='0.3', lw=1.2, linestyle='--', zorder=2)
 
-    # seasonal dividers at year boundaries (every 2 years for long series)
+    # Year ticks + vertical dividers, matching fue (C) gnuplot_File_PlotSer_CorrSer.
     tick_pos, tick_lbl = [], []
+    x0, x1 = xs[0], xs[-1]
     if freq > 1:
-        x0, x1 = xs[0], xs[-1]
+        # seasonal: every 2 years (fue C step 2*f obs) at the year boundaries
         step = 2 if (x1 - x0) > 5 else 1
         first_yr = int(np.ceil(x0 - 1e-9))
         for yr in range(first_yr, int(x1) + 2, step):
@@ -113,6 +114,19 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
                 ax.axvline(yr, color='k', lw=0.5, zorder=1)
                 tick_pos.append(yr)
                 tick_lbl.append(str(yr))
+    else:
+        # annual: every 20 years anchored at the begin year (fue C step 2*f*10=20,
+        # label tsby + 20*i) — NOT round centuries; the per-year grid was the bug.
+        # Dividers at each labelled year except the first (fue C: labels i=0..,
+        # `set arrow` i=1..).
+        y0 = int(round(x0))
+        yr = y0
+        while yr <= x1 + 1e-9:
+            if yr > y0:
+                ax.axvline(yr, color='k', lw=0.5, zorder=1)
+            tick_pos.append(yr)
+            tick_lbl.append(str(yr))
+            yr += 20
     if tick_pos:
         ax.set_xticks(tick_pos)
         ax.set_xticklabels(tick_lbl, fontsize=10)

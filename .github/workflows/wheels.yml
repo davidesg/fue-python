@@ -17,11 +17,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13, macos-latest, windows-latest]
-        # ubuntu-latest   → Linux x86_64 (+ aarch64 via QEMU)
-        # macos-13        → macOS Intel x86_64
-        # macos-latest    → macOS Apple Silicon arm64
-        # windows-latest  → Windows x86_64 (AMD64)
+        # macOS runners are PINNED (not macos-latest): Homebrew's GSL bottle
+        # targets the runner's OS, and macos-latest has drifted to macOS 26, whose
+        # bottle can't be bundled into a lower-target wheel (delocate rejects it).
+        # Pinning + matching MACOSX_DEPLOYMENT_TARGET keeps bottle and wheel targets
+        # aligned and immune to future runner-OS bumps.
+        include:
+          - os: ubuntu-latest     # Linux x86_64 (+ aarch64 via QEMU)
+          - os: macos-13          # macOS Intel x86_64
+            macos_target: "13.0"
+          - os: macos-14          # macOS Apple Silicon arm64
+            macos_target: "14.0"
+          - os: windows-latest    # Windows x86_64 (AMD64)
 
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +45,9 @@ jobs:
         env:
           # Build aarch64 on Linux as well as x86_64
           CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          # macOS only (empty elsewhere): bundle GSL for the runner's OS and tag
+          # the wheel for the same minimum, so delocate is satisfied.
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_target }}
 
       - uses: actions/upload-artifact@v4
         with:

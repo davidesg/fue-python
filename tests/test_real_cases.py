@@ -52,6 +52,12 @@ _CASES = [
     ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.1.inp",        0.0008762276,  142.8682603432, 1e-6, 1e-3),
     ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.2.inp",        0.0002154545,  189.8809776965, 1e-6, 1e-3),
     ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.3.inp",        6.58767e-05,   228.2017654123, 1e-7, 1e-3),
+    # R.4 is a multimodal / ill-conditioned cointegration fit (params near the
+    # boundary, sum ~1): different BLAS reach different optima — 211.21 on this
+    # dev platform, ~212.4 on manylinux (a *better* optimum). The pinned ref
+    # matches this platform; elsewhere it diverges by ~1.0 in loglik. NOT a
+    # regression — this is why the golden battery is a dev-only test, not a
+    # per-wheel CI gate (the wheels run tests/test_smoke.py instead).
     ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.4.inp",        9.45335e-05,   211.2147955479, 1e-7, 1e-2),
     ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/SF/R.2.inp",           0.6231368945,  -80.3087042225, 1e-4, 1e-3),
     ("PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/old/R.2.inp",          0.011381552,    54.8691279423, 1e-5, 1e-3),

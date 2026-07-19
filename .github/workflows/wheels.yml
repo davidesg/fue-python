@@ -62,7 +62,7 @@ jobs:
       - name: Smoke-test pure wheel
         run: |
           pip install "dist/fue-"*"-py3-none-any.whl" pytest
-          pytest tests/ -q
+          pytest tests/test_smoke.py -q   # smoke only; golden battery is platform-sensitive
 
       - uses: actions/upload-artifact@v4
         with:

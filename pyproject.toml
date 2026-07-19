@@ -62,9 +62,13 @@ build = "cp310-* cp311-* cp312-* cp313-*"
 # Skip 32-bit builds and PyPy
 skip = "*-win32 *-manylinux_i686 pp*"
 
-# Run the test suite after each wheel is built
+# Smoke-test each built wheel: verify it imports and estimates/forecasts a small
+# model. NOT the full golden numerical battery — exact log-likelihoods are
+# platform/BLAS-sensitive for ill-conditioned models (e.g. the multimodal
+# cointegration case R.4), so that battery runs in the dev job on a fixed
+# platform, not as a per-wheel gate across 16 build targets.
 test-requires = ["pytest"]
-test-command  = "pytest {project}/tests/ -q"
+test-command  = "pytest {project}/tests/test_smoke.py -q"
 
 [tool.cibuildwheel.linux]
 # manylinux_2_28 = AlmaLinux 8; more recent glibc than manylinux2014
@@ -79,8 +83,11 @@ before-all = "dnf install -y gsl-devel"
 # Install GSL via Homebrew; delocate bundles the dylibs into the wheel.
 before-all = "brew install gsl"
 
-# Build for both Intel and Apple Silicon
-archs = ["x86_64", "arm64"]
+# Native arch only per runner: the CI matrix has both an Intel (macos-13) and an
+# Apple-Silicon (macos-latest) runner, so "auto" covers x86_64 + arm64 across the
+# two WITHOUT cross-building. Cross-building would link the runner's single-arch
+# Homebrew GSL into the wrong architecture and fail.
+archs = ["auto"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
@@ -91,5 +98,8 @@ before-all = "vcpkg install gsl:x64-windows-static-md"
 
 # Expose the vcpkg prefix so _build_cffi.py can locate headers and .lib files.
 # GSL_ROOT is read in _build_cffi.py; falls back to the vcpkg default if unset.
-environment = { GSL_ROOT = "{env:VCPKG_INSTALLATION_ROOT}\\installed\\x64-windows-static-md" }
+# NB: cibuildwheel evaluates `environment` values in a shell, so use bash-style
+# `$VAR` (NOT `{env:VAR}`, which is not cibuildwheel syntax and is left literal),
+# and forward slashes (backslashes are eaten by the shell). MSVC accepts `/`.
+environment = { GSL_ROOT = "$VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md" }
 

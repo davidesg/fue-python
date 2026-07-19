@@ -19,6 +19,38 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _ROOT   = os.path.relpath(os.path.join(_THIS_DIR, "..", "..", "csrc"))
 _INTERN = os.path.join(_ROOT, "internal")
 
+
+def _discover_gsl_dirs():
+    """Return (include_dirs, library_dirs) for GSL when it is outside the
+    compiler's default search paths.
+
+    Linux system installs put GSL in /usr/include (found automatically), but
+    Homebrew on macOS uses /opt/homebrew (Apple Silicon) or /usr/local (Intel),
+    which clang does not search by default — hence 'gsl/gsl_matrix.h not found'.
+    Query `gsl-config --prefix` (GSL always ships gsl-config), then fall back to
+    `brew --prefix gsl` and the common Homebrew prefixes.  Only existing dirs are
+    returned, so this is a harmless no-op on Linux.
+    """
+    import subprocess
+    prefixes = []
+    for cmd in (["gsl-config", "--prefix"], ["brew", "--prefix", "gsl"]):
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            if p.returncode == 0 and p.stdout.strip():
+                prefixes.append(p.stdout.strip())
+        except Exception:
+            pass
+    if sys.platform == "darwin":
+        prefixes += ["/opt/homebrew", "/usr/local"]
+    inc, lib = [], []
+    for pref in prefixes:
+        i, l = os.path.join(pref, "include"), os.path.join(pref, "lib")
+        if os.path.isdir(i) and i not in inc:
+            inc.append(i)
+        if os.path.isdir(l) and l not in lib:
+            lib.append(l)
+    return inc, lib
+
 # cffi cannot process C preprocessor directives (#define, #ifdef, etc.).
 # We provide a macro-expanded cdef string with literal values instead.
 # Macro values: FUE_MAX_DETVARS=64, FUE_MAX_FACTORS=32, FUE_MAX_POLYORD=64.
@@ -156,8 +188,9 @@ else:
         _include_dirs = [_ROOT, _INTERN, os.path.join(_prefix, "include")]
         _library_dirs = [os.path.join(_prefix, "lib")]
     else:
-        _include_dirs = [_ROOT, _INTERN]
-        _library_dirs = []
+        _gsl_inc, _gsl_lib = _discover_gsl_dirs()
+        _include_dirs = [_ROOT, _INTERN, *_gsl_inc]
+        _library_dirs = list(_gsl_lib)
 
 ffi = cffi.FFI()
 ffi.cdef(_CDEF)

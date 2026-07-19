@@ -17,15 +17,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS runners are PINNED (not macos-latest): Homebrew's GSL bottle
-        # targets the runner's OS, and macos-latest has drifted to macOS 26, whose
-        # bottle can't be bundled into a lower-target wheel (delocate rejects it).
-        # Pinning + matching MACOSX_DEPLOYMENT_TARGET keeps bottle and wheel targets
-        # aligned and immune to future runner-OS bumps.
+        # macOS runner is PINNED (not macos-latest): Homebrew's GSL bottle targets
+        # the runner's OS, and macos-latest has drifted to macOS 26, whose bottle
+        # can't be bundled into a lower-target wheel (delocate rejects it). Pinning
+        # + matching MACOSX_DEPLOYMENT_TARGET keeps bottle and wheel targets aligned
+        # and immune to future runner-OS bumps.
+        #
+        # Intel macOS (macos-13) is intentionally NOT built: GitHub's Intel-mac
+        # runners are chronically starved (a job queued 9+ h without a runner), and
+        # Intel Macs are legacy (all current Macs are arm64). Intel-mac users get the
+        # sdist (builds via _discover_gsl_dirs + Homebrew) or the pure-Python wheel.
         include:
           - os: ubuntu-latest     # Linux x86_64 (+ aarch64 via QEMU)
-          - os: macos-13          # macOS Intel x86_64
-            macos_target: "13.0"
           - os: macos-14          # macOS Apple Silicon arm64
             macos_target: "14.0"
           - os: windows-latest    # Windows x86_64 (AMD64)

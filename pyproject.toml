@@ -77,7 +77,9 @@ manylinux-aarch64-image = "quay.io/pypa/manylinux_2_28_aarch64"
 
 # Install GSL before building.  auditwheel repair then bundles libgsl.so
 # and libgslcblas.so into the wheel (they are not on the manylinux whitelist).
-before-all = "dnf install -y gsl-devel"
+# Portable across manylinux (AlmaLinux → dnf) and musllinux (Alpine → apk):
+# without this, musllinux fails with `dnf: not found` (exit 127).
+before-all = "if command -v dnf >/dev/null 2>&1; then dnf install -y gsl-devel; else apk add --no-cache gsl-dev; fi"
 
 [tool.cibuildwheel.macos]
 # Install GSL via Homebrew; delocate bundles the dylibs into the wheel.

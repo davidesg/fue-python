@@ -1,5 +1,9 @@
 name: Build wheels
 
+# Builds cp310-cp313 binary wheels (Linux x86_64+aarch64, macOS Intel+ARM,
+# Windows AMD64) with GSL bundled, plus the pure-Python wheel and the sdist.
+# Runs on demand (workflow_dispatch) for validation; publishes to PyPI on v* tags.
+
 on:
   push:
     tags:

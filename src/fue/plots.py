@@ -140,7 +140,11 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
     ax.set_xlim(xs[0] - x_pad, xs[-1] + x_pad)
 
     se = rstd / np.sqrt(n)
-    scale = refactor
+    # Header stats in PERCENT. The residuals are in the refactor-rescaled space, so the
+    # percent conversion is ×100/refactor (100 = ∇log→%, ÷refactor undoes the rescale) —
+    # the SAME formula as report_forecast.py and the err/diff blocks below. Using ×refactor
+    # here double-counted once refactor became a consistent 100 (BUG: shows 25% not 0.25%).
+    scale = 100.0 / refactor if refactor else 1.0
     ax.set_xlabel(
         f"$\\bar{{w}}$ = {rmean * scale:.2f}  ({se * scale:.2f})"
         f"    $\\hat{{\\sigma}}_w$ = {rstd * scale:.2f}",

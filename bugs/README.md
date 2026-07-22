@@ -4,13 +4,13 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  A fix commit references the id, e.g. `fix(forecast): BUG-0001 …`.
 
-**5 report(s), 2 open.**
+**5 report(s), 1 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
 | [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 | [BUG-0002](BUG-0002-binding-fixed-factor-arrays.md) | fixed | high | binding | Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError | 0.1.6 |
 | [BUG-0003](BUG-0003-residual-plot-annual-xaxis.md) | fixed | medium | plots | plot_residuals_ts draws no year ticks or vertical dividers for annual series (freq==1) — X-axis unreadable | 0.1.7 |
-| [BUG-0004](BUG-0004-forecast-fit-stale-attrs.md) | open | high | forecast | fit() doesn't sync fitted params to ar/ar_s/mu0; forecast_fuf uses the stale pre-fit seeds and the level explodes | |
+| [BUG-0004](BUG-0004-forecast-fit-stale-attrs.md) | fixed | high | forecast | forecast_fuf forecasts from pre-fit SEED attributes instead of the fit; with a mis-scaled mu0 seed the level explodes | 0.1.8 |
 | [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | open | medium | estimation | ML optimizer converges to a spurious optimum on multimodal seasonal-AR likelihoods and reports converged=True with no diagnostic; basin is platform-dependent (Windows vs Linux) | |
 

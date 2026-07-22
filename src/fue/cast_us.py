@@ -555,7 +555,20 @@ def eval_at_params(model):
     """
     ts     = model.series
     spec   = build_est_spec(model)
+    # BUG-0004: prefer the FITTED parameter vector when a fit is present. Model.fit()
+    # does NOT sync the estimate back into the attributes (ar/ar_s/ma/ma_s/mu0), which
+    # keep their pre-fit SEED values, so building x0 from the attributes forecasts from
+    # the SEEDS, not the fit. That is catastrophic when a seed is far from the fit —
+    # e.g. ART's ×100-rescaled mu0 seed makes the level forecast run away. `_result.params`
+    # is the same flat free-parameter vector `_build_initial_x` produces (same canonical
+    # order), already normalised to the invertible MA root, so it is a drop-in. Fall back
+    # to the attributes when there is no fit (a model just loaded from a .pre, whose
+    # attributes ARE the fitted values) or if the length does not match the structure.
     x0     = _build_initial_x(model)
+    _res   = getattr(model, "_result", None)
+    _rp    = getattr(_res, "params", None) if _res is not None else None
+    if _rp is not None and len(_rp) == len(x0):
+        x0 = np.asarray(_rp, dtype=float)
     npar   = len(x0)
     ornsop = spec.ornsop
     n_eff  = ts.nobs - ornsop

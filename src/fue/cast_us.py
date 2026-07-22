@@ -680,3 +680,55 @@ def normalize_ma_invertibility(model):
     for idx in flipped:
         p[idx] = 1.0 / p[idx]
     res.params = p.tolist() if isinstance(res.params, list) else p
+
+
+def sync_params_to_attrs(model):
+    """Write the fitted ``_result.params`` back into the model's parameter ATTRIBUTES
+    (the inverse of ``_build_initial_x``): interventions' omega/delta, then AR, AR_s,
+    MA, MA_s, AR_f, MA_f and mu — walked in the same canonical free-parameter order.
+
+    Rationale (BUG-0004): ``Model.fit()`` otherwise leaves the attributes at their
+    pre-fit SEED values, so any attribute consumer (``forecast_fuf``/``eval_at_params``,
+    ``_write_inp``, reports) forecasts/writes the seed, not the fit. After this sync a
+    fitted model IS the fitted model. Only FREE positions are overwritten (fixed ones
+    keep their values); mu and the params share the optimiser's x-space with the
+    attributes, so it is a plain copy — no rescaling here (the single ``refactor`` scale
+    is applied once in the transform and undone once in the level recovery). Guarded: if
+    the fitted vector's length does not match the model structure, nothing is written.
+    """
+    res = getattr(model, "_result", None)
+    if res is None or getattr(res, "params", None) is None:
+        return
+    p = list(res.params)
+    if len(p) != len(_build_initial_x(model)):
+        return
+    k = 0
+    for itv in model.interventions:
+        for j, f in enumerate(itv.omega_free):
+            if f:
+                itv.omega[j] = float(p[k]); k += 1
+    for itv in model.interventions:
+        for j, f in enumerate(itv.delta_free):
+            if f:
+                itv.delta[j] = float(p[k]); k += 1
+
+    def _set_factors(factors, free_lists):
+        nonlocal k
+        for i, fac in enumerate(factors or []):
+            fl = free_lists[i] if free_lists and i < len(free_lists) else None
+            for j in range(len(fac)):
+                if fl is None or fl[j]:
+                    fac[j] = float(p[k]); k += 1
+
+    _set_factors(model.ar,   model.ar_free)
+    _set_factors(model.ar_s, model.ar_s_free)
+    _set_factors(model.ma,   model.ma_free)
+    _set_factors(model.ma_s, model.ma_s_free)
+    for ff in (model.ar_f or []):
+        if ff.free:
+            ff.coef = float(p[k]); k += 1
+    for ff in (model.ma_f or []):
+        if ff.free:
+            ff.coef = float(p[k]); k += 1
+    if model.estimate_mu:
+        model.mu0 = float(p[k]); k += 1

@@ -165,8 +165,12 @@ class Model:
             except ImportError:
                 msg = f"ifault={self._result.ifault}"
             raise RuntimeError(f"FUE estimation failed: {msg}")
-        from .cast_us import normalize_ma_invertibility
+        from .cast_us import normalize_ma_invertibility, sync_params_to_attrs
         normalize_ma_invertibility(self)
+        # BUG-0004 / rescaling-architecture P4: after fitting, the model IS the fitted
+        # model — write the estimate back into the parameter attributes so every
+        # consumer (forecast_fuf, _write_inp, reports) reads the fit, not the seeds.
+        sync_params_to_attrs(self)
         return self
 
     def forecast_fuf(self, horizon=None, sigma2=None):

@@ -3,6 +3,28 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.8 — 2026-07-23
+
+Rescaling-consistency release. Traced with ART (`docs/RESCALING_ARCHITECTURE.md`):
+the `refactor` (×100 conditioning) is a single per-model value, and every
+attribute-consumer must see the *fit*, not the pre-fit seed.
+
+- **BUG-0004** (forecast): `forecast_fuf` forecast from the **stale pre-fit seed
+  attributes** — `eval_at_params`/`_build_initial_x` rebuilt `x0` from `ar/ar_s/mu0`,
+  which `fit()` never overwrote. With ART's ×100 `μ0` seed the level exploded (euro
+  HICP 103→136 in six months). Fix: `eval_at_params` reads `_result.params` when
+  present. The fit itself (and the written `.pre`) were always correct.
+- **fit sync (rescaling P4):** `Model.fit()` now calls `sync_params_to_attrs()` —
+  the invertible-normalised `_result.params` are written back into
+  `ar/ar_s/ma/ma_s/mu0` and the interventions (single scale, a plain copy). *The
+  model IS the fit after fitting*, so forecast/`.pre`/reports all agree.
+- **BUG (plots):** `plot_residuals_ts`'s percent header used `×refactor`; with the
+  now-consistent `refactor=100` (residuals in the ×100 space) it double-counted and
+  showed `σ̂_w = 25.30%` instead of `0.25%`. Fixed to `×100/refactor`, matching the
+  rest of `plots.py` / `report_forecast.py`.
+- **BUG-0005** (filed, open): optimizer can land in a spurious optimum on multimodal
+  surfaces from a bad seed (guard + multi-start pending). Orthogonal to the rescale.
+
 ## 0.1.7 — 2026-07-19
 
 **First binary wheels on PyPI.** cibuildwheel builds cp310–cp313 wheels for

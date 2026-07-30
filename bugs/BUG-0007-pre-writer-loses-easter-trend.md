@@ -8,7 +8,7 @@ found_in: 0.1.8
 fixed_in: 0.1.9
 reported: 2026-07-30
 reporter: David E. Guerrero
-tags: [silent, interop, fue-c, deterministic, easter, trend]
+tags: [silent, interop, fue-c, deterministic, easter, trend, non-standard, segfault]
 references: [BUG-0006]
 ---
 
@@ -117,6 +117,63 @@ Round-trip restored, exactly:
 And on the real non-standard case, which used to segfault: `E.L.1.inp` gives
 14.0105638304, and its regenerated `.pre` now re-reads to 14.0105645078 — the
 6-decimal rounding of the seeds it carries, nothing else.
+
+## Cleanup of the affected files
+
+The 97 recoverable files were **regenerated** (2026-07-30) by re-running fue on
+their sibling `.inp` — in a temporary directory, copying back only the `.pre`, so
+the `.out`/`.tex`/`.pdf` of the working directories were left alone. Backups of
+the originals: `atws/fue/backup_pre_BUG-0007_2026-07-30/`.
+
+**95 regenerated, 2 could not be.** The `.pre` is a *product* — fue's estimates of
+the last `.inp` model, in the `.pre` format — so regenerating a stale one is
+routine, not delicate: where the stored data no longer matched the current `.inp`
+(37 of the 95), the `.pre` was simply out of date with its source, and now is not.
+Where the `.pre` and its `.inp` still described the same thing (58), regenerating
+changed nothing but the restored line and the coefficient precision (4 → 6
+decimals in some old files).
+
+Verification, giving fue C back each regenerated `.pre` and comparing with its
+`.inp`:
+
+| | files |
+|---|---|
+| re-reads and reproduces its `.inp` (dif < 1e-3) | **90** |
+| re-reads, differs by ~2.8e-3 | 4 |
+| does not re-read (segfault) | 1 |
+
+The **4** are all in one project (*Article_Multivariate Convergence*) and are not a
+file problem: the `.pre` re-reads and describes the same model. It is the optimizer
+stopping at slightly different points depending on whether it starts from the
+`.inp`'s seeds or from the `.pre`'s (the fitted values, rounded to 6 decimals) on a
+flat surface — 1e-4 relative on log-likelihoods of 5 to 35.
+
+The **1** is `dolarization/.../Mod/Coint/R.4.pre`, and it is **not this bug**: its
+block regenerated correctly and is identical in shape to its `.inp`, which runs
+(211.21). What crashes is the *estimation*, not the reading — starting fue from the
+coefficients that `.pre` carries kills it. Its AR(2) holds 0.6690 and 0.3310,
+summing to exactly 1 (a unit root with d = 0), but moving them to sum 0.99 still
+segfaults, so the cause is elsewhere and was not identified. It crashed before
+being touched, and it is the same symptom as the two `PV4.11.pre` aborting inside
+GSL. **fue C can die on certain starting values** — a robustness defect of its own,
+pre-existing and worth a separate report: a program should reject bad seeds, not
+crash on them.
+
+The re-sweep afterwards finds **3** files with an incomplete block, none of them
+this bug:
+
+* `SRC/drvus-source/{1.02,1.2.01}/.../PV4.11.pre` — these declare **15**
+  deterministic variables and list 10, a count mismatch rather than a lost name;
+  they are example data of the ancestor program **drvus**, not fue output, and fue
+  1.13.1 aborts on their `.inp` inside GSL, so they cannot be regenerated here.
+* `Taller de ST Master/Talleres_2026/Tarea 2/SG.1.inp` — a hand-written teaching
+  file declaring 4 and listing 3. A data error, not a writer one.
+
+One nuance worth recording, and the reason this went unnoticed for so long: of the
+95 originals, **60 segfaulted** and **35 still ran, with the right answer**. When
+the missing line leaves the parse accidentally aligned, the next line is taken for
+the keyword, treated as non-standard, and the data column is still there — so the
+file happens to work. Broken either way, but only sometimes visibly.
 
 Guarded from this side by `tests/test_bug_0006_deterministic_types.py::
 test_los_nueve_deterministas_homologan_con_fue_c`, which asserts the keyword

@@ -25,11 +25,16 @@ network, which could not reproduce the m6 targets.
   something else, quietly. So writing a `.pre` now refuses to emit a type with no
   representation in the format (today only `seasonal`, which has no fue C
   regressor because deterministic seasonality goes in harmonics, not dummies).
-- **BUG-0007** (interop, **silent**, *in fue C*): its `.pre` writer omits `easter`
-  and tests `"time"` for `trend` — writing to the LaTeX file — so the type's line
-  comes out empty and **fue C cannot re-read its own `.pre`** (−263.317 instead of
-  −300.089). Present since 1.01. Fixed in the fue C repo; guarded from here, since
-  fue C has no battery of its own.
+- **BUG-0007** (interop, **silent**, *in fue C*): its `.pre` writer omits `easter`,
+  tests `"time"` for `trend` — writing to the LaTeX file — and has no branch for
+  **non-standard** variables either, so the type's line comes out empty and **fue C
+  cannot re-read its own `.pre`**. A sweep of the ecosystem (5636 `.pre`/`.inp`)
+  finds zero files with `easter`/`trend` and **98 corrupt**, all of them the
+  non-standard case, where re-reading does not give a wrong number — it
+  **segfaults**. The data columns were always written; only the name line was
+  missing, so one word restores the file, and 97 of the 98 have an intact sibling
+  `.inp`. Present since 1.01. Fixed in the fue C repo; guarded from here, since fue
+  C has no battery of its own.
 
 Regression baseline taken in a separate worktree at `a56677c` with the extension
 rebuilt there: **651 passed** before, **651 passed** after, plus 25 new tests.

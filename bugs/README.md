@@ -14,5 +14,5 @@ New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  
 | [BUG-0003](BUG-0003-residual-plot-annual-xaxis.md) | fixed | medium | plots | plot_residuals_ts draws no year ticks or vertical dividers for annual series (freq==1) — X-axis unreadable | 0.1.7 |
 | [BUG-0004](BUG-0004-forecast-fit-stale-attrs.md) | fixed | high | forecast | forecast_fuf forecasts from the model's pre-fit SEED attributes (mu0/ar/...) instead of the fit; with a mis-scaled mu0 seed the level explodes | 0.1.8 |
 | [BUG-0006](BUG-0006-deterministic-types-silent.md) | fixed | high | inp | compimp is read as a plain impulse, and easter/trend are not supported — a .pre estimates a different model in silence | 0.1.9 |
-| [BUG-0007](BUG-0007-pre-writer-loses-easter-trend.md) | fixed | high | interop | fue C's .pre writer omits easter and trend, so fue C cannot re-read its own .pre | 0.1.9 |
+| [BUG-0007](BUG-0007-pre-writer-loses-easter-trend.md) | fixed | high | interop | fue C's .pre writer omits easter, trend and non-standard variables, so fue C cannot re-read its own .pre (and segfaults on it) | 0.1.9 |
 

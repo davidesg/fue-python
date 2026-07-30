@@ -29,14 +29,19 @@ extern "C" {
 
 /* ── Intervention types ─────────────────────────────────────────────────── */
 
-#define FUE_ITV_PULSE     0   /* isolated impulse (pulse indicator)        */
+/* Codes are the contract with Intervention.TYPES: only ever APPENDED, never   */
+/* renumbered, or a previously compiled extension builds the wrong regressor.  */
+#define FUE_ITV_PULSE     0   /* isolated impulse ("impulse" in .pre/.inp) */
 #define FUE_ITV_STEP      1   /* permanent level shift (step indicator)    */
 #define FUE_ITV_RAMP      2   /* linear ramp                               */
-#define FUE_ITV_SEASONAL  3   /* periodic seasonal dummy                   */
+#define FUE_ITV_SEASONAL  3   /* periodic seasonal dummy (Python-only)     */
 #define FUE_ITV_COS       4   /* cosine component: cos(2π·k/freq·j)        */
 #define FUE_ITV_SIN       5   /* sine component:   sin(2π·k/freq·j)        */
 #define FUE_ITV_ALTER     6   /* alternator: (-1)^j                        */
 #define FUE_ITV_CUSTOM    7   /* external indicator supplied via data ptr  */
+#define FUE_ITV_COMPIMP   8   /* COMPENSATED impulse: +1 at t, -1 at t+1   */
+#define FUE_ITV_EASTER    9   /* Easter holiday variable, monthly only     */
+#define FUE_ITV_TREND    10   /* deterministic linear trend 1, 2, ..., n   */
 
 /* ── Single intervention with linear transfer function ω(B)/δ(B) ───────── */
 

@@ -4,13 +4,15 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  A fix commit references the id, e.g. `fix(forecast): BUG-0001 …`.
 
-**5 report(s), 1 open.**
+**7 report(s), 1 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
+| [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | open | medium | estimation | ML optimizer converges to a spurious optimum on multimodal (seasonal-AR) likelihoods and reports converged=True with no diagnostic; the basin is platform-dependent (Windows vs Linux) | — |
 | [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 | [BUG-0002](BUG-0002-binding-fixed-factor-arrays.md) | fixed | high | binding | Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError | 0.1.6 |
 | [BUG-0003](BUG-0003-residual-plot-annual-xaxis.md) | fixed | medium | plots | plot_residuals_ts draws no year ticks or vertical dividers for annual series (freq==1) — X-axis unreadable | 0.1.7 |
-| [BUG-0004](BUG-0004-forecast-fit-stale-attrs.md) | fixed | high | forecast | forecast_fuf forecasts from pre-fit SEED attributes instead of the fit; with a mis-scaled mu0 seed the level explodes | 0.1.8 |
-| [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | open | medium | estimation | ML optimizer converges to a spurious optimum on multimodal seasonal-AR likelihoods and reports converged=True with no diagnostic; basin is platform-dependent (Windows vs Linux) | |
+| [BUG-0004](BUG-0004-forecast-fit-stale-attrs.md) | fixed | high | forecast | forecast_fuf forecasts from the model's pre-fit SEED attributes (mu0/ar/...) instead of the fit; with a mis-scaled mu0 seed the level explodes | 0.1.8 |
+| [BUG-0006](BUG-0006-deterministic-types-silent.md) | fixed | high | inp | compimp is read as a plain impulse, and easter/trend are not supported — a .pre estimates a different model in silence | 0.1.9 |
+| [BUG-0007](BUG-0007-pre-writer-loses-easter-trend.md) | fixed | high | interop | fue C's .pre writer omits easter and trend, so fue C cannot re-read its own .pre | 0.1.9 |
 

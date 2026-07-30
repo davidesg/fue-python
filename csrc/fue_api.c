@@ -516,6 +516,41 @@ static void cast_us(real *x, struct Tvarma *armax,
     }
 }
 
+/* ── Calendar helpers for the `easter` regressor ─────────────────────────── */
+/* Ports of Easter (nlatools.c:693) and ObsToDate (diagnose.c:40). Ported       */
+/* verbatim rather than taken from a calendar library: the indicator has to be  */
+/* the one fue C builds, and a different-but-more-correct rule would silently   */
+/* change every estimate that uses it.                                          */
+
+static void fue_easter(int year, int *day, int *month)
+{
+    int a = year % 19, b = year % 4, c = year % 7;
+    int d = (19 * a + 24) % 30;
+    int e = (2 * b + 4 * c + 6 * d + 5) % 7;
+
+    *day = 22 + d + e;
+    if (*day <= 31) {
+        *month = 3;
+    } else {
+        *day  -= 31;
+        *month = 4;
+    }
+}
+
+static void fue_obs_to_date(int begyear, int begtime, int obs, int freq,
+                            int *year, int *period)
+{
+    if (obs + begtime - 1 <= freq) {
+        *year   = begyear;
+        *period = begtime + obs - 1;
+    } else {
+        int n = obs - (freq - begtime + 1);
+        int q = n / freq, r = n % freq;
+        if (r > 0) { *year = begyear + q + 1; *period = r; }
+        else       { *year = begyear + q;     *period = freq; }
+    }
+}
+
 /* ── populate_globals: FueModelSpec → Tm + Ts + DataMat ─────────────────── */
 
 static int populate_globals(const FueModelSpec *spec)
@@ -782,6 +817,34 @@ static int populate_globals(const FueModelSpec *spec)
             if (itv->indicator_data != NULL)
                 for (j = 1; j <= Ts.nobs; j++)
                     DataMat[i][j] = itv->indicator_data[j - 1];
+            break;
+        case FUE_ITV_COMPIMP:
+            /* COMPENSATED impulse (fue.c:317): +1, undone the next period. On a
+               differenced series a plain pulse shifts the level and this one
+               does not, so folding the two is a silent misspecification. */
+            if (obs >= 1 && obs <= Ts.nobs) DataMat[i][obs] = 1.0;
+            if (obs >= 0 && obs + 1 <= Ts.nobs) DataMat[i][obs + 1] = -1.0;
+            break;
+        case FUE_ITV_EASTER: {
+            /* Easter-holiday variable, MONTHLY only (fue.c:374). */
+            int y, mo, eday, emo;
+            if (Ts.freq != 12) break;
+            for (j = 1; j <= Ts.nobs; j++) {
+                fue_obs_to_date(Ts.begyear, Ts.begtime, j, Ts.freq, &y, &mo);
+                fue_easter(y, &eday, &emo);
+                if (emo == 4 && mo == 4 && eday >= 4) {
+                    DataMat[i][j] = 1.0;
+                } else if (emo == 4 && mo == 4 && eday < 4) {
+                    DataMat[i][j] = 0.5;
+                    if (j > 1) DataMat[i][j - 1] = 0.5;
+                } else if (emo == 3 && mo == 3) {
+                    DataMat[i][j] = 1.0;
+                }
+            }
+            break;
+        }
+        case FUE_ITV_TREND:
+            for (j = 1; j <= Ts.nobs; j++) DataMat[i][j] = (double) j;
             break;
         }
     }

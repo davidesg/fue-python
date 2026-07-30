@@ -3,6 +3,37 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.9 — 2026-07-30
+
+Deterministic-variables release. fue C builds **nine** deterministic regressors;
+this package built six of them right. Found while porting drtran's transfer
+network, which could not reproduce the m6 targets.
+
+- **BUG-0006** (inp, **silent**): `compimp` — the COMPENSATED impulse, +1 at the
+  date and **−1 the next period** — was read as a plain impulse, dropping the −1.
+  Nothing failed: the file loaded, the model converged, the report looked healthy.
+  It simply was not the model the `.pre` asked for. On `M6_EI.pre`: −292.495
+  instead of −290.613, **1.88 of log-likelihood**. `easter` and `trend` were
+  missing outright (those did fail, loudly). The three are now built in **both**
+  backends — `cast_us.py` and `csrc/fue_api.c` — with `easter_date` and
+  `obs_to_date` ported verbatim from fue C rather than taken from a calendar
+  library: the indicator has to be the one fue C builds.
+- **Shared vocabulary with fue C.** `impulse` is now the canonical type name —
+  the school's word, and the format's — with `pulse` kept as a deprecated alias
+  that is normalised away. This matters because **fue C does not reject a keyword
+  it does not know**: it takes it for a non-standard variable and estimates
+  something else, quietly. So writing a `.pre` now refuses to emit a type with no
+  representation in the format (today only `seasonal`, which has no fue C
+  regressor because deterministic seasonality goes in harmonics, not dummies).
+- **BUG-0007** (interop, **silent**, *in fue C*): its `.pre` writer omits `easter`
+  and tests `"time"` for `trend` — writing to the LaTeX file — so the type's line
+  comes out empty and **fue C cannot re-read its own `.pre`** (−263.317 instead of
+  −300.089). Present since 1.01. Fixed in the fue C repo; guarded from here, since
+  fue C has no battery of its own.
+
+Regression baseline taken in a separate worktree at `a56677c` with the extension
+rebuilt there: **651 passed** before, **651 passed** after, plus 25 new tests.
+
 ## 0.1.8 — 2026-07-23
 
 Rescaling-consistency release. Traced with ART (`docs/RESCALING_ARCHITECTURE.md`):

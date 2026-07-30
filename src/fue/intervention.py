@@ -13,17 +13,38 @@ class Intervention:
     Parameters
     ----------
     type : str
-        ``'pulse'``    — isolated impulse at *at*
+        ``'impulse'``  — isolated impulse at *at*.  ``'pulse'`` is accepted as a
+                         deprecated alias and normalised to ``'impulse'``: the
+                         school's vocabulary — and the one in the `.pre`/`.inp`
+                         format and in fue C — is ``impulse``, and having two
+                         names for one thing is how a file ends up with a
+                         keyword the other interpreter does not know.
+        ``'compimp'``  — COMPENSATED impulse: +1 at *at* and **−1 at *at*+1**
+                         (``compimp`` in the .pre/.inp format).  A pulse that is
+                         undone the next period: the level returns to where it
+                         was, so it does not shift the mean of a differenced
+                         series the way a plain pulse does.
         ``'step'``     — permanent level shift starting at *at*
         ``'ramp'``     — linear ramp starting at *at*
-        ``'seasonal'`` — periodic seasonal dummy (*at* = 0-based period within year)
+        ``'seasonal'`` — periodic seasonal dummy (*at* = 0-based period within
+                         year).  **Python-only, and outside the methodology:**
+                         deterministic seasonality is parameterised with
+                         HARMONICS (``cos``/``sin`` plus the Nyquist
+                         ``alter``), not with dummies, which is why fue C has no
+                         such regressor and the format has no keyword for it.
+                         Writing one raises rather than emit a word fue C would
+                         silently take for a non-standard variable.
+        ``'easter'``   — Easter-holiday variable; **monthly series only**
+                         (freq == 12), *at* unused.  See `_build_indicator`.
+        ``'trend'``    — deterministic linear trend, 1, 2, …, n; *at* unused
         ``'cos'``      — cosine component cos(2π·harmonic/freq·j); *at* unused
         ``'sin'``      — sine component   sin(2π·harmonic/freq·j); *at* unused
         ``'alter'``    — alternating sign (-1)^j; *at* unused
         ``'custom'``   — external indicator supplied as *data* array
     at : int
-        0-based observation index for pulse/step/ramp (0 = first observation);
-        0-based period within year for seasonal.  Unused for cos/sin/alter/custom.
+        0-based observation index for pulse/compimp/step/ramp (0 = first
+        observation); 0-based period within year for seasonal.  Unused for
+        easter/trend/cos/sin/alter/custom.
     omega : list of float
         Numerator polynomial coefficients [ω₀, ω₁, …].  Default ``[1.0]``.
     delta : list of float
@@ -37,11 +58,21 @@ class Intervention:
         Pre-computed indicator values, length nobs.  Required for type='custom'.
     """
 
-    TYPES = {"pulse": 0, "step": 1, "ramp": 2, "seasonal": 3,
-             "cos": 4, "sin": 5, "alter": 6, "custom": 7}
+    # The codes are the contract with the C engine (`FUE_ITV_*` in
+    # `csrc/fue_api.h`): only ever APPENDED, never renumbered, or an extension
+    # compiled earlier would build a different regressor than the one asked for.
+    TYPES = {"impulse": 0, "step": 1, "ramp": 2, "seasonal": 3,
+             "cos": 4, "sin": 5, "alter": 6, "custom": 7,
+             "compimp": 8, "easter": 9, "trend": 10}
+
+    #: Deprecated spellings, normalised on construction. `pulse` was this
+    #: package's own name for the school's `impulse`; both are accepted, one is
+    #: stored, so there is a single vocabulary shared with fue C.
+    ALIASES = {"pulse": "impulse"}
 
     def __init__(self, type, at=0, omega=None, delta=None,
                  omega_free=None, delta_free=None, harmonic=1.0, data=None):
+        type = self.ALIASES.get(type, type)
         if type not in self.TYPES:
             raise ValueError(f"type must be one of {list(self.TYPES)}")
         if type == "custom" and data is None:

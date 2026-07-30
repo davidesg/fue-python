@@ -1509,15 +1509,22 @@ def _fuf_section_forecast_table(lines, model, fr, residuals, ornsop):
     lines.append("")
 
 
+#: Deterministic types that fue C's own generator understands (fue.c:295-435).
+#: An unknown keyword is NOT an error there: it is taken for a non-standard
+#: variable whose data comes as extra columns of the series block. So writing a
+#: word fue C does not know does not fail — it silently estimates another model.
+_PRE_KEYWORDS = {"impulse", "compimp", "step", "ramp",
+                 "easter", "trend", "cos", "sin", "alter"}
+
+
 def _itv_name_line(itv, begyear, begtime, freq):
     """Return the detvar name line as written in fue .pre files."""
     t = itv.type
-    if t in ("pulse", "compimp"):
-        keyword = "impulse" if t == "pulse" else "compimp"
+    if t in ("impulse", "compimp"):
         sub, year = _obs1_to_date(itv.at + 1, begyear, begtime, freq)
         if freq > 1:
-            return f"{keyword} {sub} {year}"
-        return f"{keyword} {year}"
+            return f"{t} {sub} {year}"
+        return f"{t} {year}"
     elif t == "step":
         sub, year = _obs1_to_date(itv.at + 1, begyear, begtime, freq)
         if freq > 1:
@@ -1532,12 +1539,23 @@ def _itv_name_line(itv, begyear, begtime, freq):
         return f"cos {itv.harmonic:.0f}"
     elif t == "sin":
         return f"sin {itv.harmonic:.0f}"
-    elif t == "alter":
-        return "alter"
+    elif t in ("alter", "easter", "trend"):
+        return t
     elif t == "custom":
         return "non-standard"
-    else:
+    elif t in _PRE_KEYWORDS:
         return t
+    else:
+        # `seasonal` lands here: a dummy per period is not how this school
+        # writes deterministic seasonality — it uses harmonics (cos/sin plus the
+        # Nyquist `alter`) — so fue C has no such regressor and the format has no
+        # word for it. Emitting the internal name would produce a file fue C
+        # reads as a non-standard variable, quietly, and estimates something
+        # else. Better to refuse than to write a file that lies.
+        raise ValueError(
+            f"intervention type {t!r} has no .pre/.inp representation: fue C "
+            f"only knows {sorted(_PRE_KEYWORDS)}. Deterministic seasonality is "
+            f"written with harmonics (cos/sin/alter), not with dummies.")
 
 
 def _obs1_to_date(at_1, begyear, begtime, freq):

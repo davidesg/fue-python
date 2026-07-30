@@ -86,19 +86,76 @@ def calcnu_py(omega, delta, lags):
 
 # ── indicator series (DataMat[i]) ─────────────────────────────────────────────
 
-def _build_indicator(itv, nobs, freq, begtime):
+def easter_date(year):
+    """(day, month) of Easter Sunday. Port of ``Easter`` (nlatools.c:693).
+
+    Ported verbatim instead of taken from a calendar library on purpose: the
+    indicator has to be the one fue C builds, and a different-but-more-correct
+    rule would silently change every estimate that uses it.
+    """
+    a = year % 19
+    b = year % 4
+    c = year % 7
+    d = (19 * a + 24) % 30
+    e = (2 * b + 4 * c + 6 * d + 5) % 7
+    day = 22 + d + e
+    return (day, 3) if day <= 31 else (day - 31, 4)
+
+
+def obs_to_date(begyear, begtime, obs, freq):
+    """(year, period) of observation *obs* (1-based). Port of ``ObsToDate``."""
+    if obs + begtime - 1 <= freq:
+        return begyear, begtime + obs - 1
+    q, r = divmod(obs - (freq - begtime + 1), freq)
+    return (begyear + q + 1, r) if r > 0 else (begyear + q, freq)
+
+
+def _build_indicator(itv, nobs, freq, begtime, begyear=None):
     """Return 1-indexed indicator array (shape nobs+1; index 0 unused).
 
-    Mirrors the DataMat[i] construction in populate_globals() / fue_api.c.
-    begtime = ts.start[1] (the period within the year of observation 1).
+    Mirrors the DataMat[i] construction in populate_globals() / fue_api.c, which
+    in turn mirrors fue.c:295-435.  A divergence here is a *silent*
+    misspecification: the model estimates cleanly, just not the model asked for.
+
+    begtime = ts.start[1] (the period within the year of observation 1);
+    begyear = ts.start[0], needed only by ``easter``.
     """
     ind = np.zeros(nobs + 1)
     obs = itv.at + 1          # 0-based → 1-based
     t   = itv.type
 
-    if t == "pulse":
+    if t == "impulse":
         if 1 <= obs <= nobs:
             ind[obs] = 1.0
+    elif t == "compimp":
+        # Compensated impulse: +1, and −1 the NEXT period (fue.c:317).  A pulse
+        # that is undone: on a differenced series a plain pulse shifts the level
+        # and this one does not.  Reading it as `pulse` estimates a different
+        # model without saying so (BUG-0006).
+        if 1 <= obs <= nobs:
+            ind[obs] = 1.0
+        if obs >= 0 and obs + 1 <= nobs:
+            ind[obs + 1] = -1.0
+    elif t == "easter":
+        # Easter-holiday variable, MONTHLY only (fue.c:374).  The weight goes to
+        # the month Easter Sunday falls in; if it falls in the first three days
+        # of April it is split half and half with March, because the week that
+        # moves activity fell in March.
+        if freq == 12 and begyear is not None:
+            for j in range(1, nobs + 1):
+                year, month = obs_to_date(begyear, begtime, j, freq)
+                day, e_month = easter_date(year)
+                if e_month == 4 and month == 4 and day >= 4:
+                    ind[j] = 1.0
+                elif e_month == 4 and month == 4 and day < 4:
+                    ind[j] = 0.5
+                    if j > 1:
+                        ind[j - 1] = 0.5
+                elif e_month == 3 and month == 3:
+                    ind[j] = 1.0
+    elif t == "trend":
+        for j in range(1, nobs + 1):
+            ind[j] = float(j)
     elif t == "step":
         if 1 <= obs <= nobs:
             ind[obs:nobs + 1] = 1.0
@@ -153,6 +210,7 @@ def build_est_spec(model):
     nobs    = ts.nobs
     freq    = ts.freq if ts.freq > 0 else 1
     begtime = ts.start[1] if ts.start else 1
+    begyear = ts.start[0] if ts.start else None
 
     spec         = EstSpec()
     spec.model   = model
@@ -170,7 +228,7 @@ def build_est_spec(model):
 
     # DataMat[1..k]: intervention indicator series
     spec.ind_data = [
-        _build_indicator(itv, nobs, freq, begtime)
+        _build_indicator(itv, nobs, freq, begtime, begyear)
         for itv in model.interventions
     ]
 

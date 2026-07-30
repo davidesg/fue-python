@@ -273,10 +273,17 @@ class _InpParser:
             for _ in range(ndet):
                 toks = self._next_data()
                 t = toks[0].lower()
-                if t in ("impulse", "pulse", "compimp"):
-                    py_type = "pulse"
+                # `impulse` and `compimp` are DIFFERENT regressors: the second is
+                # the COMPENSATED impulse (+1, then −1). Folding it into the
+                # first — as this reader used to — estimates another model in
+                # silence (BUG-0006). `pulse` is accepted because this package
+                # spelled it that way; it is not a keyword fue C knows.
+                if t in ("impulse", "pulse"):
                     at_1 = _date_to_obs(begyear, begtime, freq, toks[1:])
-                    raw_types.append((py_type, at_1, None, False))
+                    raw_types.append(("impulse", at_1, None, False))
+                elif t == "compimp":
+                    at_1 = _date_to_obs(begyear, begtime, freq, toks[1:])
+                    raw_types.append(("compimp", at_1, None, False))
                 elif t == "step":
                     at_1 = _date_to_obs(begyear, begtime, freq, toks[1:])
                     raw_types.append(("step", at_1, None, False))

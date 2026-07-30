@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <ctype.h>
+#include <gsl/gsl_errno.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_vector_complex.h>
@@ -343,7 +344,36 @@ void gsl_eigenqr( double **a, int n, double *wr, double *wi )
 
    /* balance=1: apply balancing similarity transform before eigendecomposition */
    gsl_eigen_nonsymm_params( 0, 1, w );
-   gsl_eigen_nonsymm( A, eval, w );
+
+   /* GSL's DEFAULT error handler calls abort().  If the QR iteration fails to
+      converge ("maximum iterations reached without finding all eigenvalues",
+      francis.c:209), GSL KILLS THE PROCESS -- and inside this extension that
+      means killing the Python interpreter, notebook and all, with no traceback.
+      Not converging is not a catastrophe: it is a point where stationarity
+      cannot be certified.  Turn the handler off, check the status, and return
+      roots OUTSIDE the unit circle, which is how "no good" is spelled in this
+      interface: the caller (elfvarma.c) sets ifault and the estimator moves
+      away.  A rejected point is an answer; abort() is not.  (BUG-0008)        */
+   {
+   gsl_error_handler_t *old = gsl_set_error_handler_off();
+   int status = gsl_eigen_nonsymm( A, eval, w );
+   gsl_set_error_handler( old );
+
+   if ( status != GSL_SUCCESS )
+      {
+      for ( i = 0; i < n; i++ )
+          {
+          wr[i+1] = 2.0;
+          wi[i+1] = 0.0;
+          for ( j = 0; j < n; j++ ) a[i+1][j+1] = 0.0;
+          a[i+1][i+1] = 2.0;          /* modulus > 1 => non-stationary */
+          }
+      gsl_eigen_nonsymm_free( w );
+      gsl_vector_complex_free( eval );
+      gsl_matrix_free( A );
+      return;
+      }
+   }
 
    for ( i = 0; i < n; i++ )
       {

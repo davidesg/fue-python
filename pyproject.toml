@@ -35,8 +35,12 @@ dependencies    = [
 ]
 
 [project.scripts]
-fue = "fue.cli:main"
-fuf = "fue.fuf_cli:main"
+# `fue` y `fuf` a secas son los PROGRAMAS EN C, que viven en /usr/local/bin.
+# Este paquete se instala con sufijo -py para no taparlos: ~/.local/bin va antes
+# que /usr/local/bin en el PATH, así que declararlos con el mismo nombre deja al
+# usuario ejecutando el puerto cuando cree estar ejecutando el original.
+fue-py = "fue.cli:main"
+fuf-py = "fue.fuf_cli:main"
 fue-bug = "fue.bug_cli:main"
 
 [project.optional-dependencies]

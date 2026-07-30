@@ -36,6 +36,31 @@ network, which could not reproduce the m6 targets.
   `.inp`. Present since 1.01. Fixed in the fue C repo; guarded from here, since fue
   C has no battery of its own.
 
+- **BUG-0008** (**crash**, *in fue C*): found cleaning up after BUG-0007. Two
+  independent defects of the same shape — a numerical edge case **kills the
+  process instead of being reported**. (a) The reporting plots segfault on a
+  degenerate series: with zero-variance residuals `AbsMax` is `0/0` = NaN, which
+  *neither* guard catches because every comparison against NaN is false, and the
+  band writes run off the buffer; `PlotCor` repeats it with NaN correlations.
+  (b) `gsl_eigenqr` calls GSL with no error handler installed, so when the QR
+  iteration fails to converge **GSL's default handler aborts the process** — and
+  not converging just means stationarity cannot be certified, which this interface
+  already knows how to express (roots outside the unit circle → the caller sets
+  `ifault` → the estimator moves away). Fixed in the fue C repo; normal output is
+  byte-identical.
+- **BUG-0009** (binding): defect (b) above is **in this package too**, because
+  `csrc/internal/` embeds a copy of those C sources. In the standalone program an
+  `abort()` kills a run; inside an extension module it kills the **interpreter** —
+  notebook and all, with no traceback and no exception to catch. Latent rather
+  than observed (the model that reliably aborts fue C fits fine here), fixed
+  anyway: the code was byte-identical to the code that does crash, and a library
+  may fail but may not take the interpreter with it.
+
+Also: the package's console scripts are now `fue-py`/`fuf-py`. Declaring them as
+`fue`/`fuf` shadowed the C programs, because `~/.local/bin` comes before
+`/usr/local/bin` in the PATH — so `fue` ran the port while the user believed they
+were running the original.
+
 Regression baseline taken in a separate worktree at `a56677c` with the extension
 rebuilt there: **651 passed** before, **651 passed** after, plus 25 new tests.
 

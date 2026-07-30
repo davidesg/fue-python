@@ -4,7 +4,7 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  A fix commit references the id, e.g. `fix(forecast): BUG-0001 …`.
 
-**7 report(s), 1 open.**
+**9 report(s), 1 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
@@ -15,4 +15,6 @@ New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  
 | [BUG-0004](BUG-0004-forecast-fit-stale-attrs.md) | fixed | high | forecast | forecast_fuf forecasts from the model's pre-fit SEED attributes (mu0/ar/...) instead of the fit; with a mis-scaled mu0 seed the level explodes | 0.1.8 |
 | [BUG-0006](BUG-0006-deterministic-types-silent.md) | fixed | high | inp | compimp is read as a plain impulse, and easter/trend are not supported — a .pre estimates a different model in silence | 0.1.9 |
 | [BUG-0007](BUG-0007-pre-writer-loses-easter-trend.md) | fixed | high | interop | fue C's .pre writer omits easter, trend and non-standard variables, so fue C cannot re-read its own .pre (and segfaults on it) | 0.1.9 |
+| [BUG-0008](BUG-0008-crash-on-degenerate-fit.md) | fixed | high | interop | fue C dies instead of reporting — the reporting plots segfault on a degenerate (zero-variance) series, and GSL's default handler aborts the process when the eigensolver fails | 0.1.9 |
+| [BUG-0009](BUG-0009-embedded-gsl-aborts-interpreter.md) | fixed | high | binding | The embedded C engine calls GSL with no error handler, so a failed eigensolve aborts the Python interpreter | 0.1.9 |
 

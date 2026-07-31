@@ -56,6 +56,16 @@ network, which could not reproduce the m6 targets.
   anyway: the code was byte-identical to the code that does crash, and a library
   may fail but may not take the interpreter with it.
 
+- **nlatools (robustness):** `vector`/`ivector` now return the **offset** pointer
+  (`v - nl`), so `v[nl..nh]` is addressable for any `nl` — the contract every
+  caller assumes, and what the Numerical-Recipes cleanup dropped. It does not
+  bite here today (fue allocates with `nl < 0` only in `elf`'s
+  `gamwa = tensor(-q+1, 0, ...)`, already fixed), but it is a latent waiting for
+  the first `vector(-k, k)`: that is exactly what bit drtran, whose
+  identification allocates `vector(-nlags, nlags)`. `matrix`/`imatrix` are left
+  alone on purpose — the same change breaks fue, so their layout is not
+  interchangeable with the copy shared by drtran/drvarma.
+
 Also: the package's console scripts are now `fue-py`/`fuf-py`. Declaring them as
 `fue`/`fuf` shadowed the C programs, because `~/.local/bin` comes before
 `/usr/local/bin` in the PATH — so `fue` ran the port while the user believed they

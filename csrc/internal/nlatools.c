@@ -413,20 +413,32 @@ void nrerror( char error_text[] )
 
 /****************************************************************************/
 
+/*  vector/ivector devuelven el puntero DESPLAZADO (v - nl), para que v[nl..nh]
+ *  sea direccionable con cualquier nl, negativo incluido, y free_* lo deshacen.
+ *  Es el contrato que suponen los llamantes y lo que se perdio al liberar el
+ *  fichero de Numerical Recipes.  Hoy fue no reserva con nl < 0 salvo el
+ *  gamwa = tensor(-q+1, 0, ...) de elf, ya corregido (b3e7dfd), pero es un
+ *  latente esperando al primer vector(-k, k) -- que es justo lo que mordio en
+ *  drtran, cuya identificacion reserva vector(-nlags, nlags).
+ *
+ *  matrix/imatrix se dejan COMO ESTAN a proposito: aplicarles el mismo cambio
+ *  rompe fue (free(): invalid pointer), asi que su layout no es intercambiable
+ *  con el de la copia compartida de drtran/drvarma.  Queda por ver por que.   */
+
 double *vector( long nl, long nh )
 {
-   double *v = (double *)calloc( (size_t)(nh + 1), sizeof(double) );
+   double *v = (double *)calloc( (size_t)(nh - nl + 1), sizeof(double) );
    if ( !v ) nrerror( "ALLOCATION FAILURE in vector()" );
-   return( v );
+   return( v - nl );
 }
 
 /****************************************************************************/
 
 int *ivector( long nl, long nh )
 {
-   int *v = (int *)calloc( (size_t)(nh + 1), sizeof(int) );
+   int *v = (int *)calloc( (size_t)(nh - nl + 1), sizeof(int) );
    if ( !v ) nrerror( "ALLOCATION FAILURE in ivector()" );
-   return( v );
+   return( v - nl );
 }
 
 /****************************************************************************/
@@ -507,14 +519,14 @@ double ***tensor( long nrl, long nrh, long ncl, long nch, long ndl, long ndh )
 
 void free_vector( double *v, long nl, long nh )
 {
-   free( v );
+   if ( v ) free( v + nl );
 }
 
 /****************************************************************************/
 
 void free_ivector( int *v, long nl, long nh )
 {
-   free( v );
+   if ( v ) free( v + nl );
 }
 
 /****************************************************************************/

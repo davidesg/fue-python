@@ -26,12 +26,23 @@ classifiers     = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-# cffi is NOT a runtime dependency: the compiled extension embeds the cffi
-# runtime inside the .so, and the pure-Python fallback does not need cffi.
+# cffi IS a runtime dependency. This block used to claim the opposite -- "the
+# compiled extension embeds the cffi runtime inside the .so" -- and that is
+# simply not true of a cffi API-mode extension: it imports `_cffi_backend` when
+# it loads. Verified on 0.1.8 in a clean venv: pip fetched the right manylinux
+# wheel and `import fue._fue_engine` still failed with "No module named
+# '_cffi_backend'", so `_engine.py` caught the ImportError and fell back to
+# pure Python. Every binary wheel published so far has been inert wherever cffi
+# was not present for some other reason -- which on a developer's machine it
+# usually is, and that is why it went unnoticed.
+# Declared unconditionally: the pure-Python fallback does not need it, but the
+# cost is one small universal wheel and the alternative is 25 binary wheels
+# nobody can use.
 dependencies    = [
     "numpy>=1.24",
     "scipy>=1.10",
     "matplotlib>=3.7",
+    "cffi>=1.15",
 ]
 
 [project.scripts]

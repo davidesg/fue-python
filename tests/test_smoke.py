@@ -35,3 +35,27 @@ def test_fit_and_forecast_small_model():
     fr = m.forecast(6)
     assert len(fr.level) == 6
     assert np.all(np.isfinite(fr.level))
+
+
+def test_a_binary_wheel_can_actually_load_its_engine():
+    """If this build carries a compiled extension, it must be usable.
+
+    Every binary wheel up to 0.1.8 could be installed and not used: a cffi
+    API-mode extension imports `_cffi_backend` at load time, `cffi` was not a
+    declared runtime dependency, and `_engine.py` catches the resulting
+    ImportError and degrades to pure Python. The wheels were present, correct
+    and inert — the exact failure they existed to prevent.
+
+    It went unnoticed because a developer's machine almost always has cffi for
+    some other reason, so the engine loaded there and only there. The smoke test
+    could not catch it either: it checked that fue ESTIMATES, which the fallback
+    does just as well.
+
+    So: whenever the extension is on disk, importing it must succeed. A build
+    without one (the pure wheel) is fine and skips.
+    """
+    import importlib.util
+    if importlib.util.find_spec("fue._fue_engine") is None:
+        import pytest
+        pytest.skip("pure-Python build: no extension to load")
+    import fue._fue_engine  # noqa: F401  — must not raise

@@ -4,12 +4,14 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  A fix commit references the id, e.g. `fix(forecast): BUG-0001 …`.
 
-**10 report(s), 2 open.**
+**12 report(s), 4 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
 | [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | open | medium | estimation | ML optimizer converges to a spurious optimum on multimodal (seasonal-AR) likelihoods and reports converged=True with no diagnostic; the basin is platform-dependent (Windows vs Linux) | — |
 | [BUG-0010](BUG-0010-inp-parser-assumes-utf8.md) | open | medium | inp | The .inp parser assumes UTF-8, so files written by the original C program on a Latin-1 system cannot be read at all | — |
+| [BUG-0011](BUG-0011-drvus-era-inp-does-not-load.md) | open | medium | inp | A DRVUS-era .inp does not load — the bands/refactor section did not exist then, and the format carries no version | — |
+| [BUG-0012](BUG-0012-series-a-arma11-stops-on-the-boundary.md) | open | medium | estimation | On Box-Jenkins Series A the ARMA(1,1) stops on the AR boundary, 6.86 in log-likelihood below what Mauricio's own C reaches from the same start | — |
 | [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 | [BUG-0002](BUG-0002-binding-fixed-factor-arrays.md) | fixed | high | binding | Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError | 0.1.6 |
 | [BUG-0003](BUG-0003-residual-plot-annual-xaxis.md) | fixed | medium | plots | plot_residuals_ts draws no year ticks or vertical dividers for annual series (freq==1) — X-axis unreadable | 0.1.7 |

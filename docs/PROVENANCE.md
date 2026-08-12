@@ -247,12 +247,26 @@ the specification of the format, and it is why a stray blank line breaks a file.
 Stated plainly, because a provenance document that only lists what works is an
 advertisement.
 
-- [ ] **No test executes the published test cases of AS 311 or AS 197.** Both
-      papers ship data and expected results. Today `test_estimation.py` uses
-      *"hard-coded reference values obtained from the reference binary"*, which
-      verifies **port against binary**, not **binary against paper**. Given the C
-      *is* Mauricio's code this is close to a formality — but it is the formality
-      that turns "trust" into "check".
+- [x] ~~No test executes a published benchmark.~~ **Done, 12 Aug 2026** —
+      `tests/test_published_benchmark_series_a.py`. The AS 311 and AS 197 papers
+      were not to hand, but a better fixture was: **Box & Jenkins Series A**, the
+      canonical benchmark of the field, which travels inside Mauricio's own DRVUS
+      1.2.01 (`src/Box_y_Jenkings/`) with his `.out` files from ~2001. On the
+      IMA(0,1,1), n=197:
+
+      | | θ̂ | σ | logL |
+      |---|---|---|---|
+      | Box & Jenkins (book) | 0.70 | — | — |
+      | DRVUS (Mauricio's C) | 0.699384 | 0.317382 | −53.508690 |
+      | `fue` (2026) | 0.699384 | 0.317382 | −53.508690 |
+      | **statsmodels** | **0.699384** | **0.317382** | **−53.508686** |
+
+      `statsmodels` is what closes the link: different authors, a different
+      algorithm, no shared code with DRVUS or FUE. **fue↔statsmodels agree to
+      4.5e-09 on θ**, fue↔DRVUS to 2.7e-07, and both match the textbook 0.70.
+
+      Series B–E are the obvious extension and are blocked today by
+      `bugs/BUG-0011` — the DRVUS-era files do not load.
 - [x] ~~The `diff` of §2 is not a test.~~ **Done, 12 Aug 2026** —
       `tests/test_c_core_matches_drvus.py`, 9 tests. It does **not** count
       differing lines (a count would pass if twenty-three benign lines were

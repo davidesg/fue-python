@@ -92,7 +92,18 @@ class _InpParser:
 
     def __init__(self, path):
         blocks = []
-        with open(path) as f:
+        # BUG-0010: los `.inp` escritos por el C original en sistemas Latin-1
+        # reventaban con UnicodeDecodeError. Lo que importa del formato es ASCII
+        # —números y palabras clave—; los bytes altos están en nombres y
+        # comentarios, así que una lectura tolerante no arriesga nada numérico.
+        try:
+            with open(path, encoding="utf-8") as f:
+                _raw = f.readlines()
+        except UnicodeDecodeError:
+            with open(path, encoding="latin-1") as f:
+                _raw = f.readlines()
+        if True:
+            f = _raw
             for line in f:
                 s = line.strip()
                 if not s:
@@ -244,10 +255,27 @@ class _InpParser:
             begyear = int(obs_toks[2])
             name    = obs_toks[3] if len(obs_toks) > 3 else "series"
         else:
-            # annual: field order is nobs, outyear (ignored), begyear, name
-            begyear = int(obs_toks[2])
+            # Anual. La cabecera tiene TRES formas a lo largo de la historia del
+            # formato, y el parser sólo conocía dos:
+            #
+            #   100 1770              DRVUS (1996): nobs, año.  Dos campos.
+            #   248 1768 1768 GE      la forma con el año repetido en el campo
+            #                         del periodo (BUG-0018)
+            #   248 1 1768 GE         la actual: periodo=1, año
+            #
+            # Regla: el año es el último token NUMÉRICO antes del nombre.
+            nums = []
+            for t in obs_toks[1:]:
+                try:
+                    nums.append(int(t))
+                except ValueError:
+                    break
+            if not nums:
+                raise ValueError(
+                    f"cabecera anual sin año: {' '.join(obs_toks)!r}")
+            begyear = nums[-1]
             begtime = 1
-            name    = obs_toks[3] if len(obs_toks) > 3 else "series"
+            name    = obs_toks[1 + len(nums)] if len(obs_toks) > 1 + len(nums) else "series"
 
         # [fuf only] Optional: "Forecast horizon and estimated innovation variance"
         # fuf files insert this section between observations and det-vars.
@@ -440,11 +468,26 @@ class _InpParser:
             ifadf = []
 
         # [3.7] cbands + refactor
-        self._skip_sep()
-        rf_toks = self._next_data()
-        refactor = float(rf_toks[1]) if len(rf_toks) > 1 else 1.0
-        if refactor == 0.0:
-            refactor = 1.0
+        #
+        # BUG-0011: esta sección NO existía en DRVUS, cuyos ficheros van de los
+        # factores individuales directamente a la serie. Leerla sin comprobar
+        # consumía la primera observación en su lugar y el fichero moría con
+        # "Unexpected end of .inp file".
+        #
+        # La detección es POSITIVA sobre la sección SIGUIENTE, no negativa sobre
+        # la ausente: sólo si lo que viene es la serie se da por ausente. Así
+        # cualquier redacción de la línea de bandas sigue funcionando, y un
+        # fichero moderno —donde lo siguiente es la línea de bandas y no la
+        # serie— no cambia de comportamiento.
+        if "time series" in self._peek_key():
+            refactor = 1.0                      # el valor que el propio parser
+                                                # ya usaba para un campo a cero
+        else:
+            self._skip_sep()
+            rf_toks = self._next_data()
+            refactor = float(rf_toks[1]) if len(rf_toks) > 1 else 1.0
+            if refactor == 0.0:
+                refactor = 1.0
 
         # [3.7] Time series data (col 0 = stochastic; extra cols = custom detvars)
         self._skip_sep()

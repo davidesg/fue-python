@@ -7,6 +7,8 @@ Check for invertibility: constrained search
 Observations: 72.
 Parameters  : 14.
 
+**** GRADIENT STOPPING CRITERIUM SATISFIED TO WITHIN TOLERANCE LIMITS
+**** CONVERGENCE OBTAINED AFTER 122 ITERATIONS [GRADIENT NORM = 0.0000]
 
 Omegas for deterministic variable 1:
       0.370170  (0.097146) [ 1]

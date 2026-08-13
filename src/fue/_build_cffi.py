@@ -143,6 +143,9 @@ typedef struct {
     double  loglik;
     double  aic;
     double  bic;
+    int     termcode;
+    int     niter;
+    double  gnorm;
 } FueResult;
 
 FueResult *fue_estimate(const FueModelSpec *spec);

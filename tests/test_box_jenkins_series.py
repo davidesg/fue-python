@@ -109,24 +109,100 @@ def test_the_reference_really_comes_from_the_out_file(case):
     assert ref == pytest.approx(expected, abs=1e-4)
 
 
+@pytest.mark.parametrize("case", sorted(_CASES))
+def test_the_termination_criterion_matches_drvus(case):
+    """Not just the destination — how each run ended.
+
+    DRVUS recorded its criterion, iteration count and gradient norm in the
+    `.out`, and since BUG-0012 the port returns the same three. The criterion
+    must agree on all eight; the iteration count is deliberately NOT asserted,
+    because it drifts by a few (50 against 47 on `d`, 2 against 3 on `c`)
+    between a 2001 binary and this one. That drift is itself the evidence for
+    what happens on `a1`: two slightly different paths, which matters only where
+    the valley is flat.
+    """
+    rel, _expected = _CASES[case]
+    out = os.path.join(_BJ, rel)[:-4] + ".out"
+    txt = open(out, encoding="latin-1").read()
+    assert "GRADIENT STOPPING CRITERIUM" in txt, (
+        f"{case}: DRVUS did not stop on the gradient — reread the .out")
+
+    _ts, m = _fit(rel)
+    assert m._result.termcode == 1, (
+        f"{case}: DRVUS stopped on the gradient and fue stopped by "
+        f"termcode {m._result.termcode} (|g|={m._result.gnorm:.3g})")
+    assert m._result.gnorm == pytest.approx(0.0, abs=1e-4)
+
+
 # ── the one that disagrees, asserted rather than hidden ────────────────────
 
 def test_series_a_arma11_still_stops_on_the_boundary():
-    """BUG-0012, as a two-sided marker.
+    """BUG-0012, resolved — and kept as a two-sided marker.
 
-    On `a1` — ARMA(1,1) on the level of Series A — fue stops at φ→1, where the
-    model degenerates into the IMA(1,1) of `a2`, while DRVUS escapes to
-    φ=0.9087, θ=0.5758 from the same starting values: 6.86 better in
-    log-likelihood, and the published estimate.
+    On `a1` fue stops at φ→1 by the STEP criterion, 6.86 in log-likelihood
+    below the `.out` DRVUS left in 2001. **So does DRVUS itself when compiled
+    today**: same source, `gcc -O2`, same 23 iterations, same |g|=0.01009, same
+    −57.60386. Nothing in the port is implicated.
 
-    If this ever starts agreeing, the assertion below fails and that is the
-    point: a known defect must not become a silent one in either direction.
+    The 2001 binary was 32-bit x86, whose FPU carried intermediates in 80-bit
+    registers; x86-64 uses SSE2 and works in 64. Rebuilt today with
+    `-O0 -mfpmath=387` the original C reproduces its own 2001 trace iteration by
+    iteration and lands on −50.745092 again. Eleven extra bits of mantissa
+    decide, in a valley this flat, whether steptol fires at iteration 23.
+
+    The marker stays because the *behaviour* must not drift unnoticed in either
+    direction — and because the day this platform changes its floating point,
+    this test is what will say so.
     """
-    _ts, m = _fit("SeriesA/a1.inp")
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _ts, m = _fit("SeriesA/a1.inp")
     drvus = _drvus_loglik(os.path.join(_BJ, "SeriesA/a1.inp"))
     assert drvus is not None
 
     assert m.ar[0][0] > 0.999, "fue used to stop on the AR boundary — did it escape?"
+    # And it must say so: the stop is the STEP criterion with a live gradient,
+    # not a maximum. Silence here is the half of BUG-0012 that is now fixed.
+    assert m._result.termcode == 2
+    assert m._result.converged is False
+    assert any(issubclass(w.category, RuntimeWarning) for w in caught)
     assert m.loglik < drvus - 1.0, (
         f"fue {m.loglik:.6f} is no longer well below DRVUS {drvus:.6f} — "
         f"BUG-0012 may be fixed; check and update this test")
+
+
+def test_the_optimum_drvus_reached_in_2001_is_the_real_one():
+    """And fue reaches it — the half that matters for the estimate.
+
+    Seed mu at the sample mean instead of the stale 2.5 the file carries, and
+    fue lands on Mauricio's 2001 answer. `statsmodels` — different authors,
+    different algorithm, no shared code with any of this — lands on the same
+    point, which is what makes it the optimum rather than a third opinion:
+
+        statsmodels   phi=0.908685  theta=0.575841  logL=-50.745092
+        DRVUS 2001    phi=0.908683  theta=0.575839  logL=-50.745092
+        fue, mu0=17   phi=0.908685  theta=0.575841  logL=-50.745092
+    """
+    sm = pytest.importorskip("statsmodels.tsa.arima.model")
+    import numpy as np
+
+    ts, m = fue_load_a1 = _fit_with_mu("SeriesA/a1.inp", 17.0)
+    assert m._result.termcode == 1
+    assert m.loglik == pytest.approx(-50.745092, abs=1e-5)
+
+    r = sm.ARIMA(np.array(ts.data), order=(1, 0, 1),
+                 trend="c").fit(method="innovations_mle")
+    assert m.ar[0][0] == pytest.approx(r.arparams[0], abs=1e-5)
+    assert m.ma[0][0] == pytest.approx(-r.maparams[0], abs=1e-5)
+    assert m.loglik == pytest.approx(r.llf, abs=1e-4)
+
+
+def _fit_with_mu(rel, mu0):
+    import fue
+
+    ts, m = fue.load(os.path.join(_BJ, rel))
+    m.mu0 = mu0
+    m.fit()
+    return ts, m

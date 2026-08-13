@@ -41,3 +41,8 @@ tests/**/*.pdf
 /--*.tex
 /--*_res.tex
 /-v.*
+
+# el binario que compila test_as197_published_fortran.py, y el sitio de mkdocs
+tests/fortran/as197d
+/_site/
+/site-fue/

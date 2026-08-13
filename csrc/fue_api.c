@@ -29,6 +29,10 @@
 #include "internal/fue.h"
 #include "internal/nlatools.h"
 
+extern int qn_last_termcode;   /* qnewtopt.c — BUG-0012 */
+extern int qn_last_nit;
+extern double qn_last_gnorm;
+
 /* ── Globals required by the internal estimation engine ─────────────────── */
 /* cast_us() accesses these as module-level globals, matching fue.c layout.  */
 
@@ -965,6 +969,13 @@ FueResult *fue_estimate(const FueModelSpec *spec)
     result->ifault = ifault;
     result->sigma2 = sigma2;
     result->loglik = logelf;
+    /* BUG-0012: el veredicto del optimizador. raxopt lo anunciaba por
+       `outputv`, que el binding pone a /dev/null, asi que se perdia: el motor
+       devolvia `converged` sin decir SI convergio por gradiente (termcode 1) o
+       porque los iterados dejaron de moverse (termcode 2), que no es lo mismo. */
+    result->termcode = qn_last_termcode;
+    result->niter    = qn_last_nit;
+    result->gnorm    = qn_last_gnorm;
     if (npar > 0 && nresiduals > 0) {
         result->aic = -2.0 * logelf + 2.0 * npar;
         result->bic = -2.0 * logelf + npar * log((double)nresiduals);

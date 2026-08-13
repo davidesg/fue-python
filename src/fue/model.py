@@ -1,5 +1,7 @@
 """Model: ARMAX specification with interventions, fitted by exact ML via FUE."""
 
+import warnings
+
 from .series import TimeSeries
 from .intervention import Intervention
 
@@ -34,12 +36,21 @@ class FixedFreqFactor:
         return f"FixedFreqFactor(freq={self.freq}, coef={self.coef}, free={self.free})"
 
 
+#: Los códigos de parada de `raxopt` (qnewtopt.c: report()), en castellano.
+_TERMINATION = {
+    1: "criterio del gradiente satisfecho",
+    2: "criterio de paso: los iterados dejaron de moverse",
+    3: "el último paso no encontró un punto mejor",
+    4: "límite de iteraciones alcanzado",
+    5: "cinco pasos consecutivos de longitud máxima",
+}
+
+
 class FitResult:
     """Container for estimation results returned by the C engine."""
 
     def __init__(self, data):
         self.ifault     = data['ifault']
-        self.converged  = data['ifault'] == 0
         self.npar       = data['npar']
         self.sigma2     = data['sigma2']
         self.loglik     = data['loglik']
@@ -53,6 +64,21 @@ class FitResult:
         self.gnorm      = data.get('gnorm')
         self.termcode   = data.get('termcode')
         self.w          = data.get('w')
+        # BUG-0012: `converged` significaba `ifault == 0`, es decir «el motor no
+        # reventó» — y con eso devolvía como bueno un alto por criterio de PASO
+        # con ‖g‖=0.01, que no es un máximo. El veredicto del optimizador ya
+        # viaja (termcode), así que la afirmación puede ser la honesta.
+        #   termcode 1 = el gradiente se anuló: esto sí es un máximo
+        #   termcode 0 = no registrado (motores anteriores a 0.1.10)
+        self.converged  = (self.ifault == 0
+                           and (self.termcode is None or self.termcode in (0, 1)))
+
+    @property
+    def termination(self):
+        """Por qué paró el optimizador, en una línea. `None` si no consta."""
+        if self.termcode is None:
+            return None
+        return _TERMINATION.get(self.termcode, f"termination code {self.termcode}")
 
 
 class Model:
@@ -158,13 +184,23 @@ class Model:
         from ._engine import estimate
         raw = estimate(self)
         self._result = FitResult(raw)
-        if not self._result.converged:
+        # El fallo del motor sigue siendo excepción; un alto que no es máximo,
+        # no: es un ajuste que existe y sobre el que hay que poder decidir.
+        if self._result.ifault != 0:
             try:
                 from fue._fue_engine import ffi, lib
                 msg = ffi.string(lib.fue_strerror(self._result.ifault)).decode()
             except ImportError:
                 msg = f"ifault={self._result.ifault}"
             raise RuntimeError(f"FUE estimation failed: {msg}")
+        if not self._result.converged:
+            warnings.warn(
+                f"fue: la estimación paró sin anular el gradiente "
+                f"({self._result.termination}; {self._result.niter} iteraciones, "
+                f"‖g‖={self._result.gnorm:.4g}). Los valores devueltos NO son un "
+                f"máximo verificado — revisa las semillas antes de usarlos "
+                f"(fue/bugs/BUG-0012).",
+                RuntimeWarning, stacklevel=2)
         from .cast_us import normalize_ma_invertibility, sync_params_to_attrs
         normalize_ma_invertibility(self)
         # BUG-0004 / rescaling-architecture P4: after fitting, the model IS the fitted

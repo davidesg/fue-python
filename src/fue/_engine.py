@@ -135,6 +135,7 @@ def estimate(model):
     if raw == ffi.NULL:
         return {'ifault': -1, 'npar': 0, 'nresiduals': 0,
                 'sigma2': 0.0, 'loglik': 0.0, 'aic': 0.0, 'bic': 0.0,
+                'termcode': 0, 'niter': 0, 'gnorm': 0.0,
                 'params': np.array([]), 'std_errors': np.array([]),
                 'cov_matrix': np.zeros((0, 0)), 'residuals': np.array([])}
 
@@ -149,6 +150,11 @@ def estimate(model):
             'loglik':     raw.loglik,
             'aic':        raw.aic,
             'bic':        raw.bic,
+            # BUG-0012: el veredicto del optimizador, que hasta ahora se perdia.
+            # 1=gradiente 2=paso 3=sin mejora 4=limite de iteraciones 5=paso maximo
+            'termcode':   raw.termcode,
+            'niter':      raw.niter,
+            'gnorm':      raw.gnorm,
             'params':     np.array([raw.params[i]     for i in range(n)],    dtype=float),
             'std_errors': np.array([raw.std_errors[i] for i in range(n)],    dtype=float),
             'cov_matrix': np.array([raw.cov_matrix[i] for i in range(n * n)],

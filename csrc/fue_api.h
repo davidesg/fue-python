@@ -157,6 +157,10 @@ typedef struct {
     double  loglik;            /* exact log-likelihood                     */
     double  aic;               /* AIC = -2*loglik + 2*npar                */
     double  bic;               /* BIC = -2*loglik + npar*log(nresiduals)  */
+    int     termcode;          /* raxopt: 1=gradient 2=step 3=no improvement
+                                  4=iteration limit 5=max step (BUG-0012)   */
+    int     niter;
+    double  gnorm;              /* Euclidean norm of the gradient at the stop. */             /* raxopt iterations actually taken          */
 } FueResult;
 
 /* ── API entry points ───────────────────────────────────────────────────── */

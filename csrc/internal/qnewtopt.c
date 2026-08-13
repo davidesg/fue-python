@@ -23,6 +23,23 @@
 
 #include "fue.h"            /* Header file (prototype declarations)        */
 #include "nlatools.h"            /* Header file (prototype declarations)        */
+
+/* The optimizer's verdict, recorded for callers that cannot read `outputv`.
+
+   `report()` announces the termination code and the iteration count, but it
+   writes to `outputv`, which the Python binding sets to /dev/null.  The
+   announcement was produced and thrown away: the engine returned no termcode at
+   all, so `converged=True` could mean "the gradient is zero" or "the iterates
+   stopped moving", which are not the same claim (BUG-0012).
+
+   These three globals only RECORD what raxopt already computed.  No criterion,
+   no announcement and no numerical behaviour changes: raxopt is Mauricio's
+   published work (JASA 90, 282-291) and keeps its own rules.  `drvarma` carries
+   the same copy of this file and does NOT record any of this yet: the same gap
+   is open there. */
+int qn_last_termcode = 0;
+int qn_last_nit      = 0;
+double qn_last_gnorm = 0.0;
 extern real macheps;          /* Machine epsilon (global: declared in DRV.C) */
 extern FILE *outputv;         /* Output file (global: declared in DRV.C)     */
 
@@ -113,6 +130,8 @@ void raxopt( real (*func)(real *), real *fk, int n, real *xk, real **b,
       *fk = fkp1;
       }                                       /* Back for another iteration. */
 
+   qn_last_termcode = termcode;               /* Record before announcing:   */
+   qn_last_nit      = k;                      /* report() may be silenced.   */
    report( n, k, xk, gk, *fk, termcode );     /* Report on convergence.      */
    if ( outputv ) fprintf( outputv, "%4d F: %0.10f\n", k, *fk );
 
@@ -156,6 +175,7 @@ void report( int n, int k, real *x, real *g, real f, int termcode )
       for ( i = 1; i <= n; i++ )
           gradnorm += g[i] * g[i];
       gradnorm = sqrt( gradnorm );
+      qn_last_gnorm = gradnorm;                /* Record: see the note above. */
       fprintf( outputv, "%s", endmes );
       fprintf( outputv, "**** CONVERGENCE OBTAINED AFTER %d ITERATIONS ", k );
       fprintf( outputv, "[GRADIENT NORM = %6.4f]\n\n", gradnorm );

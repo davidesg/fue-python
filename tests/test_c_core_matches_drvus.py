@@ -173,6 +173,104 @@ def test_nlatools_is_not_claimed_verbatim():
     assert len(b) < len(a), "nlatools.c is no longer the shorter rewrite"
 
 
+# ── the optimizer, against its own ancestor ────────────────────────────────
+#
+# `qnewtopt.c` is raxopt: Mauricio (1995) JASA 90, 282-291. It was outside the
+# invariant above until BUG-0012, which is precisely the file that then had to
+# be edited — and `drvarma/bugs/BUG-0002` is the record of what happens when
+# this copy drifts unwatched (17 lines, nobody noticed). Its ancestor is
+# `fue-1.13.1/src/qnewtopt.c`, not DRVUS: the fue line already wrote its
+# progress to `outputv` rather than stdout.
+
+_FUE_1131 = os.path.expanduser("~/Dropbox/SRC/atws/fue/fue-1.13.1/src")
+
+_OPT_EXCEPTIONS = [
+    # "José" — the same text in two encodings.
+    ("copyright-encoding",
+     lambda l: "Copyright (C)" in l and "Alberto Mauricio" in l),
+    # Progress lines redirected: the binding has no stdout to write to.
+    ("printf-to-outputv",
+     lambda l: '"%4d F: %0.10f' in l),
+    # BUG-0012: recording what raxopt already computed. No criterion changes.
+    ("termcode-recording",
+     lambda l: re.match(r"^\s*((int|double)\s+)?qn_last_(termcode|nit|gnorm)\s*=",
+                        l) is not None),
+]
+
+
+def _code_only(path, encoding):
+    """The file with comments and blank lines removed.
+
+    Comparing code rather than prose is deliberate: a comment cannot change what
+    raxopt does, and the note explaining the BUG-0012 recording is long. What
+    must not move is the executable text.
+    """
+    src = "\n".join(_lines(path, encoding))
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    src = re.sub(r"//[^\n]*", "", src)
+    return [l.rstrip() for l in src.split("\n") if l.strip()]
+
+
+def _classify_opt(line):
+    for name, matches in _OPT_EXCEPTIONS:
+        try:
+            if matches(line):
+                return name
+        except Exception:
+            continue
+    return None
+
+
+@pytest.mark.skipif(not os.path.isdir(_FUE_1131),
+                    reason="fue-1.13.1 sources not present")
+def test_the_optimizer_is_still_mauricios():
+    """raxopt must keep its own rules: BUG-0012 records, it does not decide."""
+    a = _code_only(os.path.join(_FUE_1131, "qnewtopt.c"), "latin-1")
+    b = _code_only(os.path.join(_INTERNAL, "qnewtopt.c"), "utf-8")
+    undeclared = []
+    for line in difflib.unified_diff(a, b, n=0, lineterm=""):
+        if line.startswith(("---", "+++", "@@")) or line[:1] not in "-+":
+            continue
+        if _classify_opt(line[1:]) is None:
+            undeclared.append(line)
+    assert not undeclared, (
+        "\nqnewtopt.c has changed against fue-1.13.1 in ways this test does not "
+        "know about. raxopt is published work (Mauricio 1995, JASA 90, 282-291):"
+        " a change to its stopping criteria is a STUDY, not a bug fix.\n\n"
+        + "\n".join(f"  {l}" for l in undeclared[:20]))
+
+
+@pytest.mark.skipif(not os.path.isdir(_FUE_1131),
+                    reason="fue-1.13.1 sources not present")
+def test_the_stopping_criteria_themselves_are_untouched():
+    """The two routines that DECIDE when to stop, byte for byte.
+
+    `umstop0` (the first-iterate test) and `umstop` (the rest) are where the
+    gradient and step criteria live. BUG-0012 is about reporting their verdict,
+    so their text must be identical — and if a future study does change them,
+    it will have to change this test and say so.
+    """
+    def routine(path, enc, name):
+        src = "\n".join(_lines(path, enc))
+        m = re.search(r"^\s*int\s+" + name + r"\s*\(", src, re.M)
+        assert m, f"{name} not found in {path}"
+        i, depth, started = m.start(), 0, False
+        for j in range(i, len(src)):
+            if src[j] == "{":
+                depth += 1
+                started = True
+            elif src[j] == "}":
+                depth -= 1
+                if started and depth == 0:
+                    return src[i:j + 1]
+        raise AssertionError(f"{name}: unbalanced braces")
+
+    for name in ("umstop0", "umstop"):
+        old = routine(os.path.join(_FUE_1131, "qnewtopt.c"), "latin-1", name)
+        new = routine(os.path.join(_INTERNAL, "qnewtopt.c"), "utf-8", name)
+        assert old == new, f"{name}() differs — a stopping criterion changed"
+
+
 def test_the_provenance_document_says_the_same_thing():
     """A document that drifts from the test it describes is worse than none."""
     doc = os.path.join(_HERE, "docs", "PROVENANCE.md")

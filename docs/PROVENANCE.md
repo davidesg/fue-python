@@ -24,7 +24,8 @@ written by the authors of those algorithms, and the chain has four links:
 ```
 
 **DRVUS 1.01** (`SRC/drvus`) is Mauricio's own C, with earlier versions in
-`SRC/drvus-source` (1.0 … 1.2.03). Its `readme` maps each module to its paper;
+the DRVUS source archive (versions 1.0 … 1.2.03), held privately. Its `readme`
+maps each module to its paper;
 that mapping is the first row of every table below and it was written by the
 authors, not reconstructed here.
 
@@ -35,9 +36,17 @@ authors, not reconstructed here.
 The C embedded in this package (`csrc/internal/`) is the DRVUS source with a
 licence header and two mechanical edits. Verify it yourself:
 
+The archives these commands read are not distributed with the package —
+Mauricio's DRVUS sources and the TASTE oracle are private — so they are named by
+environment variable rather than by anyone's home directory:
+
 ```bash
+export DRVUS_SRC=/path/to/drvus/src           # Mauricio's C, as published to us
+export DRVUS_SOURCE=/path/to/drvus-source     # the versioned archive, 1.0 … 1.2.03
+export TASTE_ORACLE=/path/to/Taste/oracle     # the oracle harness
+
 for f in elfvarma usmelard drvmlest nlatools; do
-  n=$(diff <(tr -d '\r' < ~/Dropbox/SRC/drvus/src/$f.c) \
+  n=$(diff <(tr -d '\r' < "$DRVUS_SRC"/$f.c) \
            <(tr -d '\r' < csrc/internal/$f.c) | awk '/^[<>]/ {n++} END {print n+0}')
   echo "$f.c: $n differing lines"
 done
@@ -67,6 +76,84 @@ Mauricio published.
 > ✅ This is an invariant, not a claim: `tests/test_c_core_matches_drvus.py`
 > fails if any line differs in a way not declared there. See §6.
 
+### 2.1 The optimiser, and the one edit it carries
+
+`qnewtopt.c` — `raxopt`, Mauricio (1995) JASA 90, 282-291 — sat outside that
+invariant until 12 August 2026, which is how these things go: it was then the
+one file BUG-0012 required editing. Its ancestor is `fue-1.13.1/src/qnewtopt.c`
+rather than DRVUS, because the fue line already wrote its progress to `outputv`
+instead of stdout.
+
+Comparing **code only** (comments stripped), the delta is three things:
+
+| change | why |
+|---|---|
+| `José` in UTF-8 | encoding |
+| `printf("%4d F: …")` → `if (outputv) fprintf(outputv, …)` | the binding has no stdout to write to |
+| `qn_last_termcode`, `qn_last_nit`, `qn_last_gnorm` | **BUG-0012**: record the verdict `report()` computes and then writes to `/dev/null` |
+
+The third is the only addition, and it is a **recording**, not a decision: no
+criterion, no announcement, no numerical behaviour. Two tests hold the line —
+`test_the_optimizer_is_still_mauricios` (declared exceptions on code lines) and
+`test_the_stopping_criteria_themselves_are_untouched`, which compares `umstop0()`
+and `umstop()` — the two routines that decide when to stop — character for
+character. Changing a stopping criterion is a **study**, not a bug fix; see
+`TODO.md`.
+
+The recording pays for itself immediately: on the 28 real-case `.out` files that
+the C produced during actual work, the port now reproduces **termcode, iteration
+count and gradient norm exactly** — including `Coint/R.4.out`, whose gradient
+norm is 116330.0394. Reproducing an iteration count on twenty-eight real fits is
+a much stronger statement than reproducing a likelihood
+(`tests/test_optimizer_termcode.py`).
+
+⚠ `drvarma` carries the same copy of this file and records none of it yet.
+
+### 2.2 The archived `.out` files are 80-bit runs — and are reproducible
+
+The reference runs preserved from the 2000s were produced by **32-bit x86**
+binaries, whose FPU held intermediates in **80-bit** registers. Today's x86-64
+builds use SSE2 and work in 64. On well-conditioned problems this is invisible:
+8 of the 9 Box-Jenkins cases agree to 1e-10, and 28 of 28 real cases agree down
+to the iteration count. On `a1` — a valley so flat that the AR sits at 0.99998 —
+it decides the outcome, and `bugs/BUG-0012` is the whole measurement.
+
+That case was run to the end, because the alternative was to leave the port
+under suspicion. In summary: DRVUS's own source, rebuilt today at 64 bits,
+reproduces **fue's** answer and not its own 2001 one; rebuilt with
+`-m32 -O0` it reproduces the 2001 trace iteration by iteration; the preserved
+2006 32-bit binary, run today, reproduces the archive exactly; and the preserved
+**2001 Borland `.exe` of DRVUS 1.0**, under `wine`, agrees bit for bit with a
+rebuild of the 1.0 source at 80 bits. Bisecting the versions with one compiler
+and one set of flags puts the only functional change between 1.0 and 1.01 in two
+lines of `drvus.c` — `steptol` tightened from `1.0e-5` to `macheps^(2/3)` — and
+the estimation path itself (`qnewtop.c`, `usmelard.c`, `elfvarma.c`,
+`drvmlest.c`) identical, **0 differing lines of code**. `statsmodels`, which owes
+nothing to any of it, confirms the 2001 optimum is the real one, and fue reaches
+it once mu is seeded sanely.
+
+What matters for provenance is that the archive is **reproducible**, so a
+reference can always be re-derived rather than trusted:
+
+```bash
+cp -r "$DRVUS_SOURCE"/1.2.01/drvus/src /tmp/drvus && cd /tmp/drvus
+sed -i 's/\bround\s*(/drvus_round(/g' nlatools.c diagnose.c drvus.h
+gcc -O0 -mfpmath=387 -o drvus drvus.c drvmlest.c elfvarma.c usmelard.c \
+    qnewtopt.c nlatools.c diagnose.c -lm
+./drvus a1 eml chk        # reproduces the 2001 a1.out iteration by iteration
+```
+
+`-mfpmath=387` restores the 80-bit intermediates and `-O0` keeps the optimiser
+from spilling them to 64-bit memory — both are needed; with `-O2 -mfpmath=387`
+the result returns to the SSE2 one. The only edit to the source is renaming
+`round()`, which did not clash with `math.h` in 2001 and does now.
+
+**Read this as a limit on what "agrees with the reference binary" can mean.**
+`⚠ binary` in the table below is weaker than it looks whenever the likelihood is
+ill-conditioned: it certifies agreement with one build on one architecture. The
+checks that survive the change of arithmetic are the analytic ones, the oracle,
+and the independent implementations (`statsmodels` on Series A, TASTE).
+
 ---
 
 ## 3. The table
@@ -81,8 +168,8 @@ and not the algorithm; **🔴 none** = no test addresses it.
 
 | routine | what it computes | source | verified by | status |
 |---|---|---|---|---|
-| `elfvarma.elf_scalar` (py)<br>`elfvarma.c: elf()` (C) | exact Gaussian log-likelihood of a VARMA(p,q), specialised to m=1 | **Mauricio (1997), Algorithm AS 311**, *Appl. Statist.* 46, 157-171; method of **Mauricio (1995)**, *JASA* 90, 282-291; innovations form of **Ansley (1979)** | `test_elfvarma.py::test_elf_scalar_ar1` against the closed-form exact AR(1) Gaussian likelihood (tol 1e-4); `::test_elf_scalar_ma1_iid` against the white-noise reduction at θ=0 (tol 1e-6) | **✅ analytic** |
-| `elfvarma.flikam_scalar` (py)<br>`usmelard.c: flikam()` (C) | fast approximate likelihood, Kalman recursions with switch to quick recursions | **Melard (1984), Algorithm AS 197**, *Appl. Statist.* 33, 104-114 | `test_elfvarma.py::test_flikam_scalar_ar1` — only that it is finite and within **2.0** of the exact value, because Melard's normalisation differs | **⚠ weak** |
+| `elfvarma.elf_scalar` (py)<br>`elfvarma.c: elf()` (C) | exact Gaussian log-likelihood of a VARMA(p,q), specialised to m=1 | **Mauricio (1997), Algorithm AS 311**, *Appl. Statist.* 46, 157-171; method of **Mauricio (1995)**, *JASA* 90, 282-291; innovations form of **Ansley (1979)** | `test_as311_published_identities.py` — **the paper's own equations**: (2) the exact log-likelihood rebuilt from `f1`/`f2` for several σ², (3) and (4) against Melard's published FORTRAN (S to **1e-14**, |ΛᵀΛ|^(1/n) to **4.4e-16**), σ̂²=S/n, and the equivalence of minimising S·|ΛᵀΛ|^(1/n) along a grid. Plus the ten steps of WP 9316 traced to the `[1]`…`[9]` blocks of `elfvarma.c` and the `(a)`…`(k)` markers of the port. `test_elfvarma.py::test_elf_scalar_ar1` against the closed-form exact AR(1) Gaussian likelihood (tol 1e-4); `::test_elf_scalar_ma1_iid` against the white-noise reduction at θ=0 (tol 1e-6)| **✅ published identities** |
+| `elfvarma.flikam_scalar` (py)<br>`usmelard.c: flikam()` (C) | fast approximate likelihood, Kalman recursions with switch to quick recursions | **Melard (1984), Algorithm AS 197**, *Appl. Statist.* 33, 104-114 | `test_as197_published_fortran.py` — **against Melard's own FORTRAN**, transcribed from pages 110-114 and compiled: nine Box-Jenkins specifications, agreement to **5e-08** in log-likelihood. Plus `test_elfvarma.py::test_flikam_scalar_ar1` for the Python path | **✅ published source** |
 | `elfvarma.chekma_scalar` | invertibility check on the MA polynomial | companion eigenvalues | `test_elfvarma.py` — five boundary cases, including θ=1.00004 vs 1.00005 | **✅ analytic** |
 
 ### 3.2 Estimation
@@ -116,7 +203,7 @@ The strongest check available, and the one that does not run inside this package
 oracle battery in `SRC/atws/Taste/oracle` drives it and compares.
 
 ```sh
-cd ~/Dropbox/SRC/atws/Taste/oracle && ./battery.py --datos data
+cd "$TASTE_ORACLE" && ./battery.py --datos data      # the oracle harness (private)
 ```
 
 Measured 12 August 2026 — **20 of 20 cases pass**, of which four are `fue`'s:
@@ -205,7 +292,7 @@ Not algorithms, but the specification the software implements:
 | ARIMA(p,d,q)(P,D,Q)ₛ, identification and diagnosis | **Box & Jenkins (1970, 1976); Box, Jenkins & Reinsel** |
 | Box-Cox transformation | **Box & Cox (1964)**, *JRSS B* 26, 211-252 |
 | Hybrid / frequency-by-frequency seasonality (MEG) | **Abraham & Box (1978)**; **Gallego (1995, 1996)** |
-| Boundary LR critical values for the DCD/MEG witness | **Davis & Dunsmuir (1996)**; **Davis, Chen & Dunsmuir (1995)**; and, for the per-frequency case, the SF_MEG paper of this project |
+| Boundary LR critical values for the DCD/MEG witness | **Davis & Dunsmuir (1996)**; **Davis, Chen & Dunsmuir (1995)**; and, for the per-frequency case, Guerrero (2026) |
 | Unconditional-ML unit-root test | **Shin & Fuller (2001)** |
 | Practice and the BJT procedure | **Treadway (1994)**; **Treadway, Guerrero & Mauricio (2009)** |
 
@@ -215,7 +302,7 @@ Not algorithms, but the specification the software implements:
 
 `refactor = 100` runs through the whole suite. Its origin is not a modelling
 choice and was, until now, written nowhere legible: it is advice from **Arthur B.
-Treadway, May 2001**, in `drvus-source/1.0/Drvus/ABTreadway-Drvus.doc`:
+Treadway, May 2001** (Treadway, A. B. (2001), *DRVUS: manual de usuario*, unpublished user manual):
 
 > *Es deseable que la norma del gradiente sea cero hasta toda la precisión que
 > ofrece el programa. Cuando esto no ocurre […] es muchas veces útil escalar los
@@ -230,7 +317,7 @@ the compensating rules — every intervention parameter scales, and σ comes out
 scaled — are part of the same advice. That is why the two defects it has produced
 (`bugs/BUG-0001`, μ collapsing under rescaling; `bugs/BUG-0007`, μ read 100× off
 scale) were both about *scale in the report*, not about estimation. See
-`art-python/docs/RESCALING_ARCHITECTURE.md`.
+`RESCALING_ARCHITECTURE.md` in the `art-tseries` repository.
 
 The same document states the `.inp` parser's contract, in 2001:
 
@@ -277,10 +364,44 @@ advertisement.
       Mutation-checked in both directions: changing `LOG2PI` by one digit fails
       the classification test, and reverting the GSL substitution fails the test
       that guards it.
-- [ ] **`flikam_scalar` is only loosely checked** (within 2.0 of the exact value).
-      It runs inside the BFGS inner loop, so it drives every iteration.
+- [x] ~~**`flikam_scalar` is only loosely checked** (within 2.0 of the exact
+      value).~~ **Done, 13 Aug 2026** — `tests/test_as197_published_fortran.py`.
+      Melard's listing is printed in full in the paper (pp. 110-114) and is
+      transcribed verbatim in `tests/fortran/as197.f`; compiled with
+      `-fdefault-real-8` (the paper's own Precision note) it agrees with the
+      engine to **5e-08** in log-likelihood on the nine Box-Jenkins
+      specifications, and its `IFAULT = -m` switching point is asserted case by
+      case. **This is the first check in the suite against a source that is
+      neither ours nor Mauricio's**: everything else — the C, the Python port,
+      the `.out` archive — descends from one implementation.
+
+      Two things the exercise produced beyond the check itself. The `TOLER`
+      contract of AS 197 — *"it should be negative if the exact likelihood is
+      desired"* — is the reason `fue` signs `xitol` as it does
+      (`fue_api.c:951-956`), until now justified only by `fue.c:1087`; there is
+      a test for both branches. And the first transcription put label `170` one
+      line early, which left every MA model right to 1e-8 and every AR model
+      wrong by 2 to 7 in log-likelihood — the numbers caught what reading the
+      listing had not.
 - [ ] **`forecast.varphi` has no test of its own** — though `wti_forecast` (§3.6)
       exercises it against TASTE indirectly.
+- [x] ~~**AS 311 is verified only against implementations that descend from
+      it.**~~ **Done, 13 Aug 2026** — `tests/test_as311_published_identities.py`.
+      AS 311 published no listing, so the check is by its published identities:
+      equation (2) rebuilt from the engine's own `S` and `|ΛᵀΛ|`, and — the
+      part that is genuinely external — equations (3) and (4) against **Melard's
+      FORTRAN**, which shares neither author nor derivation. Six Box-Jenkins
+      specifications: S to 1e-14, |ΛᵀΛ|^(1/n) to 4.4e-16.
+
+      ⚠ Both must be evaluated with **negative `xitol`**. With the default
+      positive value the Ξ sequence is truncated and S moves by 1e-5 relative —
+      correct behaviour, different quantity, and it is exactly the `TOLER`
+      contract of AS 197.
+
+      What remains out of reach is the paper's own numerical example (WP 9316,
+      Tables 4-5): the estimates are printed to two decimals, the series is not
+      printed at all.
+
 - [ ] **The oracle covers four `fue` cases out of twenty.** Still missing on the
       univariate side: Box-Cox, impulse and ramp interventions, seasonal ARMA
       beyond the airline. The per-frequency factors cannot be added — TASTE
@@ -298,8 +419,8 @@ Documenting the limits is part of allowing verification; hiding them prevents it
 - **The likelihood profile jumps at the invertibility boundary.** The production
       estimator shows an erratic upward jump exactly at `r=1`, which inflates the
       apparent pile-up and distorts the tail. The exact banded-Cholesky likelihood
-      (`art-python/research/sf_meg/dcd_mc.py`) is continuous there. Any decision
-      taken *at* the boundary should use the latter. Source: SF_MEG, appendix
+      (the simulation code accompanying Guerrero 2026) is continuous there. Any decision
+      taken *at* the boundary should use the latter. Source: Guerrero (2026), appendix
       *"Note on the exact likelihood near the boundary"*.
 - **A spurious optimum that depends on the build.** Same source, same data, same
       starting values: the Windows wheel settles on `μ̂=−0.144` (AIC −2511) and the
@@ -320,7 +441,7 @@ Documenting the limits is part of allowing verification; hiding them prevents it
 ```bash
 # 1 — the C core is still Mauricio's
 for f in elfvarma usmelard drvmlest; do
-  echo "$f: $(diff <(tr -d '\r' < ~/Dropbox/SRC/drvus/src/$f.c) \
+  echo "$f: $(diff <(tr -d '\r' < "$DRVUS_SRC"/$f.c) \
                    <(tr -d '\r' < csrc/internal/$f.c) \
               | awk '/^[<>]/ {n++} END {print n+0}') lines"
 done
@@ -336,3 +457,49 @@ python -m pytest tests/test_elfvarma.py tests/test_qnewtopt.py tests/test_cast_u
 
 If any of the three disagrees with the tables above, this document is stale and
 the discrepancy is the finding.
+
+---
+
+## 9. References
+
+The published algorithms, in the form a reader can obtain them:
+
+* **Mauricio, J. A. (1997)**, "Algorithm AS 311: the exact likelihood function of
+  a vector autoregressive moving average model", *Applied Statistics* **46**(1),
+  157-171.
+* **Mauricio, J. A. (1995)**, "Exact maximum likelihood estimation of stationary
+  vector ARMA models", *Journal of the American Statistical Association* **90**,
+  282-291.
+* **Mauricio, J. A. (2002)**, "An algorithm for the exact likelihood of a
+  stationary vector autoregressive-moving average model", *Journal of Time
+  Series Analysis* **23**(4), 473-486.
+* **Melard, G. (1984)**, "Algorithm AS 197: a fast algorithm for the exact
+  likelihood of autoregressive-moving average models", *Applied Statistics*
+  **33**(1), 104-114.
+* **Ansley, C. F. (1979)**, "An algorithm for the exact likelihood of a mixed
+  autoregressive-moving average process", *Biometrika* **66**, 59-65.
+* **Dennis, J. E. and Schnabel, R. B. (1983)**, *Numerical methods for
+  unconstrained optimization and nonlinear equations*, Prentice-Hall.
+* **Box, G. E. P. and Jenkins, G. M. (1976)**, *Time series analysis:
+  forecasting and control*, revised edition, Holden-Day.
+* **Shin, D. W. and Fuller, W. A. (1998)**, "Unit root tests based on
+  unconditional maximum likelihood estimation for the autoregressive moving
+  average", *Journal of Time Series Analysis* **19**(5), 591-599.
+* **Davis, R. A. and Dunsmuir, W. T. M. (1996)**, "Maximum likelihood estimation
+  for MA(1) processes with a root on or near the unit circle", *Econometric
+  Theory* **12**, 1-29.
+
+Unpublished, and cited as such because they are not obtainable from a library:
+
+* **Guerrero, D. E. (2026)**, *Hybrid seasonal models: critical values for
+  testing deterministic versus stochastic seasonality frequency by frequency*,
+  unpublished manuscript, Universidad Complutense de Madrid. — the source of the
+  per-frequency DCD/MEG critical values and of the seasonal AR_f table.
+* **Treadway, A. B. (2011)**, *FUE: manual de usuario*, unpublished user manual.
+* **Treadway, A. B. (2001)**, *DRVUS: manual de usuario*, unpublished user
+  manual. — the source of the positional `.inp` grammar and of the `refactor`
+  advice.
+* **Mauricio, J. A. (1993)**, *Exact maximum likelihood estimation of stationary
+  vector ARMA models*, working paper 9316, Instituto Complutense de Análisis
+  Económico. — the ten numbered steps the C implements, with equations
+  (2.15)-(2.22).

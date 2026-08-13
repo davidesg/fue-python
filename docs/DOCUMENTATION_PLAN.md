@@ -210,17 +210,17 @@ añade lo que el porte trajo.** Su índice es mejor punto de partida que uno nue
 Ocho secciones. El orden es el de un lector que llega sin conocer nada y acaba
 auditando el código.
 
-### 0 · Portada — «qué es y por qué es distinto»
+### 0 · Portada — **escrita**, `docs/README.md`
 Una página. La frase del §1, la ecuación que fue ajusta de verdad, un ejemplo de
 diez líneas que corre, y la tabla de comparación con `statsmodels` (existe ya en
 `atsw-suite/docs/COMPARISON_STATSMODELS.md`; se enlaza, no se duplica).
 
-### 1 · Empezar
+### 1 · Empezar — **escrito**, `docs/GETTING_STARTED.md`
 Instalación —incluida la distinción rueda compilada / respaldo en Python puro y
 cómo saber cuál se está usando—, el primer modelo, y la lectura del `.out`.
 Rescata «Cómo aprender a usar FUE» de Treadway.
 
-### 2 · El modelo, formalmente
+### 2 · El modelo, formalmente — **escrito**, `docs/MODEL.md`
 La clase de modelos, escrita sin ambigüedad: `y = D + N`, aditiva **en el
 nivel**; el componente determinista y sus tipos; el estocástico
 ARIMA(p,d,q)(P,D,Q)ₛ y la forma MEG; Box-Cox y la retransformación; y la
@@ -243,9 +243,39 @@ Cuatro partes, y las tres primeras hay que **construirlas**:
 
    Las casillas «pendiente» son honestas y son el trabajo.
 
-2. **Contra valores publicados.** Los casos de prueba de AS 311 y AS 197 vienen
-   con datos y resultados en el propio artículo: se ejecutan y se comparan con
-   tolerancia declarada. Esto es lo que cierra el eslabón que falta.
+2. **Contra valores publicados.** ⚠ **Corregido el 13-ago-2026, después de leer
+   los dos artículos** (`literature/as197.pdf` y
+   `literature/518-2013-11-11-JAM197.pdf`, que es AS 311): **ninguno de los dos
+   trae un ejemplo numérico**. La Tabla 1 de AS 197 son tiempos medios de
+   cómputo en milisegundos sobre un CDC Cyber 170-750; la Tabla 1 de AS 311 son
+   ratios de operaciones frente a AS 242 de Shea. No hay datos con log-L
+   publicada que ejecutar. Esta línea del plan daba por hecho lo contrario.
+
+   Lo que **sí** traen, y con lo que se puede cerrar el eslabón —tres
+   comprobaciones, de menos a más fuerte—:
+
+   a. **El contrato de interfaz, comprobable.** AS 197 documenta `TOLER`: *«it
+      should be negative if the exact likelihood is desired»* — que es
+      exactamente el convenio de signo de `xitol` en `fue_api.c:951-956`, hasta
+      ahora justificado sólo por `fue.c:1087`. Y sus códigos `IFAULT` 1-9 son
+      los que el motor propaga.
+
+   b. **Una identidad publicada, verificable sobre nuestras salidas.** AS 311,
+      *Additional Comments*: maximizar la verosimilitud exacta equivale a
+      minimizar `S(Φ,Θ,μ,Q|w)^m · |Q|^m · |ΛᵀΛ|^(1/n)`, y ELF2 devuelve
+      `S(·)` y `|Q|^n|ΛᵀΛ|` como `F1` y `F2`. Es una relación entre cantidades
+      que fue ya calcula: se contrasta sin datos nuevos.
+
+   c. **El listado FORTRAN publicado.** AS 197 imprime `FLIKAM` y `TWACF`
+      **enteras** (pp. 110-113). Se pueden compilar y ejecutar contra el motor
+      sobre las mismas series: eso es una implementación independiente de la
+      misma publicación, no una segunda copia de la nuestra. Es la comprobación
+      más fuerte disponible para la verosimilitud escalar, y sustituye a lo que
+      esta línea prometía.
+
+   AS 311 no publica el listado, sólo la estructura de `ELF1`/`ELF2`/`CGAMMA`/
+   `CXI`/`CRES` y los pasos (a)-(k) del método; para la parte VARMA la
+   trazabilidad es **paso a paso contra el artículo**, más el oráculo.
 
 3. **C contra Python.** Ya existe y está bien; lo que falta es **publicarlo como
    resultado**, con la tolerancia (~1e-11) y el conjunto de casos, en vez de
@@ -256,19 +286,40 @@ Cuatro partes, y las tres primeras hay que **construirlas**:
    (`bugs/BUG-0005`), y `converged=True` sin diagnóstico sobre ajustes absurdos.
    Documentar los límites es parte de permitir verificar; ocultarlos lo impide.
 
+### 3 bis · Convergencia — **escrito**, `docs/CONVERGENCE.md`
+Qué informa `raxopt` al parar, por qué los dos tests no son intercambiables
+—gradiente = «¿estoy en un mínimo?», paso = «¿puedo moverme?»— y de qué están
+hechas las tolerancias: `macheps^(1.1/3)` y `macheps^(2/3)` contra el suelo de
+ruido del gradiente por diferencias centrales, con la medida de `cmacheps()` en
+los dos builds (2.220e-16 a 64 bits, **1.084e-19** a 80). Incluye qué hacer
+cuando un ajuste para por criterio de paso y la debilidad que queda:
+`typx ≡ 1` clavado en los dos tests, que es estudio y no arreglo.
+
+Salió de `bugs/BUG-0012` y no estaba en la estructura original: hasta agosto de
+2026 el motor no devolvía el veredicto del optimizador, así que no había nada
+que documentar.
+
 ### 4 · El formato `.inp` / `.out` / `.pre`
 El contrato, con gramática completa y campo a campo. Es la sección que más se
 consulta y la que hace posible auditar: los artefactos son texto inspeccionable.
 Incluye el invariante del `.pre` —correr fue sobre un `.pre` no mueve los
 números— como propiedad comprobable, no como afirmación.
 
-### 5 · Contrastes formales
+### 5 · Contrastes formales — **escrito**, `docs/FORMAL_TESTS.md`
 Traducción y actualización de §«Contrastes formales de hipótesis» de Treadway:
 no estacionariedad, no invertibilidad (DCD), frecuencia fija de un AR(2),
 estacionalidad estocástica (MEG) y simplificación. Con los valores críticos del
 paper SF_MEG donde ahora los hay, y diciendo cuáles siguen siendo interpolados.
 
-### 6 · El porte
+Al escribirlo apareció que **el manual publicó la tabla de valores críticos de
+Shin-Fuller vacía** —las cinco filas, las tres columnas, todo en blanco— y que
+la ley del DCD **no es la misma en todas las frecuencias**: la gobierna el orden
+del factor, no la frecuencia. Las dos cosas están ahora escritas, con las dos
+advertencias de producción que las acompañan (la verosimilitud de frontera hay
+que calcularla exacta, y en un modelo con media y armónicos los valores
+correctos en muestra finita son más altos).
+
+### 6 · El porte — **escrito**, `docs/PORT.md`
 Lo que David pide explícitamente y no existe en ningún sitio: qué se hizo, qué
 cambió y qué no. Motor C empotrado (`csrc/`) frente al respaldo en Python puro
 (`elfvarma.py`, `cast_us.py`, `qnewtopt.py`: 1.895 líneas que reimplementan el
@@ -276,12 +327,12 @@ motor); qué es idéntico y qué se decidió distinto; los defectos que el porte
 encontró en el original; el reescalado; y las ruedas y su CI. La bitácora
 `PORTE.md` de drtran es el modelo — es la mejor pieza documental de la suite.
 
-### 7 · Migración desde el FUE en C
+### 7 · Migración desde el FUE en C — **escrito**, `docs/MIGRATION.md`
 Para los usuarios de Treadway: equivalencias de línea de órdenes, qué
 `.inp` se leen tal cual —y el que no, por la codificación latin-1,
 `bugs/BUG-0010`—, y qué salidas difieren.
 
-### 8 · Referencia de la API
+### 8 · Referencia de la API — **escrita**, `docs/API.md` (generada)
 Generada de los docstrings. 24 símbolos públicos; hoy no hay referencia.
 
 ---
@@ -326,14 +377,18 @@ Por dependencia, no por tamaño.
 
 | | qué | por qué primero | esfuerzo |
 |---|---|---|---|
-| 1 | §3.1 tabla de procedencia | Es un inventario: se hace leyendo el código, y **decide todo lo demás** porque enseña dónde están los huecos | 1 día |
-| 2 | §4 el contrato de ficheros | Es lo más consultado y ya está casi escrito en el manual de Treadway | 1 día |
-| 3 | §3.2 casos publicados de AS 311 / AS 197 | Cierra el eslabón que falta. Es código, no prosa | 2-3 días |
+| 1 | ✅ §3.1 tabla de procedencia → `docs/PROVENANCE.md` | Es un inventario: se hace leyendo el código, y **decide todo lo demás** porque enseña dónde están los huecos | hecho |
+| 2 | ✅ §4 el contrato de ficheros → `docs/FILE_CONTRACT.md` | Es lo más consultado y ya está casi escrito en el manual de Treadway | hecho |
+| — | ✅ §3 bis convergencia → `docs/CONVERGENCE.md` | No estaba previsto; lo abrió BUG-0012 | hecho |
+| 3a | ✅ **AS 197 ejecutado desde el artículo** → `tests/fortran/as197.f` + `tests/test_as197_published_fortran.py` | El listado está impreso entero: se transcribe, se compila y se corre. Nueve casos a **5e-08**, y el contrato de `TOLER` verificado en las dos ramas | hecho |
+| 3b | ✅ **AS 311 por sus identidades publicadas** → `tests/test_as311_published_identities.py` | Ec. (2) sobre nuestras salidas; ec. (3) y (4) contra el FORTRAN de Melard (1e-14 y 4.4e-16); los diez pasos de WP 9316 trazados a `[1]`…`[9]` del C | hecho |
+| 4 | ✅ §2 el modelo → `docs/MODEL.md`; §5 contrastes → `docs/FORMAL_TESTS.md` | Traducción y actualización de Treadway (`fuemu_11.02.25`), con los valores críticos que el manual dejó **en blanco** y un guardián (`test_docs_match_the_code.py`) que falla si documento y código se separan | hecho |
 | 4 | §2 el modelo + §5 contrastes | Traducción y actualización de Treadway | 2 días |
-| 5 | Ejemplos 1-5 | Los tres del medio son la tesis | 2 días |
-| 6 | §6 el porte | Sólo lo puede escribir quien lo hizo | 1-2 días |
-| 7 | §0/§1 portada y arranque | Se escriben al final: se sabe qué prometer cuando el resto existe | medio día |
-| 8 | §8 API generada, §7 migración, publicación | mecánico | 1 día |
+| 5 | ✅ Ejemplos 1-5 → `examples/01…05_*.py` + `tests/test_examples_run.py` | Los tres del medio son la tesis. Cada uno corre solo y se comprueba en CI; los 3-5 van simulados con semilla fija **para poder verificar lo que recuperan** | hecho |
+| 6 | ✅ §6 el porte → `docs/PORT.md` | Los dos motores y por qué se llevan los dos; lo que el porte encontró en el original y lo que verificó de él; y lo que falta | hecho |
+| 7 | ✅ §0 portada → `docs/README.md`; §1 arranque → `docs/GETTING_STARTED.md` | Se escribieron al final, como estaba previsto. La portada declara **tres** particularidades y no dos: la FLT racional sobre los inputs es la tercera | hecho |
+| 8a | ✅ §8 API generada → `docs/API.md` + `tools/gen_api_reference.py` | Generada de los docstrings y **verificada en la batería**: si se queda vieja, falla. Cubre la superficie pública entera, calculada en un intérprete limpio | hecho |
+| 8b | ✅ §7 migración → `docs/MIGRATION.md`; sitio **preparado** → `mkdocs.yml` + `.github/workflows/docs.yml` | El sitio queda listo pero **sin activar**: hace falta un paso manual en el repositorio (Settings → Pages → Source: GitHub Actions) y un push, que son decisión tuya | hecho |
 
 Del orden de dos semanas de trabajo. La pieza 3 es la que más valor añade por
 día y la única que no se puede escribir «con lo que ya se sabe».

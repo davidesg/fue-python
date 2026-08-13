@@ -1,0 +1,58 @@
+# Site for fue's documentation.
+#
+# The suite's site lives in art-python (davidesg.github.io/art-python) and is
+# NOT this one: `fue` publishes its own so that its 2.900 lines of engine
+# documentation are not copied into another repository, where they would drift.
+# The suite site links here; nothing is duplicated.
+#
+# To turn it on, ONCE, in the repository:
+#   Settings -> Pages -> Build and deployment -> Source: GitHub Actions
+# The workflow then publishes on every push to master that touches docs/.
+site_name: fue — exact-ML ARMAX with frequency-by-frequency seasonality
+site_description: >
+  ARMAX by exact unconditional maximum likelihood, with rational transfer
+  functions on the inputs and seasonality resolved one frequency at a time.
+  José Alberto Mauricio's engine, ported and verified.
+site_url: https://davidesg.github.io/fue-python/
+repo_url: https://github.com/davidesg/fue-python
+edit_uri: edit/master/docs/
+docs_dir: docs
+site_dir: ../site-fue
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: {icon: material/weather-sunny, name: Light mode}
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc: {permalink: true}
+  - pymdownx.superfences
+  - pymdownx.highlight
+
+nav:
+  - What fue is: README.md
+  - Getting started: GETTING_STARTED.md
+  - The model: MODEL.md
+  - Verification:
+      - Provenance: PROVENANCE.md
+      - Convergence: CONVERGENCE.md
+  - Reference:
+      - File contract: FILE_CONTRACT.md
+      - Formal tests: FORMAL_TESTS.md
+      - API: API.md
+  - For existing users:
+      - Migrating from the C: MIGRATION.md
+      - How the port was done: PORT.md

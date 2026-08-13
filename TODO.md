@@ -292,6 +292,40 @@ Cuatro papers que cubren toda la implementación:
 
 ## Pendiente
 
+### Los valores publicados de Box & Jenkins — falta la tabla (2026-08-13)
+
+**Lo único fijado contra el libro en toda la suite es θ = 0.70** de la Serie A,
+IMA(0,1,1) (`tests/test_published_benchmark_series_a.py:43`). El resto de las
+nueve especificaciones del banco no está contrastado contra el libro **porque no
+tenemos la tabla**: el archivo que acompaña a las series
+(`Box_y_Jenkings/index.html`) sólo trae la descripción de los datos.
+
+Lo que sí está medido, y es lo que hace que valga la pena cerrarlo: TASTE es el
+algoritmo de Jenkins —mínimos cuadrados no lineales con retroprevisión— y por
+tanto **da el estimador del libro**. Sus valores sobre el banco, ya obtenidos
+(ver `Taste/oracle/bugs/BUG-0001`):
+
+| caso | modelo | TASTE (el estimador del libro) | fue (ML exacta) |
+|---|---|---|---|
+| a1 | ARMA(1,1)+media | 0.91368  0.58034  17.07284 | 0.90868  0.57584  17.06528 |
+| a2 | IMA(0,1,1) | 0.70503 | 0.69938 |
+| b | IMA(0,1,1) | −0.08659 | −0.08636 |
+| c | ARI(1,1,0) | 0.82382 | 0.82016 |
+| c2 | IMA(0,2,2) | 0.12606  0.12104 | 0.12501  0.11939 |
+| d | AR(1)+media | 0.87043  9.12052 | 0.86858  9.10876 |
+| d1 | IMA(0,1,1) | 0.05913 | 0.05891 |
+| e1 | AR(2)+media | 1.42175  −0.72622  47.91280 | 1.40757  −0.71281  48.19126 |
+| e2 | AR(3)+media | 1.56876  −1.02205  0.21254  48.11996 | 1.55312  −1.00175  0.20634  48.44344 |
+
+**Qué hace falta**: la tabla 7.13 de Box & Jenkins (1976). Con ella se fijan los
+ocho valores restantes como prueba, al lado del 0.70 que ya está.
+
+⚠ Y hay que decir con qué tolerancia: el libro estima por MCNL y `fue` por ML
+exacta, así que lo razonable son **dos decimales**, no siete. Un test que exija
+más estaría comparando estimadores distintos como si fueran el mismo — el mismo
+error que ya se cometió una vez con TASTE y el modelo airline
+(`tests/test_taste_nls_criterion.py`).
+
 ### Bugs pendientes
 
 #### ~~`csrc/internal/nlatools.c` — `tensor()` crash con nrl < 0~~ ✅ CORREGIDO (2026-06-15)

@@ -1,0 +1,47 @@
+# Publishes fue's documentation site on GitHub Pages on every push to master.
+#
+# Needs ONE manual step in the repository, once:
+#   Settings -> Pages -> Build and deployment -> Source: GitHub Actions
+# No gh-pages branch is created or maintained: the artifact is uploaded here.
+name: docs
+
+on:
+  push:
+    branches: [master]
+    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install mkdocs-material
+      # NOTE: mkdocs resolves -d RELATIVE TO THE CONFIG FILE, not to the working
+      # directory. This bit art-python once: with the config at the repo root,
+      # `-d _site` writes ./_site, and pointing the artifact anywhere else fails
+      # without saying why.
+      - run: mkdocs build -f mkdocs.yml -d _site
+      - uses: actions/upload-pages-artifact@v3
+        with: {path: _site}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

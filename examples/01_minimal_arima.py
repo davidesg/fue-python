@@ -10,7 +10,10 @@ import numpy as np
 import fue
 from fue.datasets import ripc
 
-ts = ripc()                      # Spanish CPI, monthly, 2002-2007, n = 72
+ts = ripc()                      # RIPC, monthly, 2002-2007, n = 72
+                                 # the series as fue reads it (~0.41-0.44):
+                                 # the transformation below is fue's, not the
+                                 # data's -- see fue.datasets.ripc
 print(f"{ts.name}: n={ts.nobs}, freq={ts.freq}, from {ts.start[1]}/{ts.start[0]}")
 
 # 100·log(y) is the usual working scale for a price index: differences of the

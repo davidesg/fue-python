@@ -7,6 +7,11 @@ It fits ARMAX models with linear transfer-function interventions by exact
 maximum likelihood using the Ansley (1979) innovations form and the
 Mauricio (1997, AS 311) / Mauricio (1995, JASA) algorithms.
 
+📖 **Documentation: [davidesg.github.io/fue-python](https://davidesg.github.io/fue-python/)**
+— what the model is, the file contract, the formal tests with their critical
+values, how the port was verified against the published algorithms, and why the
+wheel. Five runnable examples in [`examples/`](examples).
+
 ## Features
 
 - Exact ML estimation of ARIMA/SARIMA/ARMAX models (Box–Jenkins family)

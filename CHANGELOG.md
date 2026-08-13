@@ -3,6 +3,33 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.11 — 2026-08-13
+
+Lo que 0.1.10 dejó a medias, encontrado verificando la publicación.
+
+- **La página de PyPI no enlazaba a ninguna parte**: `fue` no tenía
+  `[project.urls]`. Ahora tiene Homepage, **Documentation** —el campo que PyPI
+  muestra arriba del todo, apuntando al sitio— Repository, Issues, Changelog y
+  el registro de defectos, que es público a propósito. El README enlaza también,
+  porque es lo que PyPI muestra como cuerpo.
+
+- **`fue.datasets.ripc` describía mal sus propios datos.** Decía «the series is
+  the log of the Spanish CPI rescaled by 100», y no lo es: son los valores tal
+  como fue los lee (~0.41-0.44), los mismos de `RIPC.1.inp`, y el modelo
+  canónico aplica la transformación **él** (`boxlam=0`, `refactor=100`, `d=0`).
+  Creerse el docstring significaba aplicar 100·log dos veces — un error que
+  estima limpiamente y se lee plausible, que es la clase que sobrevive.
+
+- **La referencia de API documentaba el paquete instalado, no el repositorio.**
+  Primero fue la versión (0.1.10 publicó una página que decía «fue 0.1.9»), y
+  después los docstrings: un arreglo en `src/` no llegaba al documento, y
+  `--check` estaba de acuerdo porque las dos mitades leían la misma fuente
+  equivocada. El generador antepone ahora `src/` y toma la versión de
+  `pyproject.toml`.
+
+- Y los **datos que viajan con el paquete entran en la referencia**: los cinco
+  ejemplos empiezan con uno, y su docstring es donde se dice qué son los números.
+
 ## 0.1.10 — 2026-08-13
 
 Documentation release, and one engine change that the documentation made

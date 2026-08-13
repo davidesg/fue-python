@@ -405,3 +405,35 @@ def test_the_api_reference_declares_the_repository_version():
     v = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M).group(1)
     assert f"`fue` {v}" in doc, (
         f"docs/API.md does not declare {v}, the version in pyproject.toml")
+
+
+def test_the_shipped_dataset_is_what_its_docstring_says():
+    """`fue.datasets.ripc` claimed to be 100·log(CPI) and is not: it is the raw
+    series of RIPC.1.inp, which the canonical model transforms itself. Believing
+    the docstring means applying 100·log twice — which estimates cleanly and
+    reads plausibly, so nothing would have complained.
+    """
+    import warnings
+
+    import numpy as np
+
+    from fue.datasets import ripc
+
+    ts = ripc()
+    y = np.asarray(ts.data, float)
+    assert 0.3 < y.min() and y.max() < 0.6, (
+        "the shipped values are no longer the raw RIPC series")
+
+    inp = os.path.join(_ROOT, "tests", "real_cases", "PRICES", "IPC", "Mensual",
+                       "sample_1.2002_12.2007", "RIPC.1.inp")
+    if os.path.exists(inp):
+        import fue
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ts2, m = fue.load(inp)
+        assert np.allclose(y, np.asarray(ts2.data, float)), (
+            "datasets.ripc has drifted from RIPC.1.inp")
+        assert (m.boxlam, m.refactor) == (0.0, 100.0), (
+            "the canonical case no longer applies 100·log itself, so the "
+            "docstring's warning is now wrong")

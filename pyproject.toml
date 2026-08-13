@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "fue"
-version         = "0.1.10"
+version         = "0.1.11"
 description     = "Exact maximum likelihood estimation of univariate time series (ARMAX with transfer functions)"
 readme          = "README.md"
 license         = { text = "GPL-2.0-or-later" }
@@ -44,6 +44,19 @@ dependencies    = [
     "matplotlib>=3.7",
     "cffi>=1.15",
 ]
+
+[project.urls]
+# Sin esta sección la página de PyPI no enlaza a ninguna parte, que es como
+# estuvo fue hasta 0.1.10. `Documentation` es el campo que PyPI muestra arriba
+# del todo, y desde 0.1.10 hay un sitio al que apuntar.
+Homepage      = "https://github.com/davidesg/fue-python"
+Documentation = "https://davidesg.github.io/fue-python/"
+Repository    = "https://github.com/davidesg/fue-python"
+Issues        = "https://github.com/davidesg/fue-python/issues"
+Changelog     = "https://github.com/davidesg/fue-python/blob/master/CHANGELOG.md"
+# El registro de defectos es público a propósito: documenta los límites del
+# programa, y eso es parte de permitir verificarlo.
+"Bug reports" = "https://github.com/davidesg/fue-python/tree/master/bugs"
 
 [project.scripts]
 # `fue` y `fuf` a secas son los PROGRAMAS EN C, que viven en /usr/local/bin.

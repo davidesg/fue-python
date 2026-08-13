@@ -45,13 +45,21 @@ def sfny() -> TimeSeries:
 
 def ripc() -> TimeSeries:
     """
-    RIPC monthly CPI index, January 2002 – December 2007 (72 observations).
+    RIPC, monthly, January 2002 – December 2007 (72 observations).
 
     Standard monthly test case for fue, used to verify seasonal ARMAX
-    estimation with Fourier harmonics and alternator interventions.
+    estimation with Fourier harmonics and alternator interventions. It is the
+    series of `tests/real_cases/.../RIPC.1.inp`, byte for byte.
 
-    The series is the log of the Spanish CPI rescaled by 100:
-    y_t = 100 · log(CPI_t).
+    ⚠ The values are the series **as fue reads it**, around 0.41–0.44 — NOT a
+    transformed variable. The canonical model applies the transformation
+    itself, with `boxlam=0` and `refactor=100` (that is, 100·log) and `d=0`;
+    passing those to `fue.Model` is what reproduces `RIPC.1`.
+
+    This docstring said the opposite until 2026-08-13 — "the series is the log
+    of the Spanish CPI rescaled by 100" — which would have meant applying the
+    transformation twice. It is wrong in a way that estimates cleanly and reads
+    plausibly, which is the kind that survives.
 
     Returns
     -------

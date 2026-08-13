@@ -16,6 +16,15 @@ import sys
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _OUT = os.path.join(_ROOT, "docs", "API.md")
 
+# Document THIS working copy, not whatever is installed.
+#
+# The generator imported `fue` from wherever Python found it, which is
+# site-packages: a docstring fixed in `src/` did not reach the reference, and
+# `--check` agreed, because both sides read the same installed package. That is
+# how `datasets.ripc` published a description of the data that was wrong in the
+# opposite direction — and nothing complained.
+sys.path.insert(0, os.path.join(_ROOT, "src"))
+
 #: The public surface, grouped as a reader meets it rather than alphabetically.
 _GROUPS = [
     ("Building a model", [
@@ -32,6 +41,12 @@ _GROUPS = [
         "ForecastResult",
     ]),
 ]
+
+#: Datasets. Not attributes of the package — they live in `fue.datasets` — but
+#: every example starts with one, and their docstrings say what the numbers are,
+#: which is exactly what a reader needs and what `ripc` got wrong until
+#: 2026-08-13.
+_DATASETS = ["ripc", "sfny"]
 
 #: Modules re-exported at package level. Listed, not expanded: their contents
 #: are reached through the objects above.
@@ -86,6 +101,7 @@ def _version():
 
 def build():
     import fue
+    import fue.datasets
 
     lines = [
         "# API reference",
@@ -112,6 +128,15 @@ def build():
                     lines += [f"#### `{obj.__name__}.{_signature(fn)}`", "",
                               _doc(fn), ""]
         lines.append("")
+
+    lines += ["## Datasets", "",
+              "Shipped with the package; `from fue.datasets import ripc`.", ""]
+    for nombre in _DATASETS:
+        fn = getattr(fue.datasets, nombre, None)
+        if fn is None:
+            continue
+        lines += [f"### `fue.datasets.{_signature(fn)}`", "", _doc(fn), ""]
+    lines.append("")
 
     lines += ["## Modules", "",
               "Re-exported at package level; their contents are reached through "

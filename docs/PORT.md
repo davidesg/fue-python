@@ -181,7 +181,30 @@ python -m pytest tests/test_as197_published_fortran.py \
 tools/reproduce_drvus_reference.sh 1.2.01 a1
 ```
 
-## 8. What is missing
+## 8. Releasing: push a tag, do not run `twine`
+
+Publication is by **pushing a tag**, and the workflow does the rest through
+trusted publishing (OIDC, `environment: pypi`): there is no token anywhere and
+nothing to run by hand.
+
+```bash
+git push                    # builds the docs site (Pages), publishes nothing
+git tag v0.1.10 && git push origin v0.1.10      # builds wheels, publishes to PyPI
+```
+
+Twenty-six files per release: four Python versions across six targets —
+`manylinux` and `musllinux` on x86_64 and aarch64, macOS arm64, Windows AMD64 —
+with GSL bundled in each, plus the pure-Python wheel and the sdist. Intel macOS
+is the one target not built.
+
+⚠ **A version number on PyPI is spent once.** Files cannot be replaced and names
+cannot be reused; a bad release is fixed by publishing the next one. Which is why
+the battery is green *before* the tag, not after.
+
+The suite-wide procedure — the other four packages, their tag prefixes, the
+Pages sites and what to check afterwards — is in `atsw-suite/RELEASING.md`.
+
+## 9. What is missing
 
 * **`✅ cross` is still a weaker claim than `✅ oracle`**, and for a reason that
   survives the two engines running the same optimiser: the Python engine is a

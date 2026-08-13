@@ -1,11 +1,11 @@
 ---
 id: BUG-0010
 title: The .inp parser assumes UTF-8, so files written by the original C program on a Latin-1 system cannot be read at all
-status: open
+status: fixed
 severity: medium
 component: inp
 found_in: 0.1.9
-fixed_in:
+fixed_in: 0.1.10
 reported: 2026-08-12
 reporter: David / archivo de la tesis (IPC Chile y Colombia)
 tags:
@@ -16,6 +16,18 @@ tags:
 references:
   - fue/inp.py:96 (`for line in f` sobre un fichero abierto sin encoding explícito)
   - ~/Documents/Documentos/Tesis/Analisis/{Chile,Colombia}/ipc/mensuales/... (los ficheros)
+---
+
+## Arreglado — 12-ago-2026
+
+`src/fue/inp.py:103`: el lector intenta UTF-8 y **recae en latin-1** cuando
+falla. No se convierte ningún fichero ni se toca el archivo histórico: se lee
+como está escrito.
+
+Verificado por `tests/test_box_jenkins_series.py::test_the_files_load_untouched`,
+que carga las nueve especificaciones de DRVUS 1.2.01 **sin editarlas**. Antes de
+esto, ninguna cargaba.
+
 ---
 
 ## Summary

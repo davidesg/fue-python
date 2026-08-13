@@ -1,11 +1,11 @@
 ---
 id: BUG-0011
 title: A DRVUS-era .inp does not load — the bands/refactor section did not exist then, and the format carries no version
-status: open
+status: fixed
 severity: medium
 component: inp
 found_in: 0.1.9
-fixed_in:
+fixed_in: 0.1.10
 reported: 2026-08-12
 reporter: al montar el banco de Box-Jenkins de DRVUS 1.2.01
 tags:
@@ -17,6 +17,19 @@ references:
   - drvus-source/1.2.01/drvus/src/Box_y_Jenkings/ (los ficheros que no cargan)
   - docs/FILE_CONTRACT.md §2.7
   - BUG-0010 (la otra barrera con los mismos ficheros: la codificación)
+---
+
+## Arreglado — 12-ago-2026
+
+`src/fue/inp.py:470-490`: la sección de bandas/`refactor` pasa a ser **opcional**
+—se detecta mirando la clave siguiente— y cuando falta, `refactor = 1.0`, que es
+el valor que el propio parser asigna a un cero.
+
+Verificado por `tests/test_box_jenkins_series.py`, que estima las nueve
+especificaciones de DRVUS y compara con los `.out` de la época; ocho coinciden a
+1e-10 o mejor. El formato sigue sin llevar versión: lo que se arregló es que la
+ausencia de esa sección ya no consume la primera observación.
+
 ---
 
 ## Summary

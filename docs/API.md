@@ -2,7 +2,7 @@
 
 *Generated from the docstrings by `tools/gen_api_reference.py`. Do not edit: fix the docstring and regenerate. `tests/test_docs_match_the_code.py` checks that this file is current.*
 
-`fue` 0.1.9
+`fue` 0.1.10
 
 ---
 

@@ -67,6 +67,23 @@ def _methods(cls):
     return sorted(out, key=lambda kv: kv[1].__code__.co_firstlineno)
 
 
+def _version():
+    """The version of the REPOSITORY, not of whatever is installed.
+
+    `fue.__version__` comes from site-packages, so generating the reference in
+    a working copy whose version has been bumped produced a document declaring
+    the previous release — and the --check guard agreed with it, because it
+    compared against the same installed package. The published API page of
+    0.1.10 said "fue 0.1.9" until this was fixed.
+    """
+    import re
+
+    p = os.path.join(_ROOT, "pyproject.toml")
+    m = re.search(r'^version\s*=\s*"([^"]+)"', open(p, encoding="utf-8").read(),
+                  re.M)
+    return m.group(1) if m else ""
+
+
 def build():
     import fue
 
@@ -77,7 +94,7 @@ def build():
         "Do not edit: fix the docstring and regenerate. "
         "`tests/test_docs_match_the_code.py` checks that this file is current.*",
         "",
-        f"`fue` {getattr(fue, '__version__', '')}".rstrip(),
+        f"`fue` {_version()}".rstrip(),
         "",
         "---",
         "",

@@ -387,3 +387,21 @@ def test_the_benchmark_the_document_cites_exists():
         "PERFORMANCE.md points at tests/test_performance.py::test_summary")
     for col in ("raxopt", "lbfgsb"):
         assert col in src, f"the benchmark no longer reports {col}"
+
+
+def test_the_api_reference_declares_the_repository_version():
+    """Not the installed one.
+
+    The generator used to read `fue.__version__`, which comes from
+    site-packages: in a working copy with the version bumped it produced a
+    reference declaring the PREVIOUS release, and `--check` agreed because it
+    compared against the same installed package. 0.1.10's published API page
+    said "fue 0.1.9".
+    """
+    import re
+
+    doc = _doc("API.md")
+    pyproject = open(os.path.join(_ROOT, "pyproject.toml"), encoding="utf-8").read()
+    v = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M).group(1)
+    assert f"`fue` {v}" in doc, (
+        f"docs/API.md does not declare {v}, the version in pyproject.toml")

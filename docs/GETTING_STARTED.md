@@ -22,8 +22,20 @@ pip install fue
 ```
 
 That fetches a wheel with the C engine compiled in and GSL linked statically:
-nothing else to install. If no wheel matches your platform, `pip` builds from
-source and you need a C compiler and GSL headers.
+nothing else to install. Wheels are built for **Linux (x86_64, aarch64) and
+Windows AMD64**.
+
+⚠ **macOS has no wheel, and that is policy** — the CI runners are the problem,
+not the code (`.github/workflows/wheels.yml` says which). On a Mac, `pip` builds
+from the sdist, which finds GSL through Homebrew (`brew install gsl`); or force
+the engine that needs no compiler at all:
+
+```bash
+FUE_SKIP_C=1 pip install fue
+```
+
+It gives the same answers — over 23 real models the largest difference in
+log-likelihood is 0.0002 — at roughly ×90 the time (`docs/PERFORMANCE.md`).
 
 ### Which engine am I running?
 

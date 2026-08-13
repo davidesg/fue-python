@@ -82,9 +82,19 @@ situation where trying the other optimiser is the right reflex.
 
 ## 4. What the wheel actually contains
 
-`pip install fue` fetches a `manylinux` wheel with the C engine compiled in and
-**GSL linked statically**, so there is nothing else to install. Building from
-source needs a C compiler and GSL headers; if neither is available:
+`pip install fue` fetches a wheel with the C engine compiled in and **GSL linked
+statically**, so there is nothing else to install — on **Linux (x86_64,
+aarch64) and Windows AMD64**, which are the platforms this project builds.
+
+**macOS is not built, as policy.** The reason is the runners: Intel-mac runners
+are chronically starved, and on Apple Silicon the Homebrew GSL bottle targets
+the runner's OS, so every runner-image bump breaks the deployment target.
+Chasing that is maintenance with no user at the other end — especially when the
+fallback costs a Mac user nothing but time, and this document is the measurement
+of how much.
+
+Building from source needs a C compiler and GSL headers; if neither is
+available:
 
 ```bash
 FUE_SKIP_C=1 pip install fue      # skip the extension: pure Python, permanently

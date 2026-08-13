@@ -3,6 +3,63 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.10 — 2026-08-13
+
+Documentation release, and one engine change that the documentation made
+unavoidable.
+
+### The engine says why it stopped
+
+`raxopt` announces its verdict through `outputv`, which the binding sends to
+`/dev/null`: it was computed and thrown away. `FitResult.converged` meant
+`ifault == 0` — "nothing crashed" — so a fit that stopped because the iterates
+froze, with a gradient of 0.01, came back as good.
+
+- `FitResult.termcode`, `.niter`, `.gnorm` and `.termination` now come from the
+  C. The three globals added to `qnewtopt.c` only **record** what raxopt already
+  computed: no criterion, no announcement, no numerical behaviour changed.
+- `converged` is `ifault == 0 and termcode in (0, 1)`, and anything else raises
+  a `RuntimeWarning` naming the reason. Engine faults are still exceptions.
+- The `.out` writes the convergence block the C wrote, wording included.
+
+**BUG-0012 closed, and it was not the port**: Mauricio's own C, rebuilt today,
+fails identically on Box-Jenkins Series A. The archived reference is a run at
+80-bit x87 precision, reproducible with `-m32 -O0`
+(`tools/reproduce_drvus_reference.sh`).
+
+**BUG-0010 and BUG-0011 closed** — they had been fixed in 0.1.9 and the reports
+were never updated.
+
+### Verified against the publications, not only against ourselves
+
+Everything that checked the likelihood descended from one implementation.
+
+- **AS 197 executed from the article.** Melard's FORTRAN is printed in full;
+  it is transcribed in `tests/fortran/as197.f`, compiled, and run: nine
+  Box-Jenkins specifications, agreement to **5e-08**.
+- **AS 311 by its published identities.** Equations (2)-(4) on the engine's own
+  outputs, and — the genuinely external part — its quadratic form against
+  Melard's, to **1e-14**.
+- `qnewtopt.c` enters the verbatim invariant, with the two stopping criteria
+  compared character for character.
+
+### Documentation
+
+From an empty `docs/` to 3.100 lines: what the model is, the file contract, the
+formal tests with the critical values the 2011 manual left blank, convergence,
+provenance, the port, migration from the C, a generated API reference, and
+**why the wheel** — the two engines measured, in speed (median ×90) and in
+answers (largest difference over 23 real models: 0.0002). Five graded examples,
+checked in the battery.
+
+### Wheels: no macOS, as policy
+
+Linux (x86_64, aarch64) and Windows AMD64. macOS is not built and will not be:
+the runners are the problem, not the code — Intel runners are starved and the
+Homebrew GSL bottle breaks with every runner-image bump. macOS users get the
+sdist or the pure-Python wheel, which needs no compiler and gives the same
+answers.
+
 ## 0.1.9 — 2026-07-30
 
 Deterministic-variables release. fue C builds **nine** deterministic regressors;

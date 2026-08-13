@@ -22,13 +22,14 @@ pip install fue
 ```
 
 That fetches a wheel with the C engine compiled in and GSL linked statically:
-nothing else to install. Wheels are built for **Linux (x86_64, aarch64) and
-Windows AMD64**.
+nothing else to install. Wheels are built for **Linux (x86_64 and aarch64, glibc
+and musl), macOS on Apple Silicon, and Windows AMD64**.
 
-⚠ **macOS has no wheel, and that is policy** — the CI runners are the problem,
-not the code (`.github/workflows/wheels.yml` says which). On a Mac, `pip` builds
-from the sdist, which finds GSL through Homebrew (`brew install gsl`); or force
-the engine that needs no compiler at all:
+⚠ **Intel macOS has no wheel**, and that one is policy: GitHub's Intel-mac
+runners are chronically starved and every current Mac is arm64
+(`.github/workflows/wheels.yml`). On an Intel Mac, `pip` builds from the sdist,
+which finds GSL through Homebrew (`brew install gsl`); or force the engine that
+needs no compiler at all:
 
 ```bash
 FUE_SKIP_C=1 pip install fue

@@ -52,13 +52,14 @@ provenance, the port, migration from the C, a generated API reference, and
 answers (largest difference over 23 real models: 0.0002). Five graded examples,
 checked in the battery.
 
-### Wheels: no macOS, as policy
+### Wheels
 
-Linux (x86_64, aarch64) and Windows AMD64. macOS is not built and will not be:
-the runners are the problem, not the code — Intel runners are starved and the
-Homebrew GSL bottle breaks with every runner-image bump. macOS users get the
-sdist or the pure-Python wheel, which needs no compiler and gives the same
-answers.
+Linux (x86_64 and aarch64, glibc and musl), macOS on Apple Silicon, and Windows
+AMD64 — 26 files, as in 0.1.9. **Intel macOS remains the one target not built**,
+because GitHub's Intel-mac runners are chronically starved and every current Mac
+is arm64; those users get the sdist or the pure-Python wheel, which needs no
+compiler and gives the same answers (largest difference over 23 real models:
+0.0002 in log-likelihood).
 
 ## 0.1.9 — 2026-07-30
 

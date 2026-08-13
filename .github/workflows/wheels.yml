@@ -1,21 +1,15 @@
 name: Build wheels
 
-# Builds cp310-cp313 binary wheels (Linux x86_64+aarch64, Windows AMD64) with
-# GSL bundled, plus the pure-Python wheel and the sdist.  Runs on demand
-# (workflow_dispatch) for validation; publishes to PyPI on v* tags.
+# Builds cp310-cp313 binary wheels (Linux x86_64+aarch64, macOS Apple Silicon,
+# Windows AMD64) with GSL bundled, plus the pure-Python wheel and the sdist.
+# Runs on demand (workflow_dispatch) for validation; publishes to PyPI on v* tags.
 #
-# macOS is NOT built, and this is policy rather than an omission: the runners
-# are the problem, not the code.  Intel-mac runners are chronically starved (a
-# job once queued 9+ h without one), and on Apple Silicon the Homebrew GSL
-# bottle targets the runner's OS, so every runner-image bump breaks the
-# deployment target and delocate refuses to bundle it.  Chasing that is
-# maintenance with no user on the other end.
-#
-# macOS users are not left out: they get the sdist — which finds GSL through
-# `_discover_gsl_dirs` and builds against Homebrew — or the pure-Python wheel,
-# which needs no compiler and no GSL at all and gives the same answers
-# (docs/PERFORMANCE.md: largest difference over 23 real models, 0.0002 in
-# log-likelihood).
+# INTEL macOS (macos-13) is the one target NOT built, and that is policy:
+# GitHub's Intel-mac runners are chronically starved — a job once queued 9+ h
+# without one — and every current Mac is arm64.  Intel-mac users get the sdist,
+# which finds GSL through `_discover_gsl_dirs` + Homebrew, or the pure-Python
+# wheel, which needs no compiler and gives the same answers (docs/PERFORMANCE.md:
+# largest difference over 23 real models, 0.0002 in log-likelihood).
 
 on:
   push:
@@ -30,9 +24,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # No macOS entry, on purpose — see the note at the top of this file.
+        # The macOS runner is PINNED (not macos-latest): Homebrew's GSL bottle
+        # targets the runner's OS, and macos-latest has drifted to macOS 26,
+        # whose bottle cannot be bundled into a lower-target wheel (delocate
+        # rejects it). Pinning + matching MACOSX_DEPLOYMENT_TARGET keeps bottle
+        # and wheel aligned, and immune to future runner-image bumps.
         include:
           - os: ubuntu-latest     # Linux x86_64 (+ aarch64 via QEMU)
+          - os: macos-14          # macOS Apple Silicon arm64
+            macos_target: "14.0"
           - os: windows-latest    # Windows x86_64 (AMD64)
 
     steps:
@@ -50,6 +50,9 @@ jobs:
         env:
           # Build aarch64 on Linux as well as x86_64
           CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          # macOS only (empty elsewhere): bundle GSL for the runner's OS and tag
+          # the wheel for the same minimum, so delocate is satisfied.
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_target }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -112,7 +115,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: "wheels-*"   # wheels-ubuntu-latest, wheels-windows-latest, wheels-pure
+          pattern: "wheels-*"   # wheels-ubuntu-latest, wheels-macos-14, wheels-windows-latest, wheels-pure
           merge-multiple: true
           path: dist/
 

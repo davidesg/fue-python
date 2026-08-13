@@ -170,6 +170,16 @@ differencing too, so μ scales with the gain of the whole operator at B=1 — se
 `art`'s BUG-0012, where printing the factors outside the μ parenthesis made a
 correct model look inconsistent.
 
+
+⚠ **The seed matters, and a stale one can cost you the optimum.** μ is a
+starting value like any other, and `a1.inp` of the Box-Jenkins bank ships
+μ₀ = 2.5 against a series whose mean is 17.06. From that seed fue stops on the
+AR boundary 6.86 in log-likelihood below the published estimate; from μ₀ = 17
+—or 0, or anything in 6…20— it lands on it in seven iterations. That is
+`bugs/BUG-0012`, and the lesson is general: **seed μ from the mean of the
+differenced variable**, which is what `art` does and why the case never appears
+along its path.
+
 ### 2.5 Box-Cox and differencing
 
 ```
@@ -228,7 +238,8 @@ about the *gradient norm* —
 
 — so it is a numerical-precision remedy, and the compensating rules (every
 intervention parameter scales; σ comes out scaled) are part of it. See
-`docs/PROVENANCE.md` §5 and `art-python/docs/RESCALING_ARCHITECTURE.md`.
+`docs/PROVENANCE.md` §5 and `RESCALING_ARCHITECTURE.md` in the `art-tseries`
+repository.
 
 Then `nobs` data lines. **Column 0 is the series**; any further columns are the
 data of the custom deterministic variables of §2.2, in the order those variables
@@ -317,7 +328,7 @@ file with a program and add the column.
 
 The format is Mauricio's, from DRVUS (2000); the six-part description of the
 input file is Treadway's, from the 2001 manual
-(`drvus-source/1.0/Drvus/ABTreadway-Drvus.doc`). The extended sections of
+(Treadway, A. B. (2001), *DRVUS: manual de usuario*, unpublished user manual). The extended sections of
 `fue-1.13.1` (`compimp`, `easter`, `trend`, the fixed frequency factors,
 `ifadf`) came later and are additive.
 

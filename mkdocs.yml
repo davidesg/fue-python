@@ -49,6 +49,7 @@ nav:
   - Verification:
       - Provenance: PROVENANCE.md
       - Convergence: CONVERGENCE.md
+      - Performance: PERFORMANCE.md
   - Reference:
       - File contract: FILE_CONTRACT.md
       - Formal tests: FORMAL_TESTS.md

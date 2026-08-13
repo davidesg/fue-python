@@ -395,6 +395,19 @@ día y la única que no se puede escribir «con lo que ya se sabe».
 
 ---
 
+## 7 bis. Lo que faltaba y no estaba en el plan: el rendimiento
+
+El plan no contemplaba una sección de rendimiento, y era un hueco: quien decide
+instalar esto pregunta **por qué la rueda**, y la respuesta —cuánto se pierde
+sin ella, en velocidad y en respuestas— estaba medida desde junio en
+`PERFORMANCE.md`, en la raíz, en español y fuera del sitio.
+
+`docs/PERFORMANCE.md` la incorpora, con las mediciones **rehechas el 13-ago-2026**
+sobre los 23 casos del banco, y con el otro estudio que tampoco estaba
+documentado: **raxopt contra L-BFGS-B**. De paso corrigió una cifra que yo había
+escrito mal en dos documentos —«~10× más lento», cuando la mediana medida es
+**×90** y el peor caso ×384—, con guardián para que no vuelva.
+
 ## 8. Idioma: inglés — decidido
 
 **Inglés**, y hay un argumento mejor que el alcance: **el código original ya está

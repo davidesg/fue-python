@@ -39,7 +39,7 @@ test suite as `✅ cross` in `docs/PROVENANCE.md` §3 — and it costs one
 | likelihood | `csrc/internal/elfvarma.c` (AS 311) + `usmelard.c` (AS 197) | `src/fue/elfvarma.py` |
 | casting | `csrc/fue_api.c: cast_us()` | `src/fue/cast_us.py` |
 | optimiser | `csrc/internal/qnewtopt.c` (raxopt) | `src/fue/qnewtopt.py` — **raxopt too**, translated; L-BFGS-B optional |
-| speed | reference | ~10× slower |
+| speed | reference | **×90 slower (median)**, ×29 … ×384 — `docs/PERFORMANCE.md` |
 
 ## 2. What is reused and what is ported
 
@@ -62,6 +62,10 @@ in writing.
 **Newly written** — `csrc/fue_api.c` (1000 lines): the transport struct, the
 `.inp`-to-model casting and the result packing. This is the layer that did not
 exist in the original, because the original was a program and this is a library.
+
+That difference is measured and it is not small: median **×90**, up to ×384
+(`docs/PERFORMANCE.md`). What does not differ is the answer — largest
+\|Δ log-likelihood\| over 23 real models: 0.0002.
 
 **Ported to Python** — the 1.895 lines above, translated from the C with the
 AS 311 step markers `(a)`…`(k)` carried across so the two can be read side by

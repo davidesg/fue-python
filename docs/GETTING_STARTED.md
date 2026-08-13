@@ -34,12 +34,14 @@ try:
     import fue._fue_engine          # noqa: F401
     print("C engine: Mauricio's, compiled")
 except ImportError:
-    print("pure-Python engine: the translation, ~10× slower")
+    print("pure-Python engine: the translation, ~90× slower")
 ```
 
 Both compute the same likelihood and both optimise with `raxopt`; the Python one
-is the fallback when the extension is not available. `docs/PORT.md` §1 explains
-why the package carries both.
+is the fallback when the extension is not available. It gives the same answer —
+over 23 real models the largest difference in log-likelihood is 0.0002 — and
+takes ×90 as long at the median. `docs/PERFORMANCE.md` has the measurements and
+`docs/PORT.md` §1 the reason the package carries both.
 
 ## 2. The first model
 

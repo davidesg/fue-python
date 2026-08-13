@@ -347,3 +347,43 @@ def test_the_site_navigation_points_at_documents_that_exist():
     sin_publicar = en_disco - set(en_nav) - {"DOCUMENTATION_PLAN.md"}
     assert not sin_publicar, (
         f"documents not reachable from the site: {sorted(sin_publicar)}")
+
+
+# ── PERFORMANCE.md ─────────────────────────────────────────────────────────
+
+def test_the_performance_document_does_not_understate_the_gap():
+    """The gap between the engines is the reason the wheel exists, and PORT.md
+    said "~10×" for a day when the benchmark says a median of ×90.
+
+    Re-running the 23-case benchmark here would cost two minutes, so this
+    checks the cheap half: that the two documents agree with each other and
+    that neither has drifted back to an order of magnitude that was never
+    measured.
+    """
+    perf = _doc("PERFORMANCE.md")
+    port = _doc("PORT.md")
+
+    assert "×90" in perf and "×384" in perf, (
+        "PERFORMANCE.md no longer quotes the measured median and worst case")
+    assert "×90" in port, (
+        "PORT.md and PERFORMANCE.md disagree about the slowdown")
+    assert "10× slower" not in port and "10× slower" not in _doc("GETTING_STARTED.md"), (
+        "the ~10× figure is back; it was never measured — the benchmark says ×90")
+
+    # and the claim that matters more than speed
+    assert "0.0002" in perf, (
+        "PERFORMANCE.md no longer states the largest difference in "
+        "log-likelihood between the engines, which is the point of the whole "
+        "comparison")
+
+
+def test_the_benchmark_the_document_cites_exists():
+    """The document tells the reader how to reproduce it. That command must run."""
+    _doc("PERFORMANCE.md")
+    assert os.path.exists(os.path.join(_ROOT, "tests", "test_performance.py"))
+    src = open(os.path.join(_ROOT, "tests", "test_performance.py"),
+               encoding="utf-8").read()
+    assert "def test_summary" in src, (
+        "PERFORMANCE.md points at tests/test_performance.py::test_summary")
+    for col in ("raxopt", "lbfgsb"):
+        assert col in src, f"the benchmark no longer reports {col}"

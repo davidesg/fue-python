@@ -114,6 +114,7 @@ is an advertisement: [PROVENANCE.md §6](PROVENANCE.md), and
 | [CONVERGENCE.md](CONVERGENCE.md) | what the optimiser reports and what to do about it |
 | [PROVENANCE.md](PROVENANCE.md) | which algorithm, from which paper, verified how |
 | [PORT.md](PORT.md) | how the port was done, and what it found |
+| [PERFORMANCE.md](PERFORMANCE.md) | why the wheel: the two engines measured, in speed and in answers |
 | [API.md](API.md) | every public symbol, generated from the docstrings |
 | [MIGRATION.md](MIGRATION.md) | for users of the FUE in C: what changes and what does not |
 

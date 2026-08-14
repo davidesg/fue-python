@@ -4,14 +4,11 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  A fix commit references the id, e.g. `fix(forecast): BUG-0001 …`.
 
-**12 report(s), 4 open.**
+**13 report(s), 1 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
 | [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | open | medium | estimation | ML optimizer converges to a spurious optimum on multimodal (seasonal-AR) likelihoods and reports converged=True with no diagnostic; the basin is platform-dependent (Windows vs Linux) | — |
-| [BUG-0010](BUG-0010-inp-parser-assumes-utf8.md) | open | medium | inp | The .inp parser assumes UTF-8, so files written by the original C program on a Latin-1 system cannot be read at all | — |
-| [BUG-0011](BUG-0011-drvus-era-inp-does-not-load.md) | open | medium | inp | A DRVUS-era .inp does not load — the bands/refactor section did not exist then, and the format carries no version | — |
-| [BUG-0012](BUG-0012-series-a-arma11-stops-on-the-boundary.md) | open | medium | estimation | On Box-Jenkins Series A the ARMA(1,1) stops on the AR boundary, 6.86 in log-likelihood below what Mauricio's own C reaches from the same start | — |
 | [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 | [BUG-0002](BUG-0002-binding-fixed-factor-arrays.md) | fixed | high | binding | Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError | 0.1.6 |
 | [BUG-0003](BUG-0003-residual-plot-annual-xaxis.md) | fixed | medium | plots | plot_residuals_ts draws no year ticks or vertical dividers for annual series (freq==1) — X-axis unreadable | 0.1.7 |
@@ -20,4 +17,8 @@ New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  
 | [BUG-0007](BUG-0007-pre-writer-loses-easter-trend.md) | fixed | high | interop | fue C's .pre writer omits easter, trend and non-standard variables, so fue C cannot re-read its own .pre (and segfaults on it) | 0.1.9 |
 | [BUG-0008](BUG-0008-crash-on-degenerate-fit.md) | fixed | high | interop | fue C dies instead of reporting — the reporting plots segfault on a degenerate (zero-variance) series, and GSL's default handler aborts the process when the eigensolver fails | 0.1.9 |
 | [BUG-0009](BUG-0009-embedded-gsl-aborts-interpreter.md) | fixed | high | binding | The embedded C engine calls GSL with no error handler, so a failed eigensolve aborts the Python interpreter | 0.1.9 |
+| [BUG-0010](BUG-0010-inp-parser-assumes-utf8.md) | fixed | medium | inp | The .inp parser assumes UTF-8, so files written by the original C program on a Latin-1 system cannot be read at all | 0.1.10 |
+| [BUG-0011](BUG-0011-drvus-era-inp-does-not-load.md) | fixed | medium | inp | A DRVUS-era .inp does not load — the bands/refactor section did not exist then, and the format carries no version | 0.1.10 |
+| [BUG-0012](BUG-0012-series-a-arma11-stops-on-the-boundary.md) | fixed | medium | estimation | On Box-Jenkins Series A the ARMA(1,1) stops on the AR boundary — and so does Mauricio's own C when compiled today: the 2001 reference was run at 80-bit x87 precision | 0.1.10 |
+| [BUG-0013](BUG-0013-c-engine-segfaults-with-no-arma-factors.md) | fixed | critical | engine | The C engine segfaults on a model with deterministic inputs and NO ARMA factors — no exception, no message, the interpreter dies | 0.1.12 |
 

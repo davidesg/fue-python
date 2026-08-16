@@ -46,6 +46,7 @@ nav:
   - What fue is: README.md
   - Getting started: GETTING_STARTED.md
   - The model: MODEL.md
+  - The cast: CAST.md
   - Verification:
       - Provenance: PROVENANCE.md
       - Convergence: CONVERGENCE.md

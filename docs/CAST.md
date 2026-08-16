@@ -322,3 +322,70 @@ speed should get it somewhere other than by rewriting the mirror.**
    a silent miscomputation into a loud failure.
 6. **Design attribution** (§0): whether the specification language the cast
    implements was designed jointly. Answerable from sources outside the code.
+
+---
+
+## 12. The precedent: TASTE
+
+TASTE — Turbo Pascal, the Box-Jenkins procedure, and the suite's independent
+oracle — was examined to settle whether the cast descends from it. The answer is
+**precedent yes, ancestor no**, and the line falls in a place worth recording.
+
+### What TASTE already had
+
+* **The «US model» abstraction, by name.** `TFEST.PAS`'s specification dialogue
+  asks for exactly three things per series: `SERIE  LAMBDA  MODELO US`
+  (`Respuestas1`). A univariate structure, named, referenced from a
+  transfer-function specification, with the Box-Cox λ alongside it — which is the
+  same triple a `.pre` carries, and the origin of the names `Tusmodel` and
+  `cast_us`. The abstraction is not fue's invention.
+* **The expansion of factored operators.** `USFO.PAS` carries `phi`, `sphi`,
+  `theta`, `stheta` and their expansions `phistar`, `thetastar`. Regular × seasonal
+  is multiplied out into flat polynomials — block [5] of this document, under
+  another name.
+* **The free-parameter indirection.** `ESTIMATE.PAS` passes `PointNP`, documented
+  as «Apuntador a los vectores X y G»: the optimiser sees only free parameters and
+  a pointer layer puts them back into the model record.
+
+So the problem the cast solves — a declared structure on one side, a flat vector
+for the optimiser on the other — was posed and solved in this tradition before
+fue. That is a real precedent and the cast should not be described as if it
+appeared from nothing.
+
+### What is fue's, and what makes it a different piece
+
+TASTE's US model is the **classical multiplicative form**: a regular factor and a
+seasonal one, expanded into starred polynomials. Not found anywhere in what was
+read:
+
+* operators as an arbitrary **list of factors** rather than the fixed pair;
+* **free/fixed flags per coefficient**;
+* **frequency-pinned factors** — the `c1 = 2·cos(2πf/s)·√(−c2)` mechanism of
+  block [3], which is what allows a hypothesis to be stated at one frequency and
+  therefore what makes the MEG expressible;
+* **`ifadf`**, the annual difference as a list of factors rather than `(d, D)`.
+
+And the destination differs: TASTE minimises a **sum of squares with
+backforecasting** (`F: real` — «Suma de Cuadrados en el Optimo», unit `BACKTF`),
+where the cast lowers to an **exact unconditional likelihood**. A cast feeding a
+sum of squares does not have to guarantee what one feeding `elf` must.
+
+Note also the mechanism inverted: TASTE points *from* the free vector *into* a
+model record; fue packs *into* a conventional order and carries flags. If one
+derived from the other the natural outcome would be the same mechanism
+transliterated, not its inverse — pointers-into-records being the Pascal idiom and
+ordered packing the C one.
+
+### Why this matters beyond history
+
+TASTE's value to the suite is as the reference that **does not share an
+ancestor**. This review confirms the independence where it counts — the estimation
+principle is different, not a reimplementation — while showing that the
+*specification language* does have shared roots. The two facts are compatible: a
+common vocabulary for saying what a model is, and genuinely independent machinery
+for estimating it.
+
+**Scope of the evidence:** `TFEST.PAS`'s dialogue, `USFO.PAS`'s model structure,
+`ESTIMATE.PAS`'s interface and `FUNCION.PAS`'s formula processor were read; the
+units were not read in full. The absence of frequency-pinned factors is *not found
+in what was read*, not proven absent.

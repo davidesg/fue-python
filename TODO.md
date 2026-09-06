@@ -1,3 +1,77 @@
+# FUE Python — TODO
+
+## LO QUE FALTA PARA UNA VERSIÓN ESTABLE (2026-09-06)
+
+El motor está maduro y los números lo respaldan: **5.215 estimaciones** en el
+ecosistema, **1.579** desde julio, **656 iteraciones** registradas en guiones, y
+la suite de `art` en verde con 89 de sus 126 ficheros de prueba ejercitando el
+motor.
+
+Y sobre todo el ritmo de aparición de defectos:
+
+    18 jul   BUG-0001 0002 0003
+    22 jul   BUG-0004 0005
+    30 jul   BUG-0006 0007 0008 0009
+    12 ago   BUG-0010 0011 0012
+    14 ago   BUG-0013
+     6 sep   BUG-0014      ← y éste NO salió del uso: salió de ir a buscarlo
+
+**13 defectos en 27 días, y luego 23 días sin ninguno**, cubriendo el período de
+uso más intenso (la réplica del TFM y los casos UEM). Eso es lo que sostiene la
+impresión de que el paquete está estable.
+
+Faltan **tres puertas**, y ninguna es de código nuevo:
+
+### 1 · BUG-0005 — el óptimo espurio (la que decide)
+
+Abierto desde el 22 de julio. El optimizador converge a un óptimo espurio en
+verosimilitudes multimodales de AR estacional, **reporta `converged=True` sin
+diagnóstico**, y la cuenca depende de la plataforma: Windows y Linux dan
+respuestas distintas al mismo fichero.
+
+Es silencioso, no reproducible entre máquinas, y cae justo en lo que esta
+escuela más estima. Para un sello de *estable* es el que decide.
+
+**Primer paso, barato:** volver a probarlo. Es de julio y la contaminación de
+semillas que lo disparaba (`art/BUG-0006`) ya está arreglada. Puede que cierre
+solo, o que baje a limitación conocida y documentada — que también vale.
+
+### 2 · BUG-0015 — los errores típicos
+
+No es «arreglarlo»: es **decidir**. El arreglo está identificado —descomentar
+`fdhess` en `drvmlest.c:112`— y `drtran` demuestra que funciona. No se aplica
+porque cambia un error **ruidoso y detectable** por uno **limpio e
+indetectable**: fuera del óptimo el hessiano por diferencias finitas puede no ser
+definido positivo, y `choldcp` parchearía los pivotes publicando números de
+aspecto impecable.
+
+Hace falta una sesión propia: barrido empírico sobre la batería y decisión de
+qué hacer cuando el hessiano no sea definido positivo —rechazar, avisar, o caer
+a la matriz del BFGS diciéndolo—.
+
+Una versión estable puede salir con esto **abierto y documentado**; lo que no
+puede es salir con ello sin decirlo. Por eso se levantó el informe.
+
+### 3 · BUG-0013 — el AR(1) fijado en cero
+
+El puente de Python desvía y `art` ya escribe siempre `1 1 / 0.0 0`, así que los
+ficheros nuevos están cubiertos. Quedan:
+
+  - **el C**, que es el arreglo de fondo: la escritura fuera de rango con
+    `p=q=0` sigue sin buscarse. No es trivial;
+  - **178 `.inp` ya escritos** que matan al binario, entre ellos ITCER, PGAS y
+    RATIO del TFM en curso;
+  - **las wheels** sin el desvío del puente, que se comportan como el binario.
+
+### Y una señal de cobertura que conviene no ignorar
+
+BUG-0014 mostró que **tres de once tipos deterministas daban regresor nulo en la
+previsión y ninguna prueba lo cazó**. No es alarma —el defecto era de una ruta
+menos usada que la de estimación— pero dice dónde mirar antes de sellar: la
+previsión está menos ejercitada que la estimación.
+
+---
+
 # FUE Python — Estado de la migración C → Python
 
 Referencia: `fue-1.13.1` es el código C fuente de verdad.  

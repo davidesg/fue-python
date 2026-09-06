@@ -121,3 +121,81 @@ Dos niveles, y conviene el primero aunque se haga el segundo:
 
 ⚠ Mientras tanto, el rodeo que ya usan los ficheros: **declarar un factor AR(1)
 fijado en cero**. Es el mismo modelo y no cambia ni un dígito.
+
+---
+
+## TODO — lo que queda abierto: el binario C y las wheels (2026-09-06)
+
+El rodeo del puente resolvió **la API de Python**. No resolvió las otras dos
+puertas, y una premisa escrita aquí resultó ser falsa.
+
+`_engine.estimate` dice, justificando por qué bastaba con desviar:
+
+> *«a file always declares the AR section, with the coefficient at zero and the
+> flag fixed. **Only the Python API reaches here.**»*
+
+**Medido sobre el ecosistema: 178 de 4.505 `.inp` declaran CERO factores ARMA de
+todos los tipos.** No es un caso de laboratorio, y no son ficheros ajenos:
+
+    ~/Dropbox/TFM_UCM/Tesis_Michael/replica/ITCER.inp        segfault
+    ~/Dropbox/TFM_UCM/Tesis_Michael/replica/PGAS.inp
+    ~/Dropbox/TFM_UCM/Tesis_Michael/replica/RATIO.inp
+    ~/…/autonomo2/ITCER/ITCER_m10.inp                        segfault
+    ~/Dropbox/Article_Multivariate Convergence/…/CINY.inp
+    ~/Dropbox/Taller de ST Master/…/D.inp
+
+Las tres series del TFM en curso y los modelos de una de ellas. Comprobado
+contra `/usr/local/bin/fue` (FUE 1.13, construido de 1.13.1): **SIGSEGV**.
+
+Y los escribe `art`: cuando el modelo no lleva ARMA, `pipeline._write_inp` emite
+la sección con un `0` y no el `1 1 / 0.0 0` que el rodeo presupone. La creencia
+de que sólo la API de Python llegaba aquí es lo que dejó la puerta del ejecutable
+sin vigilar.
+
+### Por qué sigue ahí
+
+Porque el desvío funciona **demasiado bien**. Quien usa `fue` desde Python
+obtiene su ajuste y no se entera del agujero; el `.inp` que queda escrito
+—sin sección ARMA— sólo mata al proceso cuando alguien lo pasa por el binario o
+por una wheel sin el desvío. Las dos rutas que fallan son justamente las que no
+tienen tests en este paquete.
+
+### El alcance real, en tres puertas
+
+| puerta | estado |
+|---|---|
+| API de Python (`_engine.estimate`) | **desviada**, correcta |
+| binario C `/usr/local/bin/fue` | **muere**, 178 ficheros expuestos |
+| wheels sin el desvío | igual que el binario |
+
+### Lo que hay que decidir
+
+El arreglo de fondo —la escritura fuera de rango con `p=q=0` en el C— sigue sin
+buscarse y **no es trivial**. Pero hay una mitigación barata que no depende de
+él y cierra el caso para todo fichero futuro: **que `art` escriba siempre la
+sección AR con `1 1 / 0.0 0`** —un AR(1) fijado en cero, que es el mismo modelo
+y no mueve un dígito— en lugar de `0`. Es el rodeo que los ficheros antiguos ya
+usaban sin saber por qué.
+
+Eso deja tres cosas separadas: el C (de fondo, no trivial), el escritor de `art`
+(barato, cierra el futuro) y los 178 ficheros ya escritos (recuperables uno a
+uno con el mismo cambio de una línea).
+
+### Estado (2026-09-06): la mitigación de `art`, aplicada
+
+`art` **ya no escribe la sección AR vacía**: cuando el modelo no lleva ningún
+factor ARMA, `pipeline._write_inp` emite `1 1 / 0.0 0` —un AR(1) fijado en
+cero—, que es la convención que el resto del ecosistema ya seguía. Comprobado:
+
+    antes   fue W eml → Segmentation fault (core dumped)
+    después fue W eml → exit 0
+    ℓ = −869.3408898 en los dos casos, npar = 2
+
+Eso cierra el caso **para todo fichero que se escriba desde ahora**, y sólo eso.
+Siguen abiertos, y no dependen de este paquete:
+
+  1. **El C**, que es el arreglo de fondo: la escritura fuera de rango con
+     `p=q=0` sigue sin buscarse. No es trivial.
+  2. **Los 178 `.inp` ya escritos**, que hay que reescribir uno a uno —o
+     regenerar— para que dejen de matar al binario.
+  3. **Las wheels** sin el desvío del puente, que se comportan como el binario.

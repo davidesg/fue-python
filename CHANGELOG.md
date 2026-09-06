@@ -3,6 +3,62 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.13 — 2026-09-06
+
+**La previsión daba efecto NULO a tres deterministas** (BUG-0014), y era una
+duplicación de concepto la que lo causaba.
+
+- `forecast._build_xi` construía el indicador **por segunda vez** —indexado por
+  `type_code` en vez de por nombre— con ramas para 8 de los 11 tipos y sin
+  `else` final. `compimp`, `easter` y `trend` caían fuera, su indicador salía
+  idénticamente nulo y su efecto valía **exactamente cero**: sin aviso, sin
+  error. El ω se estima, sale en el `.out` con su error típico, y la previsión
+  lo ignora.
+
+  El daño era doble, porque `xi` se usa dos veces: `nt − xi` limpia la HISTORIA
+  para obtener el ruido y `f1 += xi` añade el efecto al FUTURO. Con `xi ≡ 0` el
+  ruido que alimenta la recursión queda contaminado por un determinista que
+  nadie quitó —lo que sesga toda la trayectoria, no sólo los meses afectados— y
+  además la previsión no lleva el efecto.
+
+  Medido con un efecto de Semana Santa de +4% (ω = 399,4 en centésimas de log):
+
+      ruta            03/2020    04/2020    05/2020
+      fuf (C)         100.183    104.178    100.185   ← correcto
+      Python (antes)  100.184    100.184    100.186   ← el efecto no está
+      Python (ahora)  100.184    104.178    100.186
+
+  El síntoma estaba a la vista: la variación interanual de 04/2020 salía
+  **−411,60%**, comparando una previsión sin Semana Santa contra un abril
+  observado que sí la tenía. Ahora sale −12,20%.
+
+  **`fuf` (el C) no tiene este defecto**: escribe el determinista en el fichero
+  de previsión y extiende el calendario al futuro.
+
+- **Se borra el duplicado**, que es el arreglo de fondo: `_build_xi` llama al
+  generador único `cast_us._build_indicator` pidiéndole `nobs + horizonte`. Cada
+  tipo se extiende **por su propia regla** —el easter por el calendario, el step
+  por su definición— sin repetir ninguna. Dos generadores del mismo regresor no
+  son una duplicación inocente: el segundo se queda atrás cuando el primero
+  crece, y eso fue exactamente lo que pasó.
+
+- **Un tipo desconocido ya no vale cero**: `_build_indicator` levanta
+  `ValueError`. Devolver ceros es estimar —o prever— un modelo distinto del
+  pedido sin decirlo.
+
+- **`custom` deja de reventar** al pedirle una ventana más larga que sus datos:
+  rellena lo que hay y el resto queda a cero. Sin esto no se podía pedir el
+  indicador hasta `nobs + horizonte`.
+
+- **BUG-0015 levantado**, que no es código sino un hueco del registro: la
+  limitación de los errores típicos —vienen de la matriz que BFGS acumula por el
+  CAMINO, no del hessiano en el óptimo— llevaba desde julio documentada en el
+  repo del C y **no estaba en el índice de defectos**. Es la limitación más
+  importante que tiene el paquete y quien consultara `bugs/` no la encontraba.
+
+- La versión de `pyproject.toml` iba por detrás de sus propios informes: decía
+  0.1.11 mientras BUG-0013 se cerraba «fixed_in 0.1.12».
+
 ## 0.1.11 — 2026-08-13
 
 Lo que 0.1.10 dejó a medias, encontrado verificando la publicación.

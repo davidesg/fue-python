@@ -178,8 +178,25 @@ def _build_indicator(itv, nobs, freq, begtime, begyear=None):
     elif t == "alter":
         for j in range(1, nobs + 1):
             ind[j] = 1.0 if j % 2 == 0 else -1.0
-    elif t == "custom" and itv.data is not None:
-        ind[1:nobs + 1] = itv.data[:nobs]
+    elif t == "custom":
+        # Se rellena lo que HAY y el resto queda a cero. Antes se asignaba
+        # `itv.data[:nobs]` a `ind[1:nobs+1]`, que revienta en cuanto se pide
+        # una ventana más larga que los datos — y eso es exactamente lo que hace
+        # la previsión, que necesita el indicador hasta `nobs+horizonte`.
+        if itv.data is not None:
+            k = min(len(itv.data), nobs)
+            ind[1:k + 1] = itv.data[:k]
+    else:
+        # NINGÚN TIPO PUEDE CAER AQUÍ EN SILENCIO. Devolver ceros para un tipo
+        # que no se conoce es estimar —o prever— un modelo distinto del pedido
+        # sin decirlo: el regresor existe en el `.inp`, su ω se estima, y su
+        # efecto vale cero. Es el fallo que tuvo la previsión con `compimp`,
+        # `easter` y `trend` (BUG-0014).
+        raise ValueError(
+            f"fue: tipo determinista desconocido {t!r}. Un tipo sin generador "
+            f"produciría un regresor idénticamente nulo, que es un modelo "
+            f"distinto del pedido."
+        )
     return ind
 
 

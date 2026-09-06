@@ -9,6 +9,7 @@ Mirrors the usfo.c / fuf.c forecast logic exactly:
 
 import math
 import numpy as np
+
 from dataclasses import dataclass
 
 
@@ -325,39 +326,31 @@ def _build_xi(model, nobs, freq, horizon, itv_omega, itv_delta):
         nu_lag = len(omega) - 1 if not delta else 40
         nu = _calcnu(omega, delta, nu_lag)
 
-        # Build indicator D[1..T]
-        D = np.zeros(T + 1)
-        itype = itv.type_code
-
-        if itype == 0:    # pulse
-            if 1 <= obs <= T:
-                D[obs] = 1.0
-        elif itype == 1:  # step
-            for t in range(max(1, obs), T + 1):
-                D[t] = 1.0
-        elif itype == 2:  # ramp
-            for t in range(max(1, obs), T + 1):
-                D[t] = float(t - obs + 1)
-        elif itype == 3:  # seasonal: obs is 1-based period within year
-            # mirrors fue_api.c: ((j - begtime) % freq) + 1 == obs
-            for t in range(1, T + 1):
-                if ((t - begtime) % freq) + 1 == obs:
-                    D[t] = 1.0
-        elif itype == 4:  # cos
-            k = itv.harmonic
-            for t in range(1, T + 1):
-                D[t] = math.cos(2.0 * math.pi * k / freq * t)
-        elif itype == 5:  # sin
-            k = itv.harmonic
-            for t in range(1, T + 1):
-                D[t] = math.sin(2.0 * math.pi * k / freq * t)
-        elif itype == 6:  # alter: (-1)^t, mirrors fue_api.c j%2==0 → +1, else -1
-            for t in range(1, T + 1):
-                D[t] = 1.0 if t % 2 == 0 else -1.0
-        elif itype == 7:  # custom: use provided data; zero beyond observed range
-            if itv.data is not None:
-                for t in range(1, min(len(itv.data), T) + 1):
-                    D[t] = itv.data[t - 1]
+        # EL INDICADOR LO CONSTRUYE **UN SOLO** GENERADOR (BUG-0014).
+        #
+        # Aquí había una segunda copia de la construcción, indexada por
+        # `type_code` en vez de por nombre, con ramas para 8 de los 11 tipos y
+        # sin `else` final. `compimp` (8), `easter` (9) y `trend` (10) caían
+        # fuera y su indicador salía IDÉNTICAMENTE NULO — sin aviso, sin error.
+        #
+        # El daño era doble, porque `xi` se usa dos veces: `nt - xi` limpia la
+        # HISTORIA para obtener el ruido, y `f1 += xi` añade el efecto al
+        # FUTURO. Con `xi≡0` el ruido que alimenta la recursión queda
+        # contaminado por un determinista que nadie quitó, y la previsión
+        # además no lleva el efecto. Medido: un easter de +4% —estimado por el
+        # motor como ω=399,4— desaparecía entero de la previsión, mientras que
+        # `fuf` (el C) lo daba bien.
+        #
+        # Dos generadores del mismo regresor son un defecto, no una
+        # duplicación inocente: el segundo se quedó atrás cuando el primero
+        # creció. `_build_indicator` acepta la longitud, así que pedirle
+        # `nobs+horizonte` extiende cada tipo por su propia regla —el easter por
+        # el calendario, el step por su definición— sin repetir ninguna.
+        # Import diferido: `cast_us` importa de este módulo, así que a nivel
+        # de módulo sería circular.
+        from .cast_us import _build_indicator
+        begyear = model.series.start[0] if model.series.start else None
+        D = _build_indicator(itv, T, freq, begtime, begyear)
 
         # Apply filter: xi[t] += Σ_{k=0}^{nu_lag} nu[k] * D[t-k]
         for t in range(1, T + 1):

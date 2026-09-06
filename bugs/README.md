@@ -4,11 +4,12 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  A fix commit references the id, e.g. `fix(forecast): BUG-0001 …`.
 
-**13 report(s), 1 open.**
+**15 report(s), 2 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
 | [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | open | medium | estimation | ML optimizer converges to a spurious optimum on multimodal (seasonal-AR) likelihoods and reports converged=True with no diagnostic; the basin is platform-dependent (Windows vs Linux) | — |
+| [BUG-0015](BUG-0015-los-errores-tipicos-vienen-del-camino-del-optimizador.md) | open | high | estimation | Los errores típicos vienen de la matriz que BFGS acumula por el CAMINO, no del hessiano en el óptimo — dos ejecuciones del mismo modelo dan SE distintos | — |
 | [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 | [BUG-0002](BUG-0002-binding-fixed-factor-arrays.md) | fixed | high | binding | Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError | 0.1.6 |
 | [BUG-0003](BUG-0003-residual-plot-annual-xaxis.md) | fixed | medium | plots | plot_residuals_ts draws no year ticks or vertical dividers for annual series (freq==1) — X-axis unreadable | 0.1.7 |
@@ -21,4 +22,5 @@ New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  
 | [BUG-0011](BUG-0011-drvus-era-inp-does-not-load.md) | fixed | medium | inp | A DRVUS-era .inp does not load — the bands/refactor section did not exist then, and the format carries no version | 0.1.10 |
 | [BUG-0012](BUG-0012-series-a-arma11-stops-on-the-boundary.md) | fixed | medium | estimation | On Box-Jenkins Series A the ARMA(1,1) stops on the AR boundary — and so does Mauricio's own C when compiled today: the 2001 reference was run at 80-bit x87 precision | 0.1.10 |
 | [BUG-0013](BUG-0013-c-engine-segfaults-with-no-arma-factors.md) | fixed | critical | engine | The C engine segfaults on a model with deterministic inputs and NO ARMA factors — no exception, no message, the interpreter dies | 0.1.12 |
+| [BUG-0014](BUG-0014-la-prevision-de-python-da-efecto-nulo-a-tres-deterministas.md) | fixed | high | forecast | La previsión de Python daba efecto NULO a compimp, easter y trend — un segundo generador del mismo regresor que se quedó atrás | 0.1.13 |
 

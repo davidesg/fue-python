@@ -20,7 +20,7 @@ name. The model is `drtran/docs/PORTE.md`.*
         │
         └── src/fue/         a pure-Python re-implementation of the same
                              engine — elfvarma.py, cast_us.py, qnewtopt.py:
-                             1.895 lines.  Used when the extension is not.
+                             1.912 lines.  Used when the extension is not.
 ```
 
 The selection is one `try/except ImportError` in `src/fue/_engine.py:34`. There
@@ -67,7 +67,7 @@ That difference is measured and it is not small: median **×90**, up to ×384
 (`docs/PERFORMANCE.md`). What does not differ is the answer — largest
 \|Δ log-likelihood\| over 23 real models: 0.0002.
 
-**Ported to Python** — the 1.895 lines above, translated from the C with the
+**Ported to Python** — the 1.912 lines above, translated from the C with the
 AS 311 step markers `(a)`…`(k)` carried across so the two can be read side by
 side (`tests/test_as311_published_identities.py` asserts the markers survive).
 

@@ -81,6 +81,80 @@ class FitResult:
         return _TERMINATION.get(self.termcode, f"termination code {self.termcode}")
 
 
+#: Cuántas desviaciones típicas de `w` puede alejarse μ̂ de la media de `w`
+#: antes de que el ajuste se considere sospechoso. Medido, no conjeturado: sobre
+#: **1.523 modelos ajustados** del ecosistema con μ identificada, el máximo
+#: observado es **1,38** y el percentil 99,9 es **0,73** — ninguno pasa de 2. El
+#: óptimo espurio de BUG-0005 (US CPI en Windows) está en **47,2**.
+#:
+#: El umbral va en 5: muy por encima de todo lo legítimo que se ha visto y muy
+#: por debajo de lo que se quiere cazar. No hay nada mágico en el 5; lo que
+#: importa es que entre 1,4 y 47 hay un factor de 34, y ahí cabe cualquier
+#: umbral razonable.
+UMBRAL_MEDIA_ABSURDA = 5.0
+
+
+def _avisa_si_la_media_es_absurda(model) -> None:
+    """¿Es sano el óptimo al que se ha llegado? (BUG-0005)
+
+    El optimizador es una búsqueda local sobre una superficie que puede ser
+    multimodal, y **no comprueba si el óptimo al que llega tiene sentido**: en
+    el caso del informe, la rueda de Windows se quedaba en una cuenca espuria
+    con μ̂ = −0,144 sobre una serie cuya media diferenciada es +0,0022, y lo
+    reportaba como `converged=True, ifault=0` sin un solo aviso.
+
+    La comprobación es la que propone el propio informe, hecha sobre la serie
+    correcta: μ es la media del proceso ARMA, es decir de **`w`** —la serie ya
+    filtrada de deterministas y diferenciada— y NO de la serie observada. Con
+    intervenciones o armónicos la diferencia es enorme, porque los deterministas
+    se llevan parte del nivel.
+
+    `w` no se reconstruye aquí: la da `cast_us_py`, que es la que usa el motor.
+    Reimplementarla sería repetir el error de BUG-0014.
+
+    **μ sólo tiene sentido si está identificada.** El término de deriva es
+    μ·φ(1), así que cuando φ(1) ≈ 0 —un AR con raíz unitaria escrito con d=0—
+    μ no entra en la verosimilitud y puede valer cualquier cosa. Medido: 47 de
+    los 1.570 modelos del ecosistema están en ese caso, y avisar de ellos serían
+    47 falsos positivos. No se comprueban.
+
+    Es un AVISO, no una excepción: el ajuste existe y puede ser el bueno; lo que
+    no puede es pasar en silencio.
+    """
+    import numpy as _np
+    try:
+        r = getattr(model, "_result", None)
+        if r is None or not getattr(model, "estimate_mu", False):
+            return
+        from .cast_us import build_est_spec, cast_us_py
+        params = _np.asarray(getattr(r, "params", None), float)
+        if params.size == 0:
+            return
+        _p, _q, phi, _th, mu, w, ifault = cast_us_py(params, build_est_spec(model))
+        if ifault or w.size < 8:
+            return
+        phi1 = 1.0 - float(_np.sum(phi))
+        if abs(phi1) <= 0.01:          # μ no identificada: no hay nada que juzgar
+            return
+        sd = float(w.std(ddof=1))
+        if not _np.isfinite(sd) or sd <= 0:
+            return
+        d = abs(float(mu) - float(w.mean())) / sd
+        if d > UMBRAL_MEDIA_ABSURDA:
+            warnings.warn(
+                f"fue: la media estimada NO es plausible — μ̂={float(mu):.6g} "
+                f"está a {d:.1f} desviaciones típicas de la media de la serie "
+                f"filtrada y diferenciada ({float(w.mean()):.6g}, sd={sd:.6g}). "
+                f"Sobre 1.523 ajustes reales el máximo observado es 1,4. El "
+                f"optimizador es una búsqueda LOCAL y puede haber caído en una "
+                f"cuenca espuria: reestima desde otras semillas y quédate con la "
+                f"mayor verosimilitud (fue/bugs/BUG-0005).",
+                RuntimeWarning, stacklevel=3)
+    except Exception:
+        # Una comprobación de sanidad no puede tumbar una estimación válida.
+        pass
+
+
 class Model:
     """
     ARMAX model with linear transfer function interventions.
@@ -201,6 +275,7 @@ class Model:
                 f"máximo verificado — revisa las semillas antes de usarlos "
                 f"(fue/bugs/BUG-0012).",
                 RuntimeWarning, stacklevel=2)
+        _avisa_si_la_media_es_absurda(self)
         from .cast_us import normalize_ma_invertibility, sync_params_to_attrs
         normalize_ma_invertibility(self)
         # BUG-0004 / rescaling-architecture P4: after fitting, the model IS the fitted

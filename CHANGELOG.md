@@ -3,6 +3,75 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.14 — 2026-09-07
+
+**Un óptimo absurdo ya no se reporta como éxito** (BUG-0005, la mitad que se
+podía cerrar desde Linux).
+
+- El optimizador es una búsqueda LOCAL sobre una superficie que puede ser
+  multimodal, y no comprobaba si el óptimo al que llegaba tenía sentido. En el
+  caso del informe la rueda de Windows se quedaba en una cuenca espuria con
+  μ̂ = −0,144 —una inflación mensual del −14,4% para el IPC de EE.UU.— y lo daba
+  por bueno con `converged=True, ifault=0` y ni un aviso.
+
+  `_avisa_si_la_media_es_absurda` compara μ̂ con la media de `w` —la serie ya
+  filtrada de deterministas y diferenciada, que es de la que μ es la media— y
+  avisa si se aleja más de 5 desviaciones típicas.
+
+- **El umbral está medido.** Sobre los 1.570 modelos con μ estimada del
+  ecosistema:
+
+      percentil 99.9                  0.73
+      MÁXIMO observado                1.38
+      por encima de 2·sd                 0
+      el óptimo espurio de US CPI      47.2
+
+  Factor 34 entre lo peor legítimo y el disparate. La guarda dispara **0 veces**
+  sobre el corpus entero y sí sobre el espurio.
+
+- Dos cosas que la medición enseñó y que el informe no decía, y que sin ellas la
+  guarda sería inservible:
+
+  **μ es la media de `w`, no de la serie observada.** Con intervenciones o
+  armónicos los deterministas se llevan parte del nivel: comparando contra la
+  serie cruda, 23 modelos correctos salían «absurdos». `w` la da `cast_us_py`,
+  no se reconstruye — reimplementarla sería repetir BUG-0014.
+
+  **μ puede no estar identificada.** La deriva es μ·φ(1); con un AR de raíz
+  unitaria escrito con `d=0`, φ(1)=0 y μ no entra en la verosimilitud. Son 47 de
+  los 1.570 modelos —los VIX con λ extrema y φ=1 exacto— y avisar de ellos serían
+  47 falsos positivos.
+
+- **Y la causa raíz del informe está mal.** BUG-0005 lo atribuía a una
+  superficie multimodal cuya cuenca decide la aritmética del compilador. Medido
+  hoy, la evidencia no lo sostiene:
+
+  **Nueve arranques, un solo óptimo.** Multi-arranque sobre el AR estacional
+  cubriendo la región y los dos signos: las nueve semillas válidas llegan a
+  ℓ = 1322,513. Si hubiera cuencas separadas, un barrido así las encontraría.
+
+  **Y el punto de Windows no es un punto estacionario.** A lo largo de μ el
+  objetivo decrece monótonamente desde el óptimo (−268,677 → −270,107 en
+  μ = −0,144) y la derivada allí vale **+19,57**. Un punto con gradiente no nulo
+  no es una cuenca, así que llamarlo «otra cuenca» describe mal lo ocurrido.
+
+  Lo que sí encaja es la línea que el propio informe dejó al margen: **una
+  semilla con el signo cambiado**. La convención de `fue` es la de Box y Jenkins
+  para todo operador —ω(B) = ω₀ − ω₁B − …— y sembrar al revés no es empezar
+  «algo peor»: es empezar en la región equivocada, y desde ahí cualquier
+  diferencia de último bit decide adónde se va. Arreglado eso en el consumidor
+  (art/BUG-0006), el caso no se mueve desde ningún arranque.
+
+  Consecuencia: el **multi-arranque** que el informe proponía como arreglo **no
+  hace falta para este caso**, y lo que quedaba de defecto real era el silencio.
+
+- Lo que **no** se puede afirmar, y por eso BUG-0005 queda `in-progress`: sólo se
+  conocen μ̂ y σ̂ₐ del resultado de Windows, no el vector completo de 16
+  parámetros, así que no se descarta que aquel punto fuera un óptimo local en el
+  espacio conjunto. Y sigue sin haber máquina Windows. El motivo de que siga
+  abierto ya no es «el optimizador es frágil» sino «falta verificar una
+  observación de julio que el resto de la evidencia no acompaña».
+
 ## 0.1.13 — 2026-09-06
 
 **La previsión daba efecto NULO a tres deterministas** (BUG-0014), y era una

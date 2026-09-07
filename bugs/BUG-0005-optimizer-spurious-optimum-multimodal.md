@@ -1,7 +1,7 @@
 ---
 id: BUG-0005
 title: ML optimizer converges to a spurious optimum on multimodal (seasonal-AR) likelihoods and reports converged=True with no diagnostic; the basin is platform-dependent (Windows vs Linux)
-status: open
+status: in-progress
 severity: medium
 component: estimation
 found_in: 0.1.7
@@ -104,3 +104,159 @@ When fixed, `repro.py` must reach the correct optimum (`σ_a≈0.261`, `μ̂≈0
 `AIC≈−2613`) on **every** platform from the default seed, or fail loudly rather than
 report `converged=True` on the spurious basin. The other seven DVR economies (unimodal
 or non-seasonal-AR) must be unchanged.
+
+
+---
+
+## Segundo intento (2026-09-07): la mitad 2 cerrada, la mitad 1 no reproduce
+
+El informe declaraba **dos** cosas. Se ha cerrado una y se ha vuelto a probar la
+otra.
+
+### La mitad 1 — la no-reproducibilidad — sigue sin reproducir en Linux
+
+`repro.py` con el `fue` de hoy, desde las **dos** semillas:
+
+    default seed     → μ̂ = +0.002149   σ_a = 0.2608   converged=True
+    identified seed  → μ̂ = +0.002149   σ_a = 0.2608   converged=True
+
+Las dos llegan al óptimo **correcto** (Tabla 2 del artículo), y son idénticas
+entre sí. La divergencia entre semillas que el informe describía **ya no
+existe** aquí: la contaminación de la semilla estacional (art/BUG-0006) está
+arreglada.
+
+Lo que **no** se puede verificar desde esta máquina es la divergencia entre
+PLATAFORMAS, que es la que da nombre al informe. Sigue abierta por falta de
+Windows, no por falta de intento — y es aritmética de coma flotante de dos
+compiladores, no algo que se arregle en el código.
+
+### La mitad 2 — el disparate reportado como éxito — está cerrada
+
+Esa sí se podía cerrar aquí, y es la que de verdad muerde: **un óptimo absurdo
+se reportaba como `converged=True, ifault=0` sin un solo aviso.**
+
+`model._avisa_si_la_media_es_absurda` compara μ̂ con la media de **`w`** —la
+serie ya filtrada de deterministas y diferenciada, que es de la que μ es la
+media— y avisa si se aleja más de `UMBRAL_MEDIA_ABSURDA = 5` desviaciones
+típicas.
+
+**El umbral está medido, no conjeturado.** Sobre los 1.570 modelos del
+ecosistema con μ estimada:
+
+    percentil 50                    0.0024
+    percentil 99                    0.3313
+    percentil 99.9                  0.7281
+    MÁXIMO observado                1.3792
+    por encima de 2·sd                   0
+
+    el óptimo espurio de US CPI        47.2   ← lo que se quiere cazar
+
+Entre lo peor legítimo (1,4) y el disparate (47,2) hay un factor de **34**.
+Cualquier umbral entre 3 y 10 sirve; el 5 está cómodo en medio.
+
+**Y sobre el corpus entero la guarda dispara 0 veces** — 1.570 óptimos juzgados,
+ningún falso positivo — mientras que sobre el óptimo espurio dispara.
+
+### Dos cosas que la medición enseñó y que no estaban en el informe
+
+**μ es la media de `w`, no de la serie observada.** Con intervenciones o
+armónicos la diferencia es enorme: los deterministas se llevan parte del nivel.
+Comparando contra la serie cruda, 23 modelos salían «absurdos» siendo correctos.
+`w` no se reconstruye: la da `cast_us_py`, la misma que usa el motor —
+reimplementarla sería repetir BUG-0014.
+
+**μ puede no estar identificada, y entonces no hay nada que juzgar.** El término
+de deriva es μ·φ(1); con un AR de raíz unitaria escrito con `d=0`, φ(1) = 0 y μ
+no entra en la verosimilitud: puede valer cualquier cosa. Son **47 de los 1.570**
+modelos del ecosistema —los VIX con λ extrema y φ = 1 exacto— y avisar de ellos
+serían 47 falsos positivos. La guarda los excluye explícitamente.
+
+### Lo que queda
+
+  - la no-reproducibilidad entre plataformas, **sin verificar** por falta de
+    Windows;
+  - el **multi-arranque** para bloques multimodales, que el informe propone y
+    sigue sin hacerse. Con la guarda puesta, el caso al menos ya no pasa
+    callando: avisa y dice qué hacer.
+
+Por eso el informe queda `in-progress` y no `fixed`: la mitad que se podía cerrar desde aquí está cerrada, y la que no —la divergencia entre plataformas— sigue esperando una máquina Windows.
+
+
+---
+
+## La causa raíz de este informe está mal, y hoy se ha medido (2026-09-07)
+
+El informe atribuye el caso a una **superficie multimodal** cuya cuenca decide la
+aritmética del compilador. **La evidencia disponible hoy no sostiene esa
+explicación**, y sí sostiene otra que el propio informe menciona de pasada:
+
+> *«A wrong-sign seasonal-AR seed (ART BUG-0006, now fixed on the ART side) is
+> what first pushed the search toward the wrong basin.»*
+
+Era la línea importante y quedó como nota al margen.
+
+### Prueba 1 — nueve arranques, un solo óptimo
+
+Multi-arranque sobre el AR estacional de US_CPI, cubriendo la región y los dos
+signos:
+
+    (−0.109,−0.093)  ℓ=1322.513      (+0.800,−0.500)  ℓ=1322.513
+    (+0.109,+0.093)  ℓ=1322.513      (+0.900, 0.000)  ℓ=1322.513
+    (+0.500,+0.300)  ℓ=1322.513      ( 0.000,+0.900)  ℓ=1322.513
+    (−0.500,−0.300)  ℓ=1322.513      ( 0.000, 0.000)  ℓ=1322.513
+                                     (+0.950,−0.900)  ℓ=1322.513
+
+**Nueve de nueve al mismo sitio**, incluido el signo cambiado. Dos semillas
+fuera de la región estacionaria las rechaza el motor, que es lo correcto.
+
+Si la superficie tuviera cuencas separadas, un barrido así las encontraría.
+
+### Prueba 2 — el punto de Windows no es un punto estacionario
+
+Objetivo a lo largo de μ, con el resto en el óptimo:
+
+    μ = +0.002149    −268.677073    ← el óptimo
+    μ = −0.050000    −268.859130         −0.18
+    μ = −0.144000    −270.106980         −1.43
+    μ = −0.300000    −274.788726         −6.11
+
+    derivada del objetivo en μ = −0.144:  +19.57
+
+**Decrece monótonamente y la derivada no se anula.** En la dirección de μ no hay
+segunda cima: μ = −0,144 **no es un óptimo**, así que llamarlo «otra cuenca»
+describe mal lo que ocurrió.
+
+### Lo que se puede afirmar y lo que no
+
+**Sostenido:** en esta plataforma y con este `fue`, el caso llega al mismo óptimo
+desde nueve arranques distintos, y a lo largo de μ la verosimilitud es unimodal.
+Arreglada la semilla, el caso es **robusto**.
+
+**No sostenido, y hay que decirlo:** sólo se conocen μ̂ y σ̂ₐ del resultado de
+Windows, no el vector completo de 16 parámetros. No se puede descartar que aquel
+punto fuera un óptimo local en el espacio conjunto. Y sigue sin haber máquina
+Windows para comprobarlo.
+
+### La lectura que encaja con todo
+
+La convención de signo de `fue` es la de Box y Jenkins para **todo** operador
+—ω(B) = ω₀ − ω₁B − …— y eso confundió al consumidor, que sembró el AR estacional
+con el signo cambiado. **Una semilla con el signo al revés no es «un punto de
+partida algo peor»: es un punto de partida en la región equivocada**, y desde
+ahí cualquier diferencia de último bit puede decidir adónde se va. Con la
+semilla bien puesta, el caso no se mueve.
+
+Eso reordena las conclusiones del informe:
+
+  - el **multi-arranque** que proponía como arreglo **no hace falta para este
+    caso** — nueve arranques dan lo mismo. Seguiría siendo prudente para
+    superficies genuinamente multimodales, pero este no lo es;
+  - lo que quedaba de defecto real era **el silencio**, y ése está cerrado;
+  - la **no-reproducibilidad entre plataformas** no se ha refutado, pero tampoco
+    tiene hoy ninguna evidencia a favor más allá de aquella observación única.
+
+Queda `in-progress` porque no se puede cerrar lo que no se puede comprobar. Pero
+el motivo por el que sigue abierto ya no es «el optimizador es frágil»: es
+**«falta una máquina Windows para verificar una observación de julio que el
+resto de la evidencia no acompaña»**, que es una razón muy distinta y mucho más
+pequeña.

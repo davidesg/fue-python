@@ -20,21 +20,32 @@ Y sobre todo el ritmo de aparición de defectos:
 uso más intenso (la réplica del TFM y los casos UEM). Eso es lo que sostiene la
 impresión de que el paquete está estable.
 
-Faltan **tres puertas**, y ninguna es de código nuevo:
+Faltan **tres puertas**, y ninguna es de código nuevo. Tras la revisión del
+7 de septiembre, **la que parecía bloqueante ya no lo es** — ver abajo.
 
-### 1 · BUG-0005 — el óptimo espurio (la que decide)
+### 1 · BUG-0005 — YA NO ES EL QUE DECIDE (revisado 2026-09-07)
 
-Abierto desde el 22 de julio. El optimizador converge a un óptimo espurio en
-verosimilitudes multimodales de AR estacional, **reporta `converged=True` sin
-diagnóstico**, y la cuenca depende de la plataforma: Windows y Linux dan
-respuestas distintas al mismo fichero.
+Se volvió a probar, y el resultado encoge la puerta hasta casi cerrarla.
 
-Es silencioso, no reproducible entre máquinas, y cae justo en lo que esta
-escuela más estima. Para un sello de *estable* es el que decide.
+**El silencio, que era la mitad grave, está cerrado** (0.1.14): un μ̂ absurdo ya
+no se reporta como `converged=True`. Umbral medido sobre 1.570 modelos —máximo
+legítimo 1,4 sd, el espurio 47,2— con 0 falsos positivos en el corpus entero.
 
-**Primer paso, barato:** volver a probarlo. Es de julio y la contaminación de
-semillas que lo disparaba (`art/BUG-0006`) ya está arreglada. Puede que cierre
-solo, o que baje a limitación conocida y documentada — que también vale.
+**Y la causa raíz del informe resultó estar mal.** Nueve arranques cubriendo la
+región y los dos signos llegan al MISMO óptimo, y el punto de Windows no es
+siquiera estacionario (derivada +19,57). No hay evidencia de multimodalidad en
+ese caso: lo que había era una semilla con el signo cambiado —la convención de
+Box y Jenkins— y eso está arreglado en el consumidor.
+
+**Consecuencia para la estable:** el multi-arranque que el informe proponía no
+hace falta, y no hay fragilidad del optimizador que documentar. Lo único que
+queda es **verificar en Windows** una observación de julio que el resto de la
+evidencia no acompaña. Eso es una limitación conocida y documentable, no un
+defecto oculto — y una estable puede salir con ello dicho en una línea:
+
+> *en superficies multimodales el óptimo puede depender de la plataforma; `fue`
+> avisa cuando el resultado es implausible, y la recomendación es reestimar
+> desde varias semillas.*
 
 ### 2 · BUG-0015 — los errores típicos
 

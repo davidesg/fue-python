@@ -389,6 +389,42 @@ def test_the_benchmark_the_document_cites_exists():
         assert col in src, f"the benchmark no longer reports {col}"
 
 
+def test_dunder_version_matches_pyproject():
+    """`fue.__version__` no puede ser un número escrito a mano.
+
+    Lo era, y se quedó TRES versiones atrás: la 0.1.14 publicada en PyPI declara
+    `__version__ = "0.1.11"` mientras su metadata dice 0.1.14. Nadie lo notó
+    porque nada lo comprobaba — `test_smoke` sólo exigía que fuese una cadena no
+    vacía, y "0.1.11" lo es.
+
+    El mismo defecto ya había mordido una vez por otro lado: la página de API de
+    la 0.1.10 decía «fue 0.1.9». Aquello se arregló en el generador, leyendo el
+    `pyproject`, sin tocar la raíz — así que el dato siguió estando escrito dos
+    veces.
+    """
+    import re
+
+    import fue
+
+    pyproject = open(os.path.join(_ROOT, "pyproject.toml"), encoding="utf-8").read()
+    m = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M)
+    assert m, "no se encuentra la versión en pyproject.toml"
+    assert fue.__version__ == m.group(1), (
+        f"fue.__version__ = {fue.__version__!r} y pyproject dice "
+        f"{m.group(1)!r}: la versión está escrita dos veces")
+
+
+def test_dunder_version_is_not_a_literal():
+    """La prueba de arriba pasaría también con el número correcto escrito a
+    mano — y volvería a quedarse atrás en la siguiente subida. Lo que hay que
+    fijar es que se DERIVE."""
+    src = open(os.path.join(_ROOT, "src", "fue", "__init__.py"),
+               encoding="utf-8").read()
+    import re
+    literal = re.search(r'^__version__\s*=\s*"[\d.]', src, re.M)
+    assert not literal, "__version__ vuelve a estar escrito a mano"
+
+
 def test_the_api_reference_declares_the_repository_version():
     """Not the installed one.
 

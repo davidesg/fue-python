@@ -4,7 +4,7 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  A fix commit references the id, e.g. `fix(forecast): BUG-0001 …`.
 
-**15 report(s), 2 open.**
+**16 report(s), 2 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
@@ -23,4 +23,5 @@ New report: `fue-bug new` (or copy `TEMPLATE.md`).  Validate: `fue-bug check`.  
 | [BUG-0012](BUG-0012-series-a-arma11-stops-on-the-boundary.md) | fixed | medium | estimation | On Box-Jenkins Series A the ARMA(1,1) stops on the AR boundary — and so does Mauricio's own C when compiled today: the 2001 reference was run at 80-bit x87 precision | 0.1.10 |
 | [BUG-0013](BUG-0013-c-engine-segfaults-with-no-arma-factors.md) | fixed | critical | engine | The C engine segfaults on a model with deterministic inputs and NO ARMA factors — no exception, no message, the interpreter dies | 0.1.12 |
 | [BUG-0014](BUG-0014-la-prevision-de-python-da-efecto-nulo-a-tres-deterministas.md) | fixed | high | forecast | La previsión de Python daba efecto NULO a compimp, easter y trend — un segundo generador del mismo regresor que se quedó atrás | 0.1.13 |
+| [BUG-0016](BUG-0016-el-dunder-version-estaba-escrito-a-mano.md) | fixed | low | packaging | fue.__version__ estaba escrito a mano y se quedó TRES versiones atrás — la 0.1.14 publicada declara 0.1.11 | 0.1.15 |
 

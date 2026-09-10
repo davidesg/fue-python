@@ -3,6 +3,31 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.15 — 2026-09-07
+
+**`fue.__version__` estaba escrito a mano y se quedó tres versiones atrás**
+(BUG-0016). La 0.1.14 recién publicada en PyPI declaraba `0.1.11` mientras su
+metadata decía `0.1.14`.
+
+Nadie lo vio porque la única prueba que lo tocaba —`test_smoke`— exigía que
+fuese *una cadena no vacía*, y `"0.1.11"` lo es. Y el mismo defecto ya había
+mordido por otro lado: la página de API de la 0.1.10 decía «fue 0.1.9». Aquello
+se arregló **en el generador**, sin tocar la raíz, de modo que el dato siguió
+escrito dos veces.
+
+Ahora se deriva: el `pyproject.toml` del árbol si existe —en editable la
+metadata se escribió al instalar y no se regenera—, si no la metadata del
+paquete, y si no `"0+desconocida"`, que dice que no consta en vez de inventar un
+número.
+
+Dos pruebas, y hacen falta las dos: que coincida con el `pyproject`, y que **se
+derive**. Sin la segunda, la primera pasaría con el número correcto escrito a
+mano y volvería a quedarse atrás en la siguiente subida.
+
+*Alcance, sin inflarlo:* `art` no sella la versión de `fue` en sus guiones, así
+que ningún registro llevaba la cifra falsa. Lo que estaba mal es lo que ve quien
+pregunta la versión desde Python.
+
 ## 0.1.14 — 2026-09-07
 
 **Un óptimo absurdo ya no se reporta como éxito** (BUG-0005, la mitad que se

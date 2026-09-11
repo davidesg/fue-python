@@ -612,3 +612,135 @@ construyó así. Cambiar a `fdhess` afecta a TODOS los usuarios y podría altera
       factor BFGS (siempre PD, barato). Posible híbrido: `fdhess` con salvaguarda de PD (fallback a BFGS).
 - [ ] Mitigación a nivel de **workflow** (sin tocar el motor): que los tools de display NO re-estimen un
       `.pre` sin cambios; que carguen los SE del ajuste original (`.out`) o que el `.pre` guarde los SE.
+
+---
+
+## Los errores típicos por el hessiano — para la 0.3 (11-sep-2026)
+
+Sale de la corrida de ES_CPI del run 3 y de la pregunta del analista: *«sé que
+fue tiene una función que los calcula desde el hessiano; me gustaría saber si se
+puede solucionar de raíz, aunque sería tocar fue»*. Sí se puede. Está medido en
+`bugs/BUG-0015` (addendum del 11-sep). Lo que falta es esto.
+
+### 1 · El paso del `_fdhess` del puerto está MAL TRADUCIDO
+
+No es una elección discutible: es un error de traducción del C, y explica por qué
+esa rama devuelve ceros.
+
+```c
+/* qnewtopt.c — como lo escribió Mauricio */
+cubreta = pow( eta, 1.0/3.0 );            /* ← la raíz cúbica va DENTRO */
+step[i] = cubreta * rmax( x[i], 1.0 );
+
+/* drvmlest.c:112 — y se le llama con macheps */
+/* fdhess( objcfunc, npar, par, pi1, macheps, mtmp ); */
+```
+
+```python
+# cast_us.py — el puerto
+dx = eta * np.maximum(np.abs(x), 1.0)     # ← SIN raíz cúbica
+...
+H = _fdhess(objective, x_opt.copy(), obj_opt, _SQRT_EPS)   # ← y con √ε
+```
+
+    C:       ∛(2.2e-16)  =  6.04e-06   = ε^(1/3)     ✓
+    Python:     √(2.2e-16) = 1.48e-08   = ε^(1/2)     ✗   407× más pequeño
+
+El puerto **quitó la raíz cúbica y compensó con el exponente equivocado**. La
+compensación correcta era pasar `eta = ε^(1/3)` directamente, no `√ε`.
+
+Medido en el óptimo de `ES_CPI_m10` (13 parámetros, cond(H)=138): con ε^(1/2) la
+diagonal del hessiano sale con **2 valores negativos** y
+`np.sqrt(np.maximum(diag, 0.0))` los convierte en **errores típicos de 0.0**;
+con ε^(1/3), ε^(1/4) o ε^(1/5) la diagonal es entera positiva y las SE son
+**idénticas en los tres** — y coinciden con el **GLS exacto** de
+`fue-1.13.1/ERRORES_ESTANDAR.md` (0.068328, 0.027692).
+
+**Lo que el puerto SÍ mejoró** y conviene conservar: la diagonal la calcula con
+diferencia CENTRADA (f₊ − 2f₀ + f₋) donde Mauricio usa adelantada, y la cruzada
+con la fórmula de 4 puntos. Son más precisas. El defecto es sólo el paso.
+
+### 2 · Verificado: está IMPLEMENTADA, es de Mauricio, y lleva comentada desde el origen
+
+Se comprobó porque el analista lo preguntó bien: *«fdhess en Mauricio puede estar
+comentada y no implementada. Verificar si es así.»* No lo está.
+
+* **`fdhess` tiene cuerpo completo** en `qnewtopt.c` (~54 líneas: reserva
+  vectores, toma ∛eta, escala el paso por |x|, llena diagonal y cruzadas, libera).
+  No es una declaración vacía ni un esqueleto.
+* **`choldcp` también existe** (`nlatools.c:124`) y no como adorno: `elfvarma.c`
+  la usa en tres sitios. Las dos se compilan y se enlazan.
+* **Está comentada desde el `drv` ORIGINAL de Mauricio** —`drvmlest.c:95`— y
+  sigue comentada, igual, en las **siete** versiones de fue revisadas (1.01,
+  1.05, 1.09, 1.11, 1.12.03, 1.13, 1.13.1). Nadie la añadió después ni la
+  desactivó: nació así.
+
+Y la dejó **lista para usar**, no a medias: la llamada que escribió pasa
+`macheps`, que con la ∛ interna da ε^(1/3) = 6,0e-06 — el paso correcto. Lo que
+está mal es la traducción al Python (§1), no el original.
+
+> **NOTA DE MÉTODO, porque casi se escribe aquí lo contrario.** El primer censo
+> dijo «no aparece en 1.01-1.13; la línea se añadió en 1.13.1». Era **falso**:
+> `grep` trataba esos ficheros como BINARIOS —por el byte Latin-1 de «José» en
+> la cabecera de copyright— y **suprimía la salida sin avisar**, exit code 1
+> como si no hubiera coincidencias. Con `grep -a` aparece en todas. Cualquier
+> censo sobre este árbol necesita `-a`.
+
+### El porqué sigue sin saberse
+
+El comentario que la precede es **neutro**: «This is an alternative way of
+computing the second derivative matrix». No dice que esté rota ni que sea peor.
+
+La hipótesis que encaja con todo lo que hay —y es hipótesis, no hallazgo:
+
+* `drvmlest.c` es el driver de **VARMA multivariante** (`varmax.m` = nº de
+  series). `fue` lo hereda siendo univariante.
+* La línea de al lado es `choldcp`, la Cholesky **modificada**: parchea pivotes
+  no definidos positivos y publica números de aspecto impecable.
+* Y `ERRORES_ESTANDAR.md` documenta que en `drtran` —multivariante— activar
+  `fdhess` destapó un hessiano **singular**, porque su cast metía dos varianzas
+  libres en `x[]` y concentraba `sigma2`.
+
+O sea: en el caso general multivariante `fdhess` + `choldcp` cambia un error
+**ruidoso y detectable** (la matriz del BFGS) por uno **limpio e indetectable**.
+En univariante ese problema no existe: `fue` no mete ninguna varianza en `x[]`.
+
+**Qué hay que hacer antes de tocarlo:** buscar si Mauricio dejó la razón escrita
+en alguna parte —artículo, notas, correspondencia— en vez de inferirla. El
+recorrido por versiones ya está hecho y no dice nada: la línea es idéntica en las
+siete, así que no hay un «antes y después» del que deducir el motivo.
+
+Una función que un autor implementa entera, deja lista con el argumento correcto,
+y aun así comenta —y mantiene comentada durante treinta años de versiones— tuvo
+una razón. Descomentarla sin conocerla es repetir el experimento sin saber qué
+falló la primera vez.
+
+### 3 · La batería: hay dos, y apuntan a lados opuestos
+
+* **`tests/test_reliability*.py`** fija `std_errors` contra la referencia
+  **fue-1.13.1** (el binario en C) y contra el acuerdo C↔Python. Guarda la
+  CONFORMIDAD del puerto, que es una propiedad declarada — y el arreglo de raíz
+  la rompe a propósito, porque el C también está mal.
+* **`fue-1.13.1/ERRORES_ESTANDAR.md`** tiene el **GLS exacto**, que es la verdad.
+  Ahí el hessiano coincide al sexto decimal y deja de depender del arranque.
+
+Hay que **decidir cuál se guarda**. Hoy la suite guarda la conformidad sin decir
+que son cosas distintas.
+
+Y falta **extender el GLS a más casos**: hoy hay uno (`ES_CPI_m10`, 13
+parámetros). Para una batería hacen falta varios —con y sin estacionalidad, con
+MA, con intervenciones—, y el GLS exacto sólo es fácil de construir cuando la
+parte no determinista es tratable.
+
+### 4 · Lo que hay que decidir además
+
+* Qué hacer cuando el hessiano NO sea definido positivo con el paso correcto.
+  Medido con ε^(1/4) la diagonal sale entera positiva **en el óptimo de este
+  caso**; es un caso.
+* Y que **las SE cambian ~20 %** respecto a lo que el paquete publica hoy. No es
+  un arreglo transparente: reescribe la inferencia de todo lo ya calculado.
+
+Si se adopta, caen por innecesarias media docena de defensas que `art` construyó
+alrededor del síntoma: los dos detectores de covarianza-semilla (BUG-0027,
+BUG-0041, BUG-0124), la cláusula de las SE del convenio de ficheros (BUG-0090,
+BUG-0159) y el aviso de BUG-0168.

@@ -83,6 +83,84 @@ descartaron como explicación.
   - El `.out` guarda la covarianza completa: es la constancia de lo que hubo,
     no una garantía de que sea el hessiano.
 
+## Addendum medido — 11-sep-2026: el puerto Python YA tiene la vía, y el paso está mal
+
+Medido al preguntar el analista si esto se puede arreglar de raíz. Tres hechos
+nuevos, los tres reproducibles sobre `ES_CPI_m10`.
+
+**1 · La vía del hessiano ya está cableada en Python.** `cast_us.py:551-566`
+elige según el optimizador:
+
+```python
+if B_hess is not None:       # raxopt  → factor de Cholesky del BFGS (el CAMINO)
+    cov[:, i] = 2.0 * obj_opt * _cholsol(B_hess, e) / n_eff
+else:                        # lbfgsb  → _fdhess, el hessiano EN EL ÓPTIMO
+    H = _fdhess(objective, x_opt.copy(), obj_opt, _SQRT_EPS)
+    cov = 2.0 * obj_opt * np.linalg.inv(H) / n_eff
+```
+
+No hay que escribir `fdhess`: está, y se usa. Sólo que por esa rama sale
+**cero**.
+
+**2 · El paso es el equivocado, y eso explica parte de la no-definición
+positiva.** `_SQRT_EPS = √ε ≈ 1,5e-08` es el paso de una derivada PRIMERA. Un
+hessiano por diferencias necesita **ε^(1/4) ≈ 1,2e-04**: con √ε el error de
+redondeo se amplifica por 1/η² ≈ 4,5e15 y lo que se mide es ruido.
+
+Medido **en el óptimo** de `ES_CPI_m10` (13 parámetros, cond(H)=138):
+
+| paso | diagonal negativa | SE de los 3 primeros |
+|---|---:|---|
+| ε^1/2 (el actual) | **2 de 13** | [0, 0, 0.03258] |
+| ε^1/3 | 0 de 13 | [0.06833, 0.06829, 0.02769] |
+| ε^1/4 | 0 de 13 | [0.06833, 0.06829, 0.02769] |
+| ε^1/5 | 0 de 13 | [0.06833, 0.06829, 0.02769] |
+
+**Estable en tres órdenes de magnitud del paso** — que es la firma de una
+derivada bien calculada— y con la diagonal entera positiva.
+
+Esto NO contradice el obstáculo del informe: aquél se midió **en las semillas**
+(m6, 2 de 55 autovalores) y esto es **en el óptimo**. Pero sí acota la pregunta:
+al menos parte de la no-definición positiva observada es un artefacto del paso y
+no una propiedad del problema. La decisión pendiente hace falta menos veces de lo
+que parecía.
+
+**3 · Y el respaldo Python enmascara el fallo peor que el C.** Donde `drvmlest.c`
+usaría `choldcp` —Cholesky modificada, que parchea pivotes—, aquí hay:
+
+```python
+std_errors = np.sqrt(np.maximum(diag, 0.0))
+```
+
+Una varianza negativa se convierte en **un error típico de 0.0**, publicado como
+un número cualquiera. No es «impecable pero indetectable»: es cero, y un cero en
+el denominador de una razón t no es un valor sospechoso, es un sinsentido.
+
+### Y lo que contesta la pregunta de raíz
+
+Con el paso corregido, la SE **deja de depender de dónde arrancó la optimización**:
+
+| vía | origen | niter | SE de los 3 primeros |
+|---|---|---:|---|
+| BFGS (el camino) | `.inp` | 21 | [0.05667, 0.05619, 0.02705] |
+| BFGS (el camino) | `.pre` | 9 | **[0.09554, 0.09621, 0.07887]** |
+| hessiano ε^1/4 | `.inp` | 42 | [0.06833, 0.06829, 0.02769] |
+| hessiano ε^1/4 | `.pre` | 12 | **[0.06833, 0.06829, 0.02769]** |
+
+    diferencia máxima hessiano `.inp` vs `.pre` = 6,5e-09
+
+Eso es exactamente lo que el paquete no tiene hoy. Y con ello caerían, por
+innecesarias, media docena de defensas construidas alrededor del síntoma: el
+detector de covarianza-semilla, el de casi-semilla, la cláusula de las SE en el
+convenio de ficheros de `art`, y el aviso que publica factores de 4,23×.
+
+**Lo que NO resuelve, y sigue siendo la decisión pendiente:** qué hacer cuando el
+hessiano no sea definido positivo con el paso correcto. Y una consecuencia que
+hay que mirar de frente antes de adoptarlo: **las SE cambian ~20 % respecto a las
+que el paquete publica hoy** —[0.0683, 0.0683] frente a [0.0567, 0.0562] desde el
+`.inp`— así que no es un arreglo transparente: reescribe la inferencia de todo lo
+ya calculado.
+
 ## Lo que falta para cerrarlo
 
 Una sesión propia: barrido empírico sobre la batería y **decisión de qué hacer

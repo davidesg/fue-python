@@ -1,5 +1,56 @@
 # FUE Python — TODO
 
+## PARA 0.3 — la puerta de entrada de `fuf` (2026-09-12)
+
+- [ ] **`fuf` debería aceptar un `.pre` + horizonte, sin fichero intermedio.**
+      Decisión del analista, 2026-09-12, después de ver el coste en el uso real
+      —propio y de colegas—. Anotado también en `art-python/TODO.md`: el cambio
+      toca a los dos.
+
+      **El estado de hoy.** La previsión tiene su propio trío, paralelo al de
+      `fue`:
+
+        fue <modelo> -f <H>    →  forecast_<modelo>.inp    el fuf
+        fuf <forecast_modelo>  →  forecast_<modelo>.out + _forecast.png + .html
+
+      Y el fuf **es un `.inp` más una sección** —`** Forecast horizon and
+      estimated innovation variance`—, así que lleva extensión `.inp`
+      (`src/fue/inp.py:64-66`). Lo único que lo distingue por el nombre es el
+      prefijo `forecast_`, que `load_fuf` quita para recuperar `_inp_stem`
+      (`inp.py:72-76`): es convenio, no formato.
+
+      **Por qué molesta.** En una carpeta de trabajo conviven dos clases de
+      `.inp` que sólo se distinguen abriéndolas. Un humano lo aprende una vez;
+      un asistente lo paga cada vez, y el analista lo ha medido como «un coste
+      altísimo de tokens». Un convenio que hay que deducir leyendo el contenido
+      es un acertijo.
+
+      **La forma propuesta: entrar por el `.pre`.** Es como entra `drtran`
+      (`load_pre`) y encaja con el resto de la escalera. El `.pre` ya es el
+      óptimo en forma reejecutable, que es justo lo que `forecast_fuf`
+      necesita: parámetros fijos, sin reestimar. Lo que el `.pre` no lleva
+      —horizonte y σ²— son cosas de la LLAMADA y no del modelo.
+
+      **Lo que hay que conservar, y es lo fácil de perder.** El fuf guarda σ²
+      DENTRO. Eso es lo que hace comparables dos previsiones del mismo modelo
+      hechas en momentos distintos. Si σ² pasa a recalcularse en cada llamada,
+      la propiedad se va en silencio. Si se entra por `.pre`, σ² tiene que
+      venir de algún sitio declarado —el `.out`, o un argumento explícito— y no
+      por defecto.
+
+      **Compatibilidad.** `load_fuf` debe seguir leyendo los fuf existentes:
+      hay ejercicios publicados que dependen de ellos
+      (`SF_MEG/empirical/sps/forecast_compare.py` exporta con `fue -f 77`).
+
+- [ ] **`chkma` no está en el formato.** Un modelo estimado sin restricción de
+      invertibilidad (`fue -e`) se relee como restringido: ni el `.inp` ni el
+      `.pre` guardan ese bit, y `Model.__init__` lo pone a `True`. Hoy eso
+      SALVA a todo el mundo —es lo que evita prever con la raíz no invertible
+      del testigo MA_f, el error nº 1 documentado en
+      `SF_MEG/empirical/FORECAST_COMPARISON.md`— pero es una propiedad que se
+      sostiene porque el valor por defecto coincide con lo que hace falta, no
+      porque el fichero la declare.
+
 ## LO QUE FALTA PARA UNA VERSIÓN ESTABLE (2026-09-06)
 
 El motor está maduro y los números lo respaldan: **5.215 estimaciones** en el

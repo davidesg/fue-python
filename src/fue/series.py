@@ -25,6 +25,10 @@ class TimeSeries:
         self.freq  = int(freq)
         self.start = tuple(start)   # (year, period)
         self.name  = str(name)
+        # Serie SIN FECHAR leída de un .inp con frecuencia `number`: se trata
+        # como freq=1 —como el motor, que la estima con sper=1—, y la marca
+        # permite reescribirla como tal (BUG-0018). Ver `numbering`.
+        self._sin_fecha = False
 
     # ── Convenience constructors ──────────────────────────────────────────
 
@@ -110,8 +114,16 @@ class TimeSeries:
 
     @property
     def numbering(self):
-        """True when freq=0 (plain observation indices, no calendar dates)."""
-        return self.freq == 0
+        """True for an undated series: plain observation indices, no calendar.
+
+        Either freq=0, or a series read from a .inp whose frequency field is
+        `number` (kept at freq=1, as fue C estimates it, BUG-0018).
+        """
+        return self.freq == 0 or getattr(self, "_sin_fecha", False)
+
+    @numbering.setter
+    def numbering(self, value):
+        self._sin_fecha = bool(value)
 
     # ── Plotting ──────────────────────────────────────────────────────────
 

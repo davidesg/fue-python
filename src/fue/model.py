@@ -20,14 +20,29 @@ class FixedFreqFactor:
         Fixed frequency in cycles per seasonal period (pfre1 in fue.c).
         For monthly data (sper=12): freq=6 → biennial cycle.
     coef : float
-        Initial value for phi2 (AR) or theta2 (MA).  Must be < 0.
+        Initial value for phi2 (AR) or theta2 (MA).  Must be <= 0 (0 is
+        accepted, as in fue C, with a warning: the factor vanishes).
     free : bool
         Estimate *coef* by ML (default True).
     """
 
     def __init__(self, freq, coef=-0.5, free=True):
-        if float(coef) >= 0:
-            raise ValueError("coef must be negative (phi2 < 0)")
+        # BUG-0019. La frontera es la del motor —`if (Ar1f[k][2] > 0.0)
+        # ifault = 1` (fue.c:2924)—: se rechaza lo POSITIVO, no lo no negativo.
+        # Con `>= 0` el puerto rechazaba el `-0.0000` que el propio motor
+        # escribe en el .pre para un φ₂ por debajo de 5·10⁻⁵, y un .pre del
+        # motor no se podía continuar en Python.
+        if float(coef) > 0.0:
+            raise ValueError("coef must not be positive (phi2 <= 0)")
+        if float(coef) == 0.0:
+            # Legible, como en el motor, pero no en silencio: con φ₂ = 0 el
+            # φ₁ derivado también es 0 y el factor entero desaparece.
+            warnings.warn(
+                "phi2 = 0 en un operador de frecuencia fija: phi1 = "
+                "2·cos(2πk/s)·√(−phi2) sale 0 y el factor desaparece. Si viene "
+                "de un .pre, es la cuantización del escritor: el valor real "
+                "está en el .out (fue/bugs/BUG-0019).",
+                RuntimeWarning, stacklevel=2)
         self.freq = float(freq)
         self.coef = float(coef)
         self.free = bool(free)
@@ -220,10 +235,24 @@ class Model:
         self.estimate_mu   = bool(estimate_mu)
         self.boxlam        = float(boxlam)
         self.refactor      = float(refactor)
+        # Primer campo de la línea de bandas del .inp (0 = automático); no
+        # interviene en la estimación, pero el fichero lo lleva (BUG-0018).
+        self.cbands        = 0.0
         self.eml           = bool(eml)
         self.chkma         = bool(chkma)
         self._result       = None
         self._inp_stem     = ""
+
+    @property
+    def mu(self):
+        """La semilla de la media, por el nombre del argumento del constructor.
+
+        El atributo se llama `mu0` y el argumento `mu`; quien leía el modelo por
+        el nombre del argumento —`getattr(model, "mu", 0.0)`— recibía el valor
+        por defecto sin que nada fallara, y art registraba μ=0 siempre
+        (art/bugs/BUG-0189). De sólo lectura: el dato vive en `mu0`.
+        """
+        return self.mu0
 
     # ── Model building helpers ────────────────────────────────────────────
 

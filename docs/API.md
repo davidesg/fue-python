@@ -275,7 +275,8 @@ freq : float
     Fixed frequency in cycles per seasonal period (pfre1 in fue.c).
     For monthly data (sper=12): freq=6 → biennial cycle.
 coef : float
-    Initial value for phi2 (AR) or theta2 (MA).  Must be < 0.
+    Initial value for phi2 (AR) or theta2 (MA).  Must be <= 0 (0 is
+    accepted, as in fue C, with a warning: the factor vanishes).
 free : bool
     Estimate *coef* by ML (default True).
 

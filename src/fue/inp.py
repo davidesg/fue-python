@@ -6,6 +6,8 @@ Sections that are commented-out in fue.c (seasonal AR/MA, annual f-fixed)
 are silently consumed and discarded so that both old and new .inp files work.
 """
 
+import warnings
+
 import numpy as np
 from .series import TimeSeries
 from .model import Model, FixedFreqFactor
@@ -91,6 +93,7 @@ class _InpParser:
     """
 
     def __init__(self, path):
+        self._path = path
         blocks = []
         # BUG-0010: los `.inp` escritos por el C original en sistemas Latin-1
         # reventaban con UnicodeDecodeError. Lo que importa del formato es ASCII
@@ -263,7 +266,14 @@ class _InpParser:
             #                         del periodo (BUG-0018)
             #   248 1 1768 GE         la actual: periodo=1, año
             #
-            # Regla: el año es el último token NUMÉRICO antes del nombre.
+            # Con CUATRO tokens no hay ambigüedad de cuenta: son nobs, el
+            # segundo campo, el año y el nombre, igual que en el caso estacional
+            # y que en el lector del motor. Leerlos por posición es lo que evita
+            # que un nombre NUMÉRICO («2020») se tome por el año: la serie se
+            # leía 254 años más tarde y sin nombre (BUG-0022).
+            #
+            # Para las formas cortas, la regla: el año es el último token
+            # NUMÉRICO antes del nombre.
             nums = []
             for t in obs_toks[1:]:
                 try:
@@ -273,9 +283,21 @@ class _InpParser:
             if not nums:
                 raise ValueError(
                     f"cabecera anual sin año: {' '.join(obs_toks)!r}")
-            begyear = nums[-1]
+            if len(obs_toks) >= 4 and len(nums) >= 2:
+                begyear = nums[1]
+                name    = obs_toks[3]
+            else:
+                begyear = nums[-1]
+                if len(obs_toks) > 1 + len(nums):
+                    name = obs_toks[1 + len(nums)]
+                else:
+                    name = "series"
+                    warnings.warn(
+                        f"{self._path}: la cabecera anual "
+                        f"{' '.join(obs_toks)!r} no trae nombre de serie; se "
+                        f"lee como 'series' (fue/bugs/BUG-0022).",
+                        RuntimeWarning, stacklevel=3)
             begtime = 1
-            name    = obs_toks[1 + len(nums)] if len(obs_toks) > 1 + len(nums) else "series"
 
         # [fuf only] Optional: "Forecast horizon and estimated innovation variance"
         # fuf files insert this section between observations and det-vars.
@@ -479,27 +501,46 @@ class _InpParser:
         # cualquier redacción de la línea de bandas sigue funcionando, y un
         # fichero moderno —donde lo siguiente es la línea de bandas y no la
         # serie— no cambia de comportamiento.
+        #
+        # `cbands` (el primer token) se conserva para que los escritores lo
+        # devuelvan: antes ni se leía y todo escritor de Python emitía un 0 fijo
+        # en su lugar (BUG-0018). El motor lo reescribe tal cual.
+        cbands = 0.0
         if "time series" in self._peek_key():
             refactor = 1.0                      # el valor que el propio parser
                                                 # ya usaba para un campo a cero
         else:
             self._skip_sep()
             rf_toks = self._next_data()
+            cbands = float(rf_toks[0]) if rf_toks else 0.0
             refactor = float(rf_toks[1]) if len(rf_toks) > 1 else 1.0
             if refactor == 0.0:
                 refactor = 1.0
 
         # [3.7] Time series data (col 0 = stochastic; extra cols = custom detvars)
         self._skip_sep()
+        #
+        # BUG-0017. Si el fichero DECLARA deterministas no estándar, cada
+        # observación trae exactamente sus columnas, como exige el motor
+        # («observation NN of MM expected»). Antes una columna ausente se leía
+        # como 0.0: un fichero mutilado se convertía en un modelo con un
+        # regresor idénticamente nulo, con su ω estimable, sin un aviso. La
+        # tolerancia a ficheros sin columnas sigue intacta cuando no se declara
+        # ninguna, que es el único caso legítimo.
         n_custom = len(custom_col_order)
         custom_data = [[] for _ in range(n_custom)]
         data = []
         while len(data) < nobs:
             toks = self._next_data()
+            if len(toks) < 1 + n_custom:
+                raise ValueError(
+                    f"{self._path}: observación {len(data) + 1} de {nobs}: se "
+                    f"esperaban {1 + n_custom} columnas (la serie y {n_custom} "
+                    f"determinista(s) no estándar) y hay {len(toks)} "
+                    f"(fue/bugs/BUG-0017)")
             data.append(float(toks[0]))
             for k in range(n_custom):
-                col_idx = k + 1
-                custom_data[k].append(float(toks[col_idx]) if col_idx < len(toks) else 0.0)
+                custom_data[k].append(float(toks[k + 1]))
 
         # Fill in the custom intervention data arrays
         for k, itv_idx in enumerate(custom_col_order):
@@ -511,6 +552,10 @@ class _InpParser:
             start=(begyear, begtime),
             name=name,
         )
+        # BUG-0018. Una serie SIN FECHAR (frecuencia `number`) se lee como
+        # freq=1 —así la trata el motor al estimar—, pero la marca se guarda
+        # para que los escritores devuelvan `number` y no un año inventado.
+        ts.numbering = numbering
         model = Model(
             ts,
             ar=ar,           ar_free=ar_free if ar else None,
@@ -524,6 +569,7 @@ class _InpParser:
             mu=mu, estimate_mu=estimate_mu,
             boxlam=boxlam, refactor=refactor,
         )
+        model.cbands = cbands
         if fuf_horizon is not None:
             model._fuf_horizon = fuf_horizon
             model._fuf_sigma2  = fuf_sigma2

@@ -1059,6 +1059,29 @@ def _seasonal_poly(coefs, sper):
     return poly
 
 
+def _exacto(v, decimales):
+    """`v` con `decimales` decimales si así relee idéntico; si no, con los
+    mínimos que lo consigan (BUG-0021).
+
+    Para lo que es ESPECIFICACIÓN y no semilla —un parámetro FIJO, λ, el
+    armónico de un cos/sin, la frecuencia de un operador de frecuencia fija—:
+    redondearlo no re-siembra nada, cambia el modelo. Cuando el formato de
+    siempre ya es exacto, sale el mismo byte que antes.
+    """
+    v = float(v)
+    for d in range(decimales, 18):
+        t = f"{v:.{d}f}"
+        if float(t) == v:
+            return t
+    return repr(v)
+
+
+def _coef(v, free, decimales):
+    """Un coeficiente del .pre: la semilla libre con su formato de siempre, el
+    valor FIJO con el que relee idéntico (BUG-0021)."""
+    return f"{float(v):.{decimales}f}" if free else _exacto(v, decimales)
+
+
 def _arma_body(factors, free_lists, fitted_factors):
     """Return the body string for one ARMA section, ending with '**' (no newline).
 
@@ -1074,7 +1097,7 @@ def _arma_body(factors, free_lists, fitted_factors):
         fl = free_lists[i] if free_lists is not None else [True] * len(factor)
         for val, free in zip(fitted_factors[i], fl):
             flag = "1" if free else "0"
-            body += f"\n{val:.4f} {flag}"
+            body += f"\n{_coef(val, free, 4)} {flag}"
         body += "\n**"
     return body
 
@@ -1089,10 +1112,10 @@ def _ffixed_body(ff_list, fitted_phi2):
     # freqs share the first line; the freq must NOT be repeated on the coef line
     # (doing so makes the C read the '**' as a float -> garbage/crash). Coef at
     # .6f to preserve the estimated witness precision in forecasts.
-    body = f"{n} " + " ".join(f"{ff.freq:.6f}" for ff in ff_list) + "\n**"
+    body = f"{n} " + " ".join(_exacto(ff.freq, 6) for ff in ff_list) + "\n**"
     for _ff, phi2 in zip(ff_list, fitted_phi2):
         flag = "1" if _ff.free else "0"
-        body += f"\n{phi2:.6f} {flag}"
+        body += f"\n{_coef(phi2, _ff.free, 6)} {flag}"
         body += "\n**"
     return body
 
@@ -1128,7 +1151,8 @@ def write_pre(model, path):
 
     # ── Frequency ─────────────────────────────────────────────────────────────
     out += "** Frequency of time series: either 1(A), 4(Q) or 12(M):\n"
-    out += f" {ts.freq}\n"
+    # Una serie sin fechar vuelve como `number`, no como anual (BUG-0018).
+    out += " number\n" if ts.numbering else f" {ts.freq}\n"
 
     # ── Observations + start + name ───────────────────────────────────────────
     out += "** Number of observations and starting date of time series:\n"
@@ -1155,7 +1179,7 @@ def write_pre(model, path):
         for i, itv in enumerate(model.interventions):
             for val, free in zip(f['omega_vals'][i], itv.omega_free):
                 flag = "1" if free else "0"
-                out += f"{val:.6f}  {flag}\n"
+                out += f"{_coef(val, free, 6)}  {flag}\n"
             out += "**\n"
         # delta orders
         delta_orders = [len(itv.delta) for itv in model.interventions]
@@ -1164,10 +1188,13 @@ def write_pre(model, path):
         for i, itv in enumerate(model.interventions):
             if len(itv.delta) > 0:
                 out += "**\n"
+                # Un par por línea, como en ω y como el motor desde 0d09abb:
+                # con el salto fuera del bucle, dos δ salían pegados
+                # («1.8400  1-0.8631  1») y el .pre no lo releía nadie
+                # (BUG-0020).
                 for val, free in zip(f['delta_vals'][i], itv.delta_free):
                     flag = "1" if free else "0"
-                    out += f"{val:.4f}  {flag}"
-                out += "\n"
+                    out += f"{_coef(val, free, 4)}  {flag}\n"
     else:
         out += " 0\n"
 
@@ -1192,12 +1219,16 @@ def write_pre(model, path):
     out += " Mean parameter (mu):\n"
     if model.estimate_mu:
         out += f"{f['mu_val']:.6f} 1\n"
+    elif model.mu0:
+        # Una μ FIJA no nula es especificación: se escribe con su bandera 0 y
+        # exacta. Antes se emitía «0» y la media desaparecía (BUG-0021).
+        out += f"{_exacto(model.mu0, 6)} 0\n"
     else:
         out += "0\n"
 
     # ── Box-Cox + differences ─────────────────────────────────────────────────
     out += "** Box-Cox lambda, regular differences and complete annual differences:\n"
-    out += f"{model.boxlam:.2f} {model.d} {model.D}\n"
+    out += f"{_exacto(model.boxlam, 2)} {model.d} {model.D}\n"
 
     # ── ifadf ────────────────────────────────────────────────────────────────
     out += "** Individual factors of the annual difference (from freq 0.0): \n"
@@ -1210,14 +1241,25 @@ def write_pre(model, path):
 
     # ── cbands + refactor ────────────────────────────────────────────────────
     out += "** ACF/PACF bands (0 Automatic) and reescaling factor: \n"
-    out += f" 0.00 {model.refactor:.2f}\n"
+    out += f" {float(getattr(model, 'cbands', 0.0) or 0.0):.2f} {model.refactor:.2f}\n"
 
     # ── Data ─────────────────────────────────────────────────────────────────
     out += "** Time series (stochastic and non-standard deterministic variables): \n"
     custom_itvs = [(i, itv) for i, itv in enumerate(model.interventions)
-                   if itv.type == "custom" and itv.data is not None]
+                   if itv.type == "custom"]
+    # Declarar el determinista no estándar y omitir su columna es escribir un
+    # fichero que miente: se relee como otro modelo (art/bugs/BUG-0187).
+    for i, itv in custom_itvs:
+        if itv.data is None or len(itv.data) < ts.nobs:
+            raise ValueError(
+                f"el determinista no estándar #{i + 1} no trae datos para las "
+                f"{ts.nobs} observaciones: sin su columna el fichero no "
+                f"representa el modelo")
     for k in range(ts.nobs):
-        row = f"{ts.data[k]:.10f} "
+        # Los DATOS no son semillas: la observación relee idéntica. Con
+        # `.10f` fijo, un .inp exacto y su .pre estimaban sobre datos
+        # distintos (art/bugs/BUG-0188). Mismo byte cuando `.10f` ya basta.
+        row = f"{_exacto(ts.data[k], 10)} "
         for _, itv in custom_itvs:
             row += f"   {itv.data[k]}"
         out += row + "\n"
@@ -1285,7 +1327,8 @@ def write_fuf(model, horizon, sigma2, path=None):
 
     # ── Frequency ────────────────────────────────────────────────────────────
     out += "** Frequency of time series: either 1(A), 4(Q) or 12(M):\n"
-    out += f" {ts.freq}\n"
+    # Una serie sin fechar vuelve como `number`, no como anual (BUG-0018).
+    out += " number\n" if ts.numbering else f" {ts.freq}\n"
 
     # ── Observations + start + name ──────────────────────────────────────────
     out += "** Number of observations and starting date of time series:\n"
@@ -1314,17 +1357,20 @@ def write_fuf(model, horizon, sigma2, path=None):
         for i, itv in enumerate(model.interventions):
             for val, free in zip(f['omega_vals'][i], itv.omega_free):
                 flag = "1" if free else "0"
-                out += f"{val:.6f}  {flag}\n"
+                out += f"{_coef(val, free, 6)}  {flag}\n"
             out += "**\n"
         delta_orders = [len(itv.delta) for itv in model.interventions]
         out += " ".join(str(s) for s in delta_orders) + " \n"
         for i, itv in enumerate(model.interventions):
             if len(itv.delta) > 0:
                 out += "**\n"
+                # Un par por línea, como en ω y como el motor desde 0d09abb:
+                # con el salto fuera del bucle, dos δ salían pegados
+                # («1.8400  1-0.8631  1») y el .pre no lo releía nadie
+                # (BUG-0020).
                 for val, free in zip(f['delta_vals'][i], itv.delta_free):
                     flag = "1" if free else "0"
-                    out += f"{val:.4f}  {flag}"
-                out += "\n"
+                    out += f"{_coef(val, free, 4)}  {flag}\n"
     else:
         out += " 0\n"
 
@@ -1346,12 +1392,16 @@ def write_fuf(model, horizon, sigma2, path=None):
     out += " Mean parameter (mu):\n"
     if model.estimate_mu:
         out += f"{f['mu_val']:.6f} 1\n"
+    elif model.mu0:
+        # Una μ FIJA no nula es especificación: se escribe con su bandera 0 y
+        # exacta. Antes se emitía «0» y la media desaparecía (BUG-0021).
+        out += f"{_exacto(model.mu0, 6)} 0\n"
     else:
         out += "0\n"
 
     # ── Box-Cox + differences ─────────────────────────────────────────────────
     out += "** Box-Cox lambda, regular differences and complete annual differences:\n"
-    out += f"{model.boxlam:.2f} {model.d} {model.D}\n"
+    out += f"{_exacto(model.boxlam, 2)} {model.d} {model.D}\n"
 
     # ── ifadf ────────────────────────────────────────────────────────────────
     out += "** Individual factors of the annual difference (from freq 0.0): \n"
@@ -1364,14 +1414,25 @@ def write_fuf(model, horizon, sigma2, path=None):
 
     # ── cbands + refactor ────────────────────────────────────────────────────
     out += "** ACF/PACF bands (0 Automatic) and reescaling factor: \n"
-    out += f" 0.00 {model.refactor:.2f}\n"
+    out += f" {float(getattr(model, 'cbands', 0.0) or 0.0):.2f} {model.refactor:.2f}\n"
 
     # ── Data ─────────────────────────────────────────────────────────────────
     out += "** Time series (stochastic and non-standard deterministic variables): \n"
     custom_itvs = [(i, itv) for i, itv in enumerate(model.interventions)
-                   if itv.type == "custom" and itv.data is not None]
+                   if itv.type == "custom"]
+    # Declarar el determinista no estándar y omitir su columna es escribir un
+    # fichero que miente: se relee como otro modelo (art/bugs/BUG-0187).
+    for i, itv in custom_itvs:
+        if itv.data is None or len(itv.data) < ts.nobs:
+            raise ValueError(
+                f"el determinista no estándar #{i + 1} no trae datos para las "
+                f"{ts.nobs} observaciones: sin su columna el fichero no "
+                f"representa el modelo")
     for k in range(ts.nobs):
-        row = f"{ts.data[k]:.10f} "
+        # Los DATOS no son semillas: la observación relee idéntica. Con
+        # `.10f` fijo, un .inp exacto y su .pre estimaban sobre datos
+        # distintos (art/bugs/BUG-0188). Mismo byte cuando `.10f` ya basta.
+        row = f"{_exacto(ts.data[k], 10)} "
         for _, itv in custom_itvs:
             row += f"   {itv.data[k]}"
         out += row + "\n"
@@ -1536,9 +1597,9 @@ def _itv_name_line(itv, begyear, begtime, freq):
             return f"ramp {sub} {year}"
         return f"ramp {year}"
     elif t == "cos":
-        return f"cos {itv.harmonic:.0f}"
+        return f"cos {_exacto(itv.harmonic, 0)}"
     elif t == "sin":
-        return f"sin {itv.harmonic:.0f}"
+        return f"sin {_exacto(itv.harmonic, 0)}"
     elif t in ("alter", "easter", "trend"):
         return t
     elif t == "custom":

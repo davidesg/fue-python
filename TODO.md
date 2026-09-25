@@ -809,3 +809,31 @@ Si se adopta, caen por innecesarias media docena de defensas que `art` construy�
 alrededor del síntoma: los dos detectores de covarianza-semilla (BUG-0027,
 BUG-0041, BUG-0124), la cláusula de las SE del convenio de ficheros (BUG-0090,
 BUG-0159) y el aviso de BUG-0168.
+
+## CI — la rueda de Linux tarda casi dos horas (medido 2026-09-25)
+
+El job `ubuntu-latest` de `wheels.yml` tardó 1 h 48 min (y 2 h 28 min el mismo
+día), frente a 2 min en macOS y 7 en Windows. Medido en el log, por bloque:
+
+    4 × manylinux x86_64    nativo     ~5 min
+    4 × manylinux aarch64   QEMU       ~14 min
+    4 × musllinux x86_64    nativo     ~3 min
+    4 × musllinux aarch64   QEMU       ~86 min   ← 15–24 min cada rueda
+
+Construir fue en musllinux aarch64 son 30 s. Lo lento es el TEST de cada
+rueda: instala las dependencias de fue, y **matplotlib no tiene rueda para
+musllinux aarch64**, así que se compila desde el sdist (35 MB), bajo emulación
+QEMU y una vez por versión de Python.
+
+- [ ] **A (recomendada): runners ARM nativos** (`ubuntu-24.04-arm`, gratuitos en
+      repos públicos) en vez de QEMU: un job Linux x86_64 y otro aarch64, cada
+      uno con `CIBW_ARCHS_LINUX` a su arquitectura. Todo aarch64 pasa a nativo.
+- [ ] Alternativas si A no basta: `test-skip = "*-musllinux_aarch64"` (se
+      publican cuatro ruedas sin probar), o no publicar musllinux aarch64
+      (Alpine sobre ARM compilaría desde el sdist).
+- [ ] **D, con la 0.3**: matplotlib como extra (`fue[graficos]`), que es el paso 2
+      de BUG-0023 (art-python TODO, «PARA 0.3 — un solo dibujo»). Con eso el
+      test de la rueda ya no compila matplotlib, y fue se aligera.
+
+No se tocó antes de publicar la 0.1.16: el pipeline funciona y acababa de
+validarla; cambiarlo obligaba a revalidar.

@@ -186,6 +186,9 @@ PLANTILLA = """************************************************
 def _ll_en_semillas(path):
     """Verosimilitud exacta concentrada en las semillas del `.pre` (sin ajustar)."""
     import fue
+    # drvarma es otro paquete de la suite, no una dependencia de fue: sin él
+    # no hay con qué homologar, y eso es un salto, no un fallo.
+    pytest.importorskip("drvarma.estimate_py")
     from drvarma.estimate_py import _elf_f1f2
     from fue.cast_us import _build_initial_x, build_est_spec, cast_us_py
 

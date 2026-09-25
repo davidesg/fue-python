@@ -61,7 +61,10 @@ def _serie(n=60, seed=3):
 def _con_regresor(tmp_path, columnas):
     y = _serie()
     x = np.linspace(-1.0, 1.0, len(y))
-    rows = [f"{a!r} {b!r}" if columnas else f"{a!r}" for a, b in zip(y, x)]
+    # float() antes de repr(): con numpy 2 el repr de un escalar es
+    # `np.float64(…)` y el fichero no se podría leer.
+    rows = [f"{float(a)!r} {float(b)!r}" if columnas else f"{float(a)!r}"
+            for a, b in zip(y, x)]
     p = tmp_path / "reg.inp"
     p.write_text(_inp(" 1", f" {len(y)} 1 1950 REG",
                       ["1", "**", "custom", "**", "0", "**", "0.0 1", "**", "0"],
@@ -88,7 +91,7 @@ def _simple(tmp_path, freq_line=" 1", bands=" 0 1.00", obs=None):
     p = tmp_path / "s.inp"
     p.write_text(_inp(freq_line, obs or f" {len(y)} 1 1950 S", [" 0"],
                       ["1 1", "**", "0.5 1"], "0", "1.00 0 0", bands,
-                      [f"{v!r}" for v in y]))
+                      [f"{float(v)!r}" for v in y]))
     return p
 
 
@@ -137,7 +140,7 @@ def _con_delta2_y_fijos(tmp_path):
                       ["1 1", "**", "0.941176"],        # AR FIJO (sin bandera)
                       "-7.123456789 0",                  # μ FIJA no nula
                       "0.333333333333 0 0", " 0 1.00",   # λ = 1/3
-                      [f"{v!r}" for v in y]))
+                      [f"{float(v)!r}" for v in y]))
     return p
 
 

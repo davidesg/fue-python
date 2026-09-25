@@ -145,8 +145,10 @@ def test_model_requires_fit_before_results():
 
 def test_from_pandas_annual():
     pd = pytest.importorskip("pandas")
+    # "Y", no "A": pandas 3 retiró el alias "A" (y 2.2 ya avisaba). fue lee
+    # los dos (series.py), pero el índice lo construye pandas.
     s = pd.Series(range(20),
-                  index=pd.period_range("1990", periods=20, freq="A"))
+                  index=pd.period_range("1990", periods=20, freq="Y"))
     ts = TimeSeries.from_pandas(s)
     assert ts.nobs == 20
     assert ts.freq == 1

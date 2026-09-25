@@ -104,13 +104,15 @@ def as197(tmp_path_factory):
 def _flikam(exe, w, phi, theta, toler=-1e-3):
     """Run FLIKAM. `toler` negative asks for the exact likelihood — the
     paper's contract for TOLER, and the reason fue signs `xitol` the way it
-    does (`fue_api.c:951-956`)."""
+    does (`fue_api.c:951-956`). Numbers go through float() before repr(): with
+    numpy 2 the repr of a numpy scalar is `np.float64(…)`, which the Fortran
+    driver cannot read (as in test_as311)."""
     stdin = f"{len(phi)} {len(theta)} {len(w)} {toler}\n"
     if phi:
-        stdin += " ".join(repr(v) for v in phi) + "\n"
+        stdin += " ".join(repr(float(v)) for v in phi) + "\n"
     if theta:
-        stdin += " ".join(repr(v) for v in theta) + "\n"
-    stdin += "\n".join(repr(v) for v in w) + "\n"
+        stdin += " ".join(repr(float(v)) for v in theta) + "\n"
+    stdin += "\n".join(repr(float(v)) for v in w) + "\n"
     out = subprocess.run([exe], input=stdin, capture_output=True,
                          text=True).stdout
     return {k: float(v) for k, v in

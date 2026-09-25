@@ -260,3 +260,18 @@ el motivo por el que sigue abierto ya no es «el optimizador es frágil»: es
 **«falta una máquina Windows para verificar una observación de julio que el
 resto de la evidencia no acompaña»**, que es una razón muy distinta y mucho más
 pequeña.
+
+## Nota — 2026-09-25: también depende de la versión de numpy
+
+En la prueba de las ruedas en un entorno limpio (numpy 2.5.3, scipy 1.18.1; el de
+desarrollo tiene numpy 1.26.4), dos tests del caso IPC-T/Coint/R.4 —el que ya
+avisa «la estimación paró sin anular el gradiente» (BUG-0012)— fallan y en el
+entorno de desarrollo pasan:
+
+    test_qnewtopt::test_raxopt_matches_c[R.4]      raxopt logL 212.059483  vs C 211.214577
+    test_performance::test_py_sigma2[IPC-T/Coint/R.4]  σ² 0.00009641 vs 0.00009453
+
+Es el mismo fenómeno que este informe describe entre Windows y Linux: sobre una
+verosimilitud sin óptimo nítido, el camino del optimizador depende de detalles
+numéricos, y aquí el detalle es la versión de numpy. No se marcan como xfail: la
+diferencia es información, y un test que la esconda dejaría de verla.

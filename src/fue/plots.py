@@ -82,8 +82,11 @@ def plot_residuals_ts(residuals, model=None, title="", ax=None):
     start_year, start_period = 1, 1
     refactor = 100.0
     if model is not None:
+        from .diagnostics import residuals_start
         freq = model.series.freq
-        start_year, start_period = model.series.start
+        # The first residual is NOT the first observation: the differencing
+        # consumed d + D·s + the ifadf roots of them (BUG-0023).
+        start_year, start_period = residuals_start(model)
         refactor = float(model.refactor) if model.refactor != 0 else 100.0
 
     xs = _obs_to_decimal_year(n, start_year, start_period, freq)
@@ -201,7 +204,13 @@ def plot_acf_pacf(residuals, npar=0, freq=1, lags=None, title="",
     _draw_acf_panel(ax_acf,  lag_x, rc, band, cmax, freq, lags, 'acf')
     lb = _lb(r, lags=lags, df_correction=npar)
     lb_stat = lb["statistic"][0]
-    ax_acf.set_xlabel(f"Q({lags - npar}) = {lb_stat:.1f}", fontsize=10)
+    # `npar` is the number of ESTIMATED ARMA parameters (free_arma_count), so
+    # the parenthesis is the chi-square df — the same label as pyfug. With
+    # df <= 0 there is no test, and a label that reads like one is worse than
+    # none (BUG-0023, art BUG-0166).
+    df = lags - int(npar)
+    ax_acf.set_xlabel(f"Q({df}) = {lb_stat:.1f}" if df >= 1
+                      else f"Q = {lb_stat:.1f}  (df ≤ 0: no test)", fontsize=10)
 
     _draw_acf_panel(ax_pacf, lag_x, pc, band, cmax, freq, lags, 'pacf')
     ax_pacf.set_xlabel('')
@@ -294,9 +303,14 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
     import matplotlib.pyplot as plt
     import matplotlib.gridspec as gridspec
 
+    from .diagnostics import free_arma_count
     model._require_fit()
     r     = model._result.residuals
-    npar  = model._result.npar
+    # NOT model._result.npar: that counts every parameter, harmonics and
+    # interventions included, and the Q df only loses the ESTIMATED ARMA ones.
+    # With 10 harmonics and an AR(1) fixed at 0 the label read Q(28) where the
+    # test has 39 df (BUG-0023).
+    npar  = free_arma_count(model)
     freq  = model.series.freq
     name  = model._inp_stem or model.series.name
     title = f"A.{name}"
@@ -531,11 +545,9 @@ def _obs_to_decimal_year(n, start_year, start_period, freq):
 
 
 def _default_lags(n, freq):
-    if n < 3 * (freq + 1):
-        return max(n - freq // 2, 1)
-    if freq == 1:
-        return 9
-    return 3 * (freq + 1)
+    """fug C rule — see diagnostics.default_lags (BUG-0023)."""
+    from .diagnostics import default_lags
+    return default_lags(n, freq)
 
 
 def _snap_series_max(val):

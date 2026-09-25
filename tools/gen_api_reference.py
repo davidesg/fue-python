@@ -36,6 +36,8 @@ _GROUPS = [
     ]),
     ("Diagnostics", [
         "acf", "pacf", "ljung_box", "jarque_bera",
+        "default_lags", "free_arma_count", "differencing_offset",
+        "residuals_start",
     ]),
     ("Results", [
         "ForecastResult",

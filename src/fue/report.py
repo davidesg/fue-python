@@ -817,7 +817,7 @@ def _section_histogram(lines, res):
 
 def _section_corr(lines, model, res, n_eff, freq):
     """ACF and PACF bar plots with Ljung-Box Q (PlotCor port)."""
-    from .diagnostics import acf as _acf, pacf as _pacf
+    from .diagnostics import acf as _acf, pacf as _pacf, default_lags
 
     std = float(np.std(res))
     if std < 1e-20:
@@ -825,16 +825,7 @@ def _section_corr(lines, model, res, n_eff, freq):
 
     n = n_eff
 
-    if n < 3 * (freq + 1):
-        lags = n - freq // 2
-    elif freq == 1 and n > 200:
-        lags = 45
-    elif freq == 1:
-        lags = 9
-    else:
-        lags = 3 * (freq + 1)
-
-    lags = max(1, lags)
+    lags = default_lags(n, freq)          # fug C rule, one place (BUG-0023)
     nparma = _count_nparma(model)
 
     acf_vals  = _acf(res, lags=lags)
@@ -1664,21 +1655,10 @@ def _write_ffixed_section(lines, ff_list, fitted_phi2):
 
 
 def _count_nparma(model):
-    """Count free ARMA parameters (AR1+AR2+MA1+MA2+AR1f+MA1f), excluding omega/delta/mu."""
-    n = 0
-    for factors, free_lists in [
-        (model.ar,   model.ar_free),
-        (model.ar_s, model.ar_s_free),
-        (model.ma,   model.ma_free),
-        (model.ma_s, model.ma_s_free),
-    ]:
-        for i, factor in enumerate(factors):
-            fl = (free_lists[i] if free_lists is not None
-                  else [True] * len(factor))
-            n += sum(1 for f in fl if f)
-    n += sum(1 for ff in model.ar_f if ff.free)
-    n += sum(1 for ff in model.ma_f if ff.free)
-    return n
+    """Count free ARMA parameters, excluding omega/delta/mu (see
+    diagnostics.free_arma_count — the one place that counts them, BUG-0023)."""
+    from .diagnostics import free_arma_count
+    return free_arma_count(model)
 
 
 def _chi_test(corr, lags, nobs):

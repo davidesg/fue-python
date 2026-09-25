@@ -567,7 +567,19 @@ parámetros; si g=0, devolver solo el valor de verosimilitud del ruido blanco pu
 de estimación en el flujo Box-Jenkins. Claude llama a `fue.Model` + `m.fit()` y luego
 usa pyfug para los gráficos diagnósticos de residuos. No hace falta un ART complejo.
 
-- [ ] **Reemplazar `plots.py` con pyfug**: sustituir los gráficos matplotlib actuales
+- [ ] **Reemplazar `plots.py` con pyfug** — **DECIDIDO 2026-09-25, para la 0.3 de
+  la suite** (el paso 2 de BUG-0023; plan en art-python `TODO.md`, «PARA 0.3 — un
+  solo dibujo para la figura de un modelo»). Forma decidida: **serie → pyfug;
+  modelo → fue**. `plot_model_diagnostics` sigue siendo la única entrada para la
+  figura de un modelo, delega en `pyfug.graphics.plot_combined` si pyfug está
+  instalado (extra opcional `fue[graficos]`, importado de forma perezosa) y
+  conserva `plots.py` como respaldo con los MISMOS números. fue no pasa a
+  depender de pyfug. Condiciones previas, en pyfug: que deje de reescribir los
+  `rcParams` globales al importarse y que sustituya statsmodels por ACF/PACF/Q
+  propias (las de `fue.diagnostics` dan lo mismo a 1e-15), que es lo que le
+  impone el tope de retardos n/2 − 1 y 1,4 s de importación.
+
+  Original: sustituir los gráficos matplotlib actuales
   de `plot_model_diagnostics` y `plot_forecast` por los gráficos Jenkins-Treadway
   de `pyfug.graphics`, para coherencia visual con FUG y ART.
   - `plot_combined` → residuos + ACF/PACF en layout combinado
@@ -582,7 +594,9 @@ usa pyfug para los gráficos diagnósticos de residuos. No hace falta un ART com
       m = m.add_intervention('step', at=at)
   m.fit()
   resids = np.array(m.residuals.data)  # TimeSeries → ndarray
-  # npar = len(m.params); sigma = np.std(resids, ddof=0)
+  # sigma = np.std(resids, ddof=0)
+  # df de la Q: NO len(m.params) — eso cuenta armónicos e intervenciones.
+  # Usa fue.diagnostics.free_arma_count(m) (BUG-0023).
   ```
 
 ### Media prioridad

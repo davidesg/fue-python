@@ -20,6 +20,8 @@ from .intervention import Intervention
 from .model import Model, FixedFreqFactor
 from .forecast import ForecastResult
 from .diagnostics import acf, pacf, jarque_bera, ljung_box
+from .diagnostics import (default_lags, free_arma_count,
+                          differencing_offset, residuals_start)
 from .inp import load, load_fuf
 from .report import write_out, write_fuf, write_fuf_out
 from .report_forecast import write_forecast_report
@@ -66,5 +68,7 @@ def _version() -> str:
 __version__ = _version()
 __all__ = ["TimeSeries", "Intervention", "Model", "FixedFreqFactor",
            "ForecastResult", "acf", "pacf", "jarque_bera", "ljung_box",
+           "default_lags", "free_arma_count", "differencing_offset",
+           "residuals_start",
            "load", "load_fuf", "write_out", "write_fuf", "write_fuf_out",
            "write_forecast_report", "datasets"]

@@ -424,6 +424,40 @@ Jarque-Bera normality test.
 
 Returns (statistic, p-value).
 
+### `default_lags(nobs, freq)`
+
+Default number of acf/pacf lags — the rule of fug C, exactly.
+
+fug-1.14-proto/src/diagnose.c, default_lags(): «same rule for the .out
+file, the plots and the GUI». At most nobs − 2 lags, at least 1.
+
+### `free_arma_count(model)`
+
+Number of ESTIMATED ARMA parameters — the Ljung-Box df correction.
+
+Counts the free coefficients of the regular and seasonal AR/MA factors and
+of the fixed-frequency AR(2)/MA(2) factors. Deterministic regressors
+(harmonics, interventions, the mean) do NOT count: they are not estimated
+from the autocorrelation of the residuals. Fixed coefficients do not count
+either: an AR(1) fixed at 0 estimates nothing.
+
+### `differencing_offset(model)`
+
+How many observations the differencing consumes before the 1st residual.
+
+    d          each regular difference consumes 1
+    D · s      each seasonal difference consumes s
+    ifadf[f]   each stochastic seasonal ROOT consumes the degree of its
+               factor: 2 at an interior frequency (1 − 2cos(ω)B + B²),
+               1 at the Nyquist frequency (1 + B)
+
+The third term is the one that was missing wherever the count was written
+by hand as d + D·s (art BUG-0172, BUG-0185).
+
+### `residuals_start(model)`
+
+(year, period) of the FIRST residual: the series start plus the offset.
+
 
 ## Results
 

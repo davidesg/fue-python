@@ -30,4 +30,5 @@ New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  
 | [BUG-0020](BUG-0020-write-pre-pega-los-pares-de-deltas-sin-separador.md) | fixed | high | inp-writer | write_pre pega los pares de deltas sin separador cuando hay dos o mas: el .pre que escribe no lo relee ni fue.load ni el motor | 0.1.16 |
 | [BUG-0021](BUG-0021-write-pre-cuantiza-tambien-los-parametros-fijos-.md) | fixed | high | inp-writer | write_pre cuantiza tambien los parametros FIJOS: un AR fijado en 0.941176 vuelve fijado en 0.9412, que es otro modelo | 0.1.16 |
 | [BUG-0022](BUG-0022-en-una-serie-anual-con-nombre-numerico-load-toma.md) | fixed | high | inp-reader | En una serie ANUAL con nombre numerico, load() toma el nombre por el ano: la serie se lee empezando 254 anios mas tarde y pierde el nombre | 0.1.16 |
+| [BUG-0023](BUG-0023-la-figura-de-residuos-no-sabe-del-modelo.md) | fixed | high | plots | La figura de residuos de un modelo no sabe del modelo: la Q resta todos los parámetros, el primer residuo lleva la fecha del primer dato y los retardos no son los de fug C | 0.1.16 |
 

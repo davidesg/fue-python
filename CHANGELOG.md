@@ -3,7 +3,68 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
-## 0.1.15 — 2026-09-07
+## 0.1.16 — 2026-09-25
+
+La 0.1.15 no llegó a publicarse: su contenido (BUG-0016) sale en ésta. Tres
+bloques, más una lección de empaquetado.
+
+### El contrato de ficheros, sin mentir — BUG-0017 a BUG-0022
+
+Seis defectos del estudio del contrato `.inp`/`.pre`/`.out` (el banco de
+conformidad de atws), los seis confirmados contra el código:
+
+* **BUG-0017** — `load()` rellenaba con ceros la columna de un determinista no
+  estándar que faltaba: un fichero mutilado se leía como un modelo con un
+  regresor nulo. Ahora falla, como el motor.
+* **BUG-0018** — `number` (serie sin fechar) y `cbands` se perdían al leer; se
+  conservan y los escritores los devuelven.
+* **BUG-0019** — el puerto rechazaba un `.pre` escrito por el propio motor
+  (`phi2 = -0.0` en un factor de frecuencia fija).
+* **BUG-0020** — `write_pre` pegaba los pares de δ sin separador: con dos o más,
+  el `.pre` no lo releía nadie.
+* **BUG-0021** — `write_pre` cuantizaba también los parámetros FIJOS (un AR
+  fijado en 0.941176 volvía en 0.9412, que es otro modelo), y tiraba la μ fija
+  no nula. Lo que es especificación relee idéntico.
+* **BUG-0022** — en una serie anual con nombre numérico, `load()` tomaba el
+  nombre por el año.
+
+### La figura de residuos de un modelo sabe del modelo — BUG-0023
+
+`plot_model_diagnostics` rotulaba `Q(lags − npar)` con `npar` = TODOS los
+parámetros, armónicos e intervenciones incluidos: **Q(28) donde el test tiene 39
+grados de libertad** (IPC de España, AR(1) fijo en 0). Fechaba el primer residuo
+en el primer dato, sin el desfase de la diferenciación. Y sus retardos no eran
+la regla de fug C.
+
+Lo que sólo sabe el modelo vive ahora en `fue.diagnostics`, una vez, y es API
+pública: **`default_lags`** (la regla de fug C, `diagnose.c`),
+**`free_arma_count`** (los ARMA estimados, con los factores de frecuencia fija),
+**`differencing_offset`** (d + D·s + las raíces de `ifadf`) y
+**`residuals_start`**. `plots.py` y el `.out` las usan. art las usa desde su
+0.2.2.
+
+### `__version__` sale de la metadata — BUG-0016
+
+Era la entrada de la 0.1.15; ver abajo.
+
+### Los tests, con numpy 2 y pandas 3
+
+Probadas las ruedas en un entorno limpio (numpy 2.5, pandas 3.0), 40 tests
+fallaban por construir sus ficheros con `repr()` de escalares de numpy
+(`np.float64(10.0)`), por el alias de frecuencia `"A"` que pandas 3 retiró, o por
+necesitar `drvarma` sin saltarse cuando falta. **La librería no:** escribe,
+relee y reestima `.pre` con numpy 2 sin diferencias.
+
+### Lo que sigue abierto
+
+* **BUG-0015** — los errores típicos salen de la matriz que el BFGS acumula por
+  el camino, no del hessiano en el óptimo. Esta versión trae el diagnóstico
+  (la vía del hessiano existe y el paso está mal traducido), no el arreglo.
+* **BUG-0005** — el caso R.4 llega a otro óptimo con numpy 2 que con numpy 1
+  (logL 212.06 frente a 211.21 de C): la misma sensibilidad al entorno que el
+  informe describe entre plataformas.
+
+## 0.1.15 — 2026-09-07  ·  no publicada: su contenido sale en la 0.1.16
 
 **`fue.__version__` estaba escrito a mano y se quedó tres versiones atrás**
 (BUG-0016). La 0.1.14 recién publicada en PyPI declaraba `0.1.11` mientras su

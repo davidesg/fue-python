@@ -5,7 +5,7 @@ status: fixed
 severity: low
 component: packaging
 found_in: 0.1.11
-fixed_in: 0.1.15
+fixed_in: 0.1.16
 reported: 2026-09-07
 reporter: David — al verificar la 0.1.14 recién publicada en PyPI
 tags:
@@ -72,3 +72,8 @@ Dos pruebas, y hacen falta las dos:
   - `test_dunder_version_is_not_a_literal` — que se **derive**. Sin ésta, la
     primera pasaría también con el número correcto escrito a mano, y volvería a
     quedarse atrás en la siguiente subida.
+
+## Nota — 2026-09-25
+
+Arreglado en el árbol de la 0.1.15, que no llegó a publicarse; la primera versión
+publicada que lo lleva es la **0.1.16**, y es la que figura en `fixed_in`.

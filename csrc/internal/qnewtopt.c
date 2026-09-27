@@ -498,6 +498,7 @@ real lnsrch( int n, real *xk, real fk, real *gk, real *dk, real *xkp1,
 {
    real alpha, newtlen, tmp, initslp, rellen, minlam, lambda, tlambda;
    real prelam, pfkp1, t1, t2, t3, a, b, disc;
+   int  haveprev = 0;               /* BUG-0025: a backtrack to interpolate  */
    int  i;
 
    *maxtaken = 0;
@@ -529,6 +530,19 @@ real lnsrch( int n, real *xk, real fk, real *gk, real *dk, real *xkp1,
       for ( i = 1; i <= n; i++ ) xkp1[i] = xk[i] + lambda * dk[i];
       *fkp1 = (*func)( xkp1 );
 
+      if ( !isfinite( *fkp1 ) )        /* BUG-0025: inadmissible point:     */
+         {                             /* BUG-0025: with a NaN every test   */
+         if ( lambda < minlam )        /* BUG-0025: below is false and the  */
+            {                          /* BUG-0025: loop never ended. Give  */
+            *retcode = 1;              /* BUG-0025: up as a failed search,  */
+            for ( i = 1; i <= n; i++ ) xkp1[i] = xk[i];   /* BUG-0025       */
+            *fkp1 = fk;                /* BUG-0025: or shrink, without      */
+            }                          /* BUG-0025: interpolating.          */
+         else                          /* BUG-0025                          */
+            lambda = 0.1 * lambda;     /* BUG-0025                          */
+         continue;                     /* BUG-0025                          */
+         }                             /* BUG-0025                          */
+
       if ( *fkp1 <=  fk + alpha * lambda * initslp )
          {
       /* Sufficient function decrease:                                       */
@@ -545,7 +559,7 @@ real lnsrch( int n, real *xk, real fk, real *gk, real *dk, real *xkp1,
          {
       /* Backtrack:                                                          */
       /* First time:                                                         */
-         if ( lambda == 1.0 )
+         if ( !haveprev )              /* BUG-0025: was lambda == 1.0       */
             tlambda = -initslp / (2.0 * (*fkp1 - fk - initslp));
       /* Subsequent backtracks:                                              */
          else
@@ -571,6 +585,7 @@ real lnsrch( int n, real *xk, real fk, real *gk, real *dk, real *xkp1,
             }
          prelam = lambda;
          pfkp1  = *fkp1;
+         haveprev = 1;                 /* BUG-0025                          */
          if ( tlambda <= 0.1 * lambda )
             lambda = 0.1 * lambda;
          else

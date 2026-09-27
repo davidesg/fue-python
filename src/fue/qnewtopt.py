@@ -163,16 +163,33 @@ def _lnsrch(func, xk, fk, gk, dk, maxstep, steptol):
         tmp = abs(dk[i]) / max(abs(xk[i]), 1.0)
         if tmp > rellen:
             rellen = tmp
-    minlam = steptol / rellen
+    # rellen is 0 only for a NaN direction (every comparison above false): as
+    # in the C, minlam is then infinite and the search gives up (BUG-0025).
+    minlam = steptol / rellen if rellen > 0.0 else math.inf
 
-    lam    = 1.0
-    prelam = 0.0
-    pfkp1  = 0.0
-    xkp1   = np.empty_like(xk)
+    lam      = 1.0
+    prelam   = 0.0
+    pfkp1    = 0.0
+    haveprev = False          # a previous backtrack to interpolate from
+    xkp1     = np.empty_like(xk)
 
     while retcode == 2:
         xkp1[:] = xk + lam * dk
         fkp1    = func(xkp1)
+
+        # BUG-0025: a non-finite objective is an inadmissible point, as in the
+        # C. Shrink without interpolating; give up like any failed search once
+        # the step is below minlam. (The port used to survive a NaN only by
+        # accident, through the direction of one comparison, and then
+        # interpolated with it.)
+        if not math.isfinite(fkp1):
+            if lam < minlam:
+                retcode = 1
+                xkp1[:] = xk
+                fkp1    = fk
+            else:
+                lam = 0.1 * lam
+            continue
 
         if fkp1 <= fk + alpha * lam * initslp:
             retcode = 0
@@ -183,7 +200,7 @@ def _lnsrch(func, xk, fk, gk, dk, maxstep, steptol):
             xkp1[:]  = xk
             fkp1     = fk
         else:
-            if lam == 1.0:
+            if not haveprev:          # BUG-0025: was `lam == 1.0`
                 tlambda = -initslp / (2.0 * (fkp1 - fk - initslp))
             else:
                 t1 = fkp1 - fk - lam   * initslp
@@ -201,9 +218,10 @@ def _lnsrch(func, xk, fk, gk, dk, maxstep, steptol):
                     tlambda = (-b + math.sqrt(disc)) / (3.0 * a)
                 if tlambda > 0.5 * lam:
                     tlambda = 0.5 * lam
-            prelam = lam
-            pfkp1  = fkp1
-            lam    = tlambda if tlambda > 0.1 * lam else 0.1 * lam
+            prelam   = lam
+            pfkp1    = fkp1
+            haveprev = True
+            lam      = tlambda if tlambda > 0.1 * lam else 0.1 * lam
 
     return xkp1, fkp1, retcode, maxtaken, lam
 
@@ -211,9 +229,14 @@ def _lnsrch(func, xk, fk, gk, dk, maxstep, steptol):
 # ── Cholesky solve ────────────────────────────────────────────────────────────
 
 def _cholsol(L, b):
-    """Solve L @ L.T @ x = b  (L lower-triangular). Returns x."""
-    y = solve_triangular(L, b, lower=True)
-    return solve_triangular(L, y, lower=True, trans='T')
+    """Solve L @ L.T @ x = b  (L lower-triangular). Returns x.
+
+    No finiteness check (BUG-0025): like the C's cholsol, a NaN gradient gives
+    a NaN direction, and then the line search gives up (retcode 1) and raxopt
+    stops. scipy's default check raised ValueError instead.
+    """
+    y = solve_triangular(L, b, lower=True, check_finite=False)
+    return solve_triangular(L, y, lower=True, trans='T', check_finite=False)
 
 
 # ── Givens rotation ───────────────────────────────────────────────────────────

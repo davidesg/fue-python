@@ -28,6 +28,23 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 - **Standard errors change.** Estimates do not. Anything that published
   standard errors should be rerun.
 
+### The line search on a NaN objective — BUG-0025
+
+- **`lnsrch` never returned on a NaN.** Every comparison it makes is then
+  false, so in the C the loop spun for ever. The Python port crashed on the
+  NaN gradient instead.
+- **It now treats a non-finite point as inadmissible.** It shrinks the step
+  without interpolating and gives up at `minlam`. This is the same fix as
+  drvarma's BUG-0006 and the atsw-gui `lib/optim/lnsrch.c`.
+- **It is not a change to the stopping tests.** Those stay Mauricio's; see
+  atsw-gui `engines/drtran/docs/OPTIMIZER_STOPPING_STUDY.md`.
+- **Nothing moves on a finite trajectory.** All 103 corpus fits are
+  bit-identical before and after, in the C engine and in the pure-Python
+  path.
+- **Through `Model.fit()` this path was already closed** by the objective's
+  guard (BUG-0015), the article's own strategy. The fix covers direct callers
+  of `raxopt`.
+
 ## 0.1.16 — 2026-09-25
 
 La 0.1.15 no llegó a publicarse: su contenido (BUG-0016) sale en ésta. Tres

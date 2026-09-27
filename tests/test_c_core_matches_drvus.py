@@ -221,6 +221,35 @@ _OPT_EXCEPTIONS = [
                         l) is not None),
 ]
 
+# BUG-0025: lnsrch treats a non-finite objective as an inadmissible point (on a
+# NaN it spun for ever). Its lines are generic C ("{", "else", "continue;"), so
+# they are not declared line by line -- that would let the same text pass
+# anywhere. The exact block is UNDONE instead, and must be there exactly once.
+_BUG0025_BLOCK = [
+    "if ( !isfinite( *fkp1 ) )", "{", "if ( lambda < minlam )", "{",
+    "*retcode = 1;", "for ( i = 1; i <= n; i++ ) xkp1[i] = xk[i];",
+    "*fkp1 = fk;", "}", "else", "lambda = 0.1 * lambda;", "continue;", "}",
+]
+_BUG0025_SWAPS = {"if ( !haveprev )": "if ( lambda == 1.0 )"}
+_BUG0025_DROPS = {"int  haveprev = 0;", "haveprev = 1;"}
+
+
+def _undo_bug0025(lines):
+    """qnewtopt.c's code lines with the BUG-0025 change taken out."""
+    st = [l.strip() for l in lines]
+    k = len(_BUG0025_BLOCK)
+    at = [i for i in range(len(st) - k + 1) if st[i:i + k] == _BUG0025_BLOCK]
+    assert len(at) == 1, f"the BUG-0025 block is there {len(at)} times, not once"
+    lines = lines[:at[0]] + lines[at[0] + k:]
+    out = []
+    for l in lines:
+        t = l.strip()
+        if t in _BUG0025_DROPS:
+            continue
+        out.append(l.replace(t, _BUG0025_SWAPS[t]) if t in _BUG0025_SWAPS else l)
+    assert sum(l.strip() == "if ( lambda == 1.0 )" for l in out) == 1
+    return out
+
 
 def _code_only(path, encoding):
     """The file with comments and blank lines removed.
@@ -250,7 +279,7 @@ def _classify_opt(line):
 def test_the_optimizer_is_still_mauricios():
     """raxopt must keep its own rules: BUG-0012 records, it does not decide."""
     a = _code_only(os.path.join(_FUE_1131, "qnewtopt.c"), "latin-1")
-    b = _code_only(os.path.join(_INTERNAL, "qnewtopt.c"), "utf-8")
+    b = _undo_bug0025(_code_only(os.path.join(_INTERNAL, "qnewtopt.c"), "utf-8"))
     undeclared = []
     for line in difflib.unified_diff(a, b, n=0, lineterm=""):
         if line.startswith(("---", "+++", "@@")) or line[:1] not in "-+":

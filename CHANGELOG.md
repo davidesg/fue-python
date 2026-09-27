@@ -3,6 +3,31 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.17 — unreleased
+
+### Standard errors from the Hessian at the optimum — BUG-0015
+
+*(In English from this version on.)*
+
+- **The covariance now comes from fdhess.** It is computed by Mauricio's
+  `fdhess` at the optimum, the call his `drvmlest.c` left commented out. It
+  used to come from the BFGS matrix accumulated along the search, which
+  depended on the path: two runs of one model gave SE(μ) 0.073 and 0.028.
+  The exact GLS is 0.0285, and fue now gives it from any start, in the C
+  engine and in the pure-Python path.
+- **Guarded as in drvarma and drtran.** A boundary optimum, or a Hessian
+  that is not positive definite, falls back to the BFGS matrix, and the fit
+  says so (`FitResult.se_method`). If the search did not iterate, there are
+  no standard errors.
+- **The method is written.** Both `.out` writers print
+  `Standard errors: <method>`.
+- **The old behaviour is kept on request:** `Model(hessian="bfgs")`.
+- **Python's `_fdhess` is now the C's.** It used central differences with
+  step sqrt(eps), the step of a first derivative, which is what made it
+  unusable.
+- **Standard errors change.** Estimates do not. Anything that published
+  standard errors should be rerun.
+
 ## 0.1.16 — 2026-09-25
 
 La 0.1.15 no llegó a publicarse: su contenido (BUG-0016) sale en ésta. Tres

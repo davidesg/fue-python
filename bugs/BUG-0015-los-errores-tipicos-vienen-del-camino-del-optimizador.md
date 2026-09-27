@@ -1,11 +1,11 @@
 ---
 id: BUG-0015
 title: Los errores típicos vienen de la matriz que BFGS acumula por el CAMINO, no del hessiano en el óptimo — dos ejecuciones del mismo modelo dan SE distintos
-status: open
+status: fixed
 severity: high
 component: estimation
 found_in: 0.1.7
-fixed_in:
+fixed_in: 0.1.17 (unreleased)
 reported: 2026-07-12
 reporter: David — al homologar drtran (puente fue → drvarma) contra fue
 tags:
@@ -167,3 +167,60 @@ Una sesión propia: barrido empírico sobre la batería y **decisión de qué ha
 cuando el hessiano no sea definido positivo** —rechazar, avisar, o caer a la
 matriz del BFGS diciéndolo—. Sin esa decisión, aplicar `fdhess` empeora el modo
 de fallo aunque mejore el número.
+
+## Fix — 27-sep-2026 (0.1.17, unreleased)
+
+*In English, like all documentation from 2026-09-26 on.*
+
+The pending decision, what to do when the Hessian is not positive definite,
+was settled for the whole family by drvarma-python's study
+(`docs/STUDY-standard-errors.md` there): **fall back to the BFGS matrix and
+say so.** fdhess matched the exact GLS within 0.35 % and OLS within 1 %.
+The BFGS matrix was off by up to 1483 %.
+
+**C engine** (`csrc/internal/drvmlest.c`, and the fue CLI in the atsw-gui
+monorepo). `est` takes Mauricio's `fdhess` at the optimum, which is the
+commented-out call, with the guards drvarma and drtran use:
+
+- **Boundary check.** A neighbour `objcfunc` refuses means the optimum is on
+  the boundary.
+- **Plain Cholesky first,** because `choldcp` patches pivots.
+- **BFGS fallback.** When either check fails, the BFGS factor is used, and
+  only if raxopt iterated: it starts at the identity. With no iteration there
+  are no standard errors (NaN).
+
+The method travels as `FueResult.se_method` and is shown as
+`FitResult.se_method`. Both `.out` writers print `Standard errors: <method>`
+before the covariance matrix. `Model(hessian="bfgs")` and the CLI's
+`-hessian bfgs` give the old behaviour.
+
+**Python path** (`cast_us._estimate_core`, used without the C engine).
+`_fdhess` is now the line-by-line port of the C's: forward differences,
+step eps^(1/3). The central-difference, sqrt(eps) version is gone. The same
+guards and fallback apply, and `std_errors` is NaN rather than 0.0 when a
+variance is not positive.
+
+**Result on ES_CPI_m10**, the case of this report. The SEs from the exact
+GLS, the C from the `.pre`, and Python from a start 20 % away are all the
+same:
+
+| | mu | phi | cos1 | alter |
+|---|---|---|---|---|
+| exact GLS | 0.028502 | 0.062421 | 0.068328 | 0.006094 |
+| C, fdhess | 0.028502 | 0.062205 | 0.068330 | 0.006094 |
+| C, `-hessian bfgs` | 0.073304 | 0.062333 | 0.095522 | 0.006097 |
+
+`tests/test_bug_0015_standard_errors.py` pins it.
+
+**As this report warned, the inference changes.** In the fue CLI's
+regression suite (atsw-gui `engines/fue/tests`), 145 `.out`/`.tex` files
+differ from the 1.13.1 baseline, and only in SEs, covariances and the new
+line. Estimates, `.pre` files and exit statuses are identical. There are
+two fallbacks, both stated in the `.out`:
+
+- `R.4_2`: the optimum is on the boundary;
+- `syn_ARF`: the Hessian is not positive definite.
+
+**Follow-ups outside fue.** In art, the defences built around the symptom
+(BUG-0090, BUG-0091, the seed-covariance detectors, the 4.23× warning) can be
+reviewed. They are no longer needed where `se_method` is `fdhess`.

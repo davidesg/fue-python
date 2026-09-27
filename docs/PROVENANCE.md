@@ -59,7 +59,7 @@ UTF-8, hence the `tr`):
 |---|---|---|
 | `elfvarma.c` | 23 | GPL header (14), `José` in UTF-8, the `#include`, **one functional change**, one closing comment |
 | `usmelard.c` | 21 | GPL header, encoding, `#include`. **No functional change** |
-| `drvmlest.c` | 22 | idem. **No functional change** |
+| `drvmlest.c` | 22 | idem. **No functional change** (until BUG-0015, below) |
 | `nlatools.c` | 1129 | a separate cleanup — this module *was* rewritten (GSL, 764 lines against 1355) |
 
 The single functional change in the whole likelihood core, `elfvarma.c:513`:
@@ -70,8 +70,35 @@ The single functional change in the whole likelihood core, `elfvarma.c:513`:
 ```
 
 The Numerical Recipes eigenvalue routine replaced by GSL's, guarded for `n>1`.
-**That is the entire delta.** The code implementing AS 311 and AS 197 is the code
-Mauricio published.
+**That was the entire delta** until 0.1.17. The code implementing AS 311 and
+AS 197 is the code Mauricio published.
+
+**The second functional change, `drvmlest.c`, BUG-0015 (0.1.17).** The
+covariance of the estimates now comes from `fdhess` at the optimum. That is the
+alternative Mauricio's own source carried, commented out:
+
+```c
+-/* This is an alternative way of computing the second derivative matrix:     */
+-/* fdhess( objcfunc, npar, par, pi1, macheps, mtmp );                        */
+-/* choldcp( mtmp, npar, &pi2, &pi3, ifault );                                */
++   if ( est_fdhess )                          /* BUG-0015: fdhess_se.c       */
++      fdhess_cov( objcfunc, npar, par, pi1, cov, dev, varmax.n );
++   if ( est_se_bfgs() )                       /* BUG-0015: BFGS, if chosen   */
+```
+
+The rest of that change is in `drvmlest.c` too:
+
+- `objcfunc` counts the points it refuses, which is how a boundary optimum is
+  seen;
+- a non-finite objective is treated as inadmissible;
+- `est` resets the method it reports.
+
+Each of those lines is marked `BUG-0015`. The code itself, with its guards
+(plain Cholesky, boundary, the BFGS fallback only if raxopt iterated), is in a
+new file, `fdhess_se.c`, which is not Mauricio's and is not claimed verbatim.
+The reason is the study in drvarma-python, `docs/STUDY-standard-errors.md`:
+the BFGS matrix of the search depended on the path. `Model(hessian="bfgs")`
+restores the published behaviour.
 
 > ✅ This is an invariant, not a claim: `tests/test_c_core_matches_drvus.py`
 > fails if any line differs in a way not declared there. See §6.

@@ -27,6 +27,27 @@ def _sin_estructura_arma(model) -> bool:
     return True
 
 
+#: The Hessian behind the standard errors, as the C engine codes it
+#: (est_se_how in drvmlest.c) and as every report of the family writes it.
+SE_METHODS = {
+    0: "bfgs",
+    1: "fdhess",
+    2: "bfgs (fdhess: the optimum is on the boundary of the admissible region)",
+    3: "bfgs (fdhess: the Hessian is not positive definite)",
+    4: ("none (fdhess: the optimum is on the boundary of the admissible region; "
+        "the search did not move, so it built no BFGS Hessian)"),
+    5: ("none (fdhess: the Hessian is not positive definite; "
+        "the search did not move, so it built no BFGS Hessian)"),
+}
+
+
+def se_method_label(code, npar):
+    """The method line for a fit with `npar` free parameters."""
+    if npar == 0:
+        return "none (no free parameters)"
+    return SE_METHODS.get(int(code), f"unknown ({code})")
+
+
 def estimate(model):
     """
     Estimate model parameters by exact ML.
@@ -94,6 +115,9 @@ def estimate(model):
     spec.estimate_mu = 1 if model.estimate_mu else 0
     spec.chkma       = 1 if model.chkma else 0
     spec.eml         = 1 if model.eml else 0
+    # BUG-0015: fdhess at the optimum unless the model asks for the BFGS
+    # Hessian of the search (Model(hessian="bfgs")).
+    spec.hessian_bfgs = 1 if getattr(model, "hessian", "fd") == "bfgs" else 0
 
     def _fill_factors(spec_arr, factors, free_lists):
         # Capacity of the cffi transport struct (FueFactor coefs[FUE_MAX_POLYORD]
@@ -189,6 +213,7 @@ def estimate(model):
             'termcode':   raw.termcode,
             'niter':      raw.niter,
             'gnorm':      raw.gnorm,
+            'se_method':  se_method_label(raw.se_method, n),
             'params':     np.array([raw.params[i]     for i in range(n)],    dtype=float),
             'std_errors': np.array([raw.std_errors[i] for i in range(n)],    dtype=float),
             'cov_matrix': np.array([raw.cov_matrix[i] for i in range(n * n)],

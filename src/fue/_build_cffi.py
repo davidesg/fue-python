@@ -129,6 +129,7 @@ typedef struct {
     double xitol;
     int    chkma;
     int    eml;
+    int    hessian_bfgs;
 } FueModelSpec;
 
 typedef struct {
@@ -146,6 +147,7 @@ typedef struct {
     int     termcode;
     int     niter;
     double  gnorm;
+    int     se_method;
 } FueResult;
 
 FueResult *fue_estimate(const FueModelSpec *spec);
@@ -161,6 +163,7 @@ _SOURCES = [
     os.path.join(_INTERN, "qnewtopt.c"),
     os.path.join(_INTERN, "nlatools.c"),
     os.path.join(_INTERN, "drvmlest.c"),
+    os.path.join(_INTERN, "fdhess_se.c"),    # BUG-0015
 ]
 
 if sys.platform == "win32":

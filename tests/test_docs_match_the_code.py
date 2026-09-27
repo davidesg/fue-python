@@ -145,7 +145,8 @@ def test_the_port_document_counts_the_lines_it_claims():
     c = sum(len(open(os.path.join(_ROOT, p), encoding="utf-8").readlines())
             for p in ("csrc/fue_api.c", "csrc/internal/drvmlest.c",
                       "csrc/internal/elfvarma.c", "csrc/internal/nlatools.c",
-                      "csrc/internal/qnewtopt.c", "csrc/internal/usmelard.c"))
+                      "csrc/internal/qnewtopt.c", "csrc/internal/usmelard.c",
+                      "csrc/internal/fdhess_se.c"))
 
     def escrito(n):
         # the document writes thousands with a dot: 1.895

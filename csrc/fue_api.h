@@ -141,6 +141,8 @@ typedef struct {
     double xitol;              /* quick-recursion switch (default 1e-3)    */
     int    chkma;              /* 1 = enforce MA invertibility             */
     int    eml;                /* 1 = exact ML, 0 = approximate ML        */
+    int    hessian_bfgs;       /* 0 = fdhess at the optimum (default);
+                                  1 = the BFGS Hessian of the search (BUG-0015) */
 } FueModelSpec;
 
 /* ── Estimation results ────────────────────────────────────────────────── */
@@ -161,6 +163,10 @@ typedef struct {
                                   4=iteration limit 5=max step (BUG-0012)   */
     int     niter;
     double  gnorm;              /* Euclidean norm of the gradient at the stop. */             /* raxopt iterations actually taken          */
+    int     se_method;         /* which Hessian gave the standard errors:
+                                  0 bfgs, 1 fdhess, 2/3 bfgs because fdhess
+                                  was on the boundary / not PD, 4/5 none
+                                  (the same, and raxopt did not iterate)    */
 } FueResult;
 
 /* ── API entry points ───────────────────────────────────────────────────── */

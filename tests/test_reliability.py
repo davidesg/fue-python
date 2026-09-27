@@ -158,10 +158,25 @@ class TestCOutputs:
 
     @requires_c
     def test_sfny2_std_errors_values(self):
+        # BUG-0015: fdhess at the optimum (the default since 0.1.17). Here the
+        # search took 33 iterations, so the BFGS matrix it built is close; the
+        # old values stay pinned below, under hessian="bfgs".
+        from fue._engine import estimate
+        ref = np.array([0.26769, 0.142445, 0.652528,
+                        0.63728, 0.234632, 0.249242])
+        r = estimate(_sfny2())
+        assert r["se_method"] == "fdhess"
+        np.testing.assert_allclose(r["std_errors"], ref, atol=1e-4)
+
+    @requires_c
+    def test_sfny2_std_errors_values_bfgs(self):
         from fue._engine import estimate
         ref = np.array([0.26836375, 0.1421128, 0.64095188,
                         0.62491302, 0.2329726,  0.24946848])
-        r = estimate(_sfny2())
+        m = _sfny2()
+        m.hessian = "bfgs"
+        r = estimate(m)
+        assert r["se_method"] == "bfgs"
         np.testing.assert_allclose(r["std_errors"], ref, atol=1e-4)
 
     # ── residuals ─────────────────────────────────────────────────────────────

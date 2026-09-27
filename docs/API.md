@@ -43,7 +43,7 @@ Sample statistics matching fue's File_StatSer output.
 Uses population moments (divisor n) to match the C implementation.
 Returns the formatted string (also printed to stdout).
 
-### `Model(series, ar=None, ma=None, ar_s=None, ma_s=None, ar_free=None, ma_free=None, ar_s_free=None, ma_s_free=None, ar_f=None, ma_f=None, d=0, D=0, ifadf=None, interventions=None, mu=0.0, estimate_mu=False, boxlam=1.0, refactor=1.0, eml=True, chkma=True)`
+### `Model(series, ar=None, ma=None, ar_s=None, ma_s=None, ar_free=None, ma_free=None, ar_s_free=None, ma_s_free=None, ar_f=None, ma_f=None, d=0, D=0, ifadf=None, interventions=None, mu=0.0, estimate_mu=False, boxlam=1.0, refactor=1.0, eml=True, chkma=True, hessian='fd')`
 
 ARMAX model with linear transfer function interventions.
 

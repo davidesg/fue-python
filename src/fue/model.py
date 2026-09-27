@@ -78,6 +78,9 @@ class FitResult:
         self.niter      = data.get('niter')
         self.gnorm      = data.get('gnorm')
         self.termcode   = data.get('termcode')
+        # BUG-0015: which Hessian gave std_errors/cov_matrix ("fdhess",
+        # "bfgs (fdhess: <why>)", "none (...)"), as the reports write it.
+        self.se_method  = data.get('se_method')
         self.w          = data.get('w')
         # BUG-0012: `converged` significaba `ifault == 0`, es decir «el motor no
         # reventó» — y con eso devolvía como bueno un alto por criterio de PASO
@@ -210,7 +213,7 @@ class Model:
                  ar_f=None, ma_f=None,
                  d=0, D=0, ifadf=None, interventions=None, mu=0.0,
                  estimate_mu=False, boxlam=1.0, refactor=1.0,
-                 eml=True, chkma=True):
+                 eml=True, chkma=True, hessian="fd"):
         if not isinstance(series, TimeSeries):
             raise TypeError("series must be a TimeSeries instance")
         self.series        = series
@@ -240,6 +243,11 @@ class Model:
         self.cbands        = 0.0
         self.eml           = bool(eml)
         self.chkma         = bool(chkma)
+        # Standard errors (BUG-0015): "fd", Mauricio's fdhess AT the optimum
+        # (the default), or "bfgs", the Hessian the search accumulated.
+        if hessian not in ("fd", "bfgs"):
+            raise ValueError("hessian must be 'fd' or 'bfgs'")
+        self.hessian       = hessian
         self._result       = None
         self._inp_stem     = ""
 
@@ -271,7 +279,7 @@ class Model:
             interventions=self.interventions + [itv],
             mu=self.mu0, estimate_mu=self.estimate_mu,
             boxlam=self.boxlam, refactor=self.refactor,
-            eml=self.eml, chkma=self.chkma,
+            eml=self.eml, chkma=self.chkma, hessian=self.hessian,
         )
         return new
 

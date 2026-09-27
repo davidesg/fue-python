@@ -398,33 +398,46 @@ def _build_initial_x(model):
     return np.array(x, dtype=float)
 
 
-# ── Finite-difference Hessian (mirrors fdhess in qnewtopt.c) ─────────────────
+# ── Finite-difference Hessian: fdhess of qnewtopt.c (BUG-0015) ────────────
 
-def _fdhess(f, x, f0, eta):
-    """Second-order finite-difference Hessian, symmetric (n×n)."""
-    n  = len(x)
-    H  = np.zeros((n, n))
-    dx = eta * np.maximum(np.abs(x), 1.0)
+_MACHEPS = float(np.finfo(float).eps)
 
-    # Diagonal
+
+def _fdhess(f, x, f0, eta=_MACHEPS):
+    """Mauricio's `fdhess` (qnewtopt.c; Dennis & Schnabel A5.6.2), line by line.
+
+    Forward differences with step eta^(1/3)·max(|x_i|, 1), signed like x_i.
+    The port it replaces used central differences with step sqrt(eps), the step
+    of a FIRST derivative: rounding error was amplified by ~1/eps and 2 of 13
+    diagonal entries came out negative at the optimum of ES_CPI_m10 (BUG-0015,
+    addendum). The C's step is eps^(1/3), and so is this one.
+    """
+    x = np.array(x, dtype=float)
+    n = len(x)
+    H = np.zeros((n, n))
+    cub = eta ** (1.0 / 3.0)
+    step = np.empty(n)
+    fneigh = np.empty(n)
     for i in range(n):
-        xi = x[i]
-        x[i] = xi + dx[i]; fp = f(x)
-        x[i] = xi - dx[i]; fm = f(x)
-        x[i] = xi
-        H[i, i] = (fp - 2.0 * f0 + fm) / (dx[i] ** 2)
-
-    # Off-diagonal
+        step[i] = cub * (max(x[i], 1.0) if x[i] >= 0.0 else min(x[i], -1.0))
+        tempi = x[i]
+        x[i] = tempi + step[i]
+        step[i] = x[i] - tempi
+        fneigh[i] = f(x)
+        x[i] = tempi
     for i in range(n):
+        tempi = x[i]
+        x[i] = tempi + 2.0 * step[i]
+        fii = f(x)
+        H[i, i] = (f0 + fii - 2.0 * fneigh[i]) / (step[i] * step[i])
+        x[i] = tempi + step[i]
         for j in range(i + 1, n):
-            xi, xj = x[i], x[j]
-            x[i] += dx[i]; x[j] += dx[j]; fpp = f(x)
-            x[i] -= 2*dx[i];              fmp = f(x)
-            x[j] -= 2*dx[j];              fmm = f(x)
-            x[i] += 2*dx[i];              fpm = f(x)
-            x[i] = xi; x[j] = xj
-            H[i, j] = H[j, i] = (fpp - fmp - fpm + fmm) / (4.0 * dx[i] * dx[j])
-
+            tempj = x[j]
+            x[j] = tempj + step[j]
+            fij = f(x)
+            H[i, j] = H[j, i] = (f0 - fneigh[i] + fij - fneigh[j]) / (step[i] * step[j])
+            x[j] = tempj
+        x[i] = tempi
     return H
 
 
@@ -492,18 +505,27 @@ def _estimate_core(model, optimizer="raxopt"):
     if sumsq0 <= 0.0 or fact0 <= 0.0:
         return {**_empty, "ifault": 3}
 
-    # [2] Objective function: normalised to 1.0 at x0 (matches C's objcfunc)
+    # [2] Objective function: normalised to 1.0 at x0 (matches C's objcfunc).
+    #     The points it refuses are counted: that is how fdhess sees a boundary.
+    rejected = [0]
+
     def objective(x):
         p, q, phi, theta, mu, w, fault = cast_us_py(x, spec)
         if fault or len(w) == 0:
+            rejected[0] += 1
             return 1.0
         sumsq, fact, _, _, iflt = flikam_scalar(
             n_eff, p, q, phi, theta, mu, w,
             xitol=xitol, do_chkma=do_chkma,
         )
         if iflt or sumsq <= 0.0 or fact <= 0.0:
+            rejected[0] += 1
             return 1.0
-        return (sumsq / sumsq0) * (fact / fact0)
+        f = (sumsq / sumsq0) * (fact / fact0)
+        if not math.isfinite(f):
+            rejected[0] += 1
+            return 1.0
+        return f
 
     # [3] Optimize
     B_hess   = None    # Cholesky factor (raxopt only)
@@ -545,28 +567,54 @@ def _estimate_core(model, optimizer="raxopt"):
     aic        = -2.0 * logelf_c + 2.0 * npar
     bic        = -2.0 * logelf_c + npar * math.log(n_eff) if n_eff > 0 else 0.0
 
-    # [5] Standard errors
-    #     raxopt: use the BFGS Cholesky factor B directly — mirrors drvmlest.c
-    #             cov[:,i] = 2·obj·cholsol(B, e_i) / n_eff
-    #     lbfgsb: fall back to finite-difference Hessian (_fdhess)
+    # [5] Standard errors (BUG-0015), as drvmlest.c:est does it:
+    #     fdhess AT the optimum by default. If a neighbour is refused (the
+    #     optimum is on the boundary) or the Hessian is not positive definite
+    #     by a plain Cholesky, the BFGS factor of the search is used and
+    #     se_method says why -- if the search built one (raxopt starts at the
+    #     identity: no iteration, no BFGS Hessian, and then no SE at all).
     cov        = np.zeros((npar, npar))
     std_errors = np.zeros(npar)
+    se_code    = 0
+
+    def _from_bfgs():
+        c = np.zeros((npar, npar))
+        for i in range(npar):
+            e    = np.zeros(npar)
+            e[i] = 1.0
+            c[:, i] = 2.0 * obj_opt * _cholsol(B_hess, e) / n_eff
+        return c
+
     if npar > 0:
-        if B_hess is not None:
-            for i in range(npar):
-                e      = np.zeros(npar)
-                e[i]   = 1.0
-                col    = _cholsol(B_hess, e)
-                cov[:, i] = 2.0 * obj_opt * col / n_eff
+        want_fd = getattr(model, "hessian", "fd") != "bfgs" or B_hess is None
+        if want_fd:
+            rejected[0] = 0
+            with np.errstate(over="ignore", invalid="ignore"):
+                H = _fdhess(objective, x_opt.copy(), obj_opt)
+            Hs = 0.5 * (H + H.T)
+            if rejected[0] or not np.all(np.isfinite(Hs)):
+                se_code = 2
+            else:
+                try:
+                    L = np.linalg.cholesky(Hs)
+                    Linv = np.linalg.inv(L)
+                    cov = 2.0 * obj_opt * (Linv.T @ Linv) / n_eff
+                    se_code = 1
+                except np.linalg.LinAlgError:
+                    se_code = 3
+            if se_code in (2, 3):
+                if B_hess is not None and niter > 0:
+                    cov = _from_bfgs()
+                else:
+                    se_code += 2
+                    cov = np.full((npar, npar), np.nan)
         else:
-            H = _fdhess(objective, x_opt.copy(), obj_opt, _SQRT_EPS)
-            try:
-                H_inv = np.linalg.inv(H)
-                cov   = 2.0 * obj_opt * H_inv / n_eff
-            except np.linalg.LinAlgError:
-                converged = False
+            cov = _from_bfgs()
         diag       = np.diag(cov)
-        std_errors = np.sqrt(np.maximum(diag, 0.0))
+        std_errors = np.sqrt(np.where(diag >= 0.0, diag, np.nan))
+
+    from ._engine import se_method_label        # the C's labels, one source
+    se_method = se_method_label(se_code, npar)
 
     return {
         "ifault":     0 if converged else 6,
@@ -584,6 +632,7 @@ def _estimate_core(model, optimizer="raxopt"):
         "niter":      niter,
         "gnorm":      gnorm,
         "termcode":   termcode,
+        "se_method":  se_method,
     }
 
 

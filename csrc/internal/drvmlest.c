@@ -21,6 +21,7 @@
 
 #include "fue.h"            /* Header file (prototype declarations)          */
 #include "nlatools.h"            /* Header file (prototype declarations)     */
+#include "fdhess_se.h"           /* BUG-0015: fdhess at the optimum, guarded */
 extern real macheps;          /* Machine epsilon (global: declared in DRV.C) */
 extern FILE *outputv;         /* Output file (global: declared in DRV.C)     */
 
@@ -84,6 +85,7 @@ void est( void (*cast)( real *, struct Tvarma *, int *, int, int ),
 /* [1]: First computation of the log-likelihood: initialize pi10x & pi20x:   */
 
    *ifault = 0;                               /* Initialize fault indicator. */
+   est_se_how = EST_SE_BFGS;                  /* BUG-0015: until the Hessian */
 
    varmax.xitol = xitol;                      /* Estimation method.          */
    varmax.chkma = chkma;                      /* Check for invertibility.    */
@@ -107,13 +109,12 @@ void est( void (*cast)( real *, struct Tvarma *, int *, int, int ),
 
    raxopt( objcfunc, &pi1, npar, par, mtmp, maxits, nrits, grtol, sptol );
 
-/* This is an alternative way of computing the second derivative matrix:     */
-
-/* fdhess( objcfunc, npar, par, pi1, macheps, mtmp );                        */
-/* choldcp( mtmp, npar, &pi2, &pi3, ifault );                                */
+   if ( est_fdhess )                          /* BUG-0015: fdhess_se.c       */
+      fdhess_cov( objcfunc, npar, par, pi1, cov, dev, varmax.n );
 
 /* [3]: Sample estimation of the variance-covariance matrix:                 */
 
+   if ( est_se_bfgs() )                       /* BUG-0015: BFGS, if chosen   */
    for ( i = 1; i <= npar; i++ )
        {
        for ( j = 1; j <= npar; j++ ) vtmp[j] = 0.0;
@@ -162,7 +163,7 @@ real objcfunc( real *x )
    ifault = 0;
    (*castx)( x, &varmax, &ifault, 0, 0 );
    if ( ifault > 0 )                            /* ifault = 6-7-8- ...       */
-      return( 1.0 );
+      return( objc_reject() );                  /* BUG-0015: counted */
 
 /* [2]: Compute objective function and return:                               */
 
@@ -171,9 +172,9 @@ real objcfunc( real *x )
            FALSE, varmax.a, &pi1, &pi2, &pi3, &ifault );
 
    if ( ifault > 0 )                            /* ifault = 1-2-3-4-5.       */
-      return( 1.0 );
+      return( objc_reject() );                  /* BUG-0015: counted */
    else
-      return( pow( (pi1 / pi10x), varmax.m ) * (pi2 / pi20x) );
+      return( objc_finite( pow( (pi1 / pi10x), varmax.m ) * (pi2 / pi20x) ) ); /* BUG-0015 */
 }
 
 /*****************************************************************************/

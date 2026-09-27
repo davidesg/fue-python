@@ -4,11 +4,11 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  A fix commit references the id, e.g. `fix(pipeline): BUG-0001 …`.
 
-**22 report(s), 2 open.**
+**24 report(s), 2 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
-| [BUG-0015](BUG-0015-los-errores-tipicos-vienen-del-camino-del-optimizador.md) | open | high | estimation | Los errores típicos vienen de la matriz que BFGS acumula por el CAMINO, no del hessiano en el óptimo — dos ejecuciones del mismo modelo dan SE distintos | — |
+| [BUG-0024](BUG-0024-sin-motor-c-fue-estima-en-python-sin-decirlo.md) | open | medium | engine | Si la extensión C no carga, fue estima con el motor en Python sin decirlo — mismo modelo, otro optimizador, otra velocidad, y nada en la salida lo delata | — |
 | [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | in-progress | medium | estimation | ML optimizer converges to a spurious optimum on multimodal (seasonal-AR) likelihoods and reports converged=True with no diagnostic; the basin is platform-dependent (Windows vs Linux) | — |
 | [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 | [BUG-0002](BUG-0002-binding-fixed-factor-arrays.md) | fixed | high | binding | Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError | 0.1.6 |
@@ -23,6 +23,7 @@ New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  
 | [BUG-0012](BUG-0012-series-a-arma11-stops-on-the-boundary.md) | fixed | medium | estimation | On Box-Jenkins Series A the ARMA(1,1) stops on the AR boundary — and so does Mauricio's own C when compiled today: the 2001 reference was run at 80-bit x87 precision | 0.1.10 |
 | [BUG-0013](BUG-0013-c-engine-segfaults-with-no-arma-factors.md) | fixed | critical | engine | The C engine segfaults on a model with deterministic inputs and NO ARMA factors — no exception, no message, the interpreter dies | 0.1.12 |
 | [BUG-0014](BUG-0014-la-prevision-de-python-da-efecto-nulo-a-tres-deterministas.md) | fixed | high | forecast | La previsión de Python daba efecto NULO a compimp, easter y trend — un segundo generador del mismo regresor que se quedó atrás | 0.1.13 |
+| [BUG-0015](BUG-0015-los-errores-tipicos-vienen-del-camino-del-optimizador.md) | fixed | high | estimation | Los errores típicos vienen de la matriz que BFGS acumula por el CAMINO, no del hessiano en el óptimo — dos ejecuciones del mismo modelo dan SE distintos | 0.1.17 (unreleased) |
 | [BUG-0016](BUG-0016-el-dunder-version-estaba-escrito-a-mano.md) | fixed | low | packaging | fue.__version__ estaba escrito a mano y se quedó TRES versiones atrás — la 0.1.14 publicada declara 0.1.11 | 0.1.16 |
 | [BUG-0017](BUG-0017-load-inventa-una-columna-de-ceros-cuando-falta-l.md) | fixed | high | inp-reader | load() inventa una columna de ceros cuando falta la de un determinista no estandar, en vez de fallar: convierte un fichero mutilado en un modelo con un regresor nulo | 0.1.16 |
 | [BUG-0018](BUG-0018-load-descarta-dos-campos-que-el-fichero-lleva-y-.md) | fixed | medium | inp-reader | load() descarta dos campos que el fichero lleva y el motor conserva: la frecuencia  (serie sin fechar) y cbands | 0.1.16 |
@@ -30,6 +31,5 @@ New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  
 | [BUG-0020](BUG-0020-write-pre-pega-los-pares-de-deltas-sin-separador.md) | fixed | high | inp-writer | write_pre pega los pares de deltas sin separador cuando hay dos o mas: el .pre que escribe no lo relee ni fue.load ni el motor | 0.1.16 |
 | [BUG-0021](BUG-0021-write-pre-cuantiza-tambien-los-parametros-fijos-.md) | fixed | high | inp-writer | write_pre cuantiza tambien los parametros FIJOS: un AR fijado en 0.941176 vuelve fijado en 0.9412, que es otro modelo | 0.1.16 |
 | [BUG-0022](BUG-0022-en-una-serie-anual-con-nombre-numerico-load-toma.md) | fixed | high | inp-reader | En una serie ANUAL con nombre numerico, load() toma el nombre por el ano: la serie se lee empezando 254 anios mas tarde y pierde el nombre | 0.1.16 |
-| [BUG-0023](BUG-0023-la-figura-de-residuos-no-sabe-del-modelo.md) | fixed | high | plots | La figura de residuos de un modelo no sabe del modelo: la Q resta todos los parámetros, el primer residuo lleva la fecha del primer dato y los retardos no son los de fug C | 0.1.16 |
-| [BUG-0024](BUG-0024-sin-motor-c-fue-estima-en-python-sin-decirlo.md) | open | medium | engine | Si la extensión C no carga, fue estima con el motor en Python sin decirlo — mismo modelo, otro optimizador, otra velocidad, y nada en la salida lo delata | — |
+| [BUG-0023](BUG-0023-la-figura-de-residuos-no-sabe-del-modelo.md) | fixed | high | plots | La figura de residuos de un modelo no sabe del modelo — la Q resta todos los parámetros, el primer residuo lleva la fecha del primer dato y los retardos no son los de fug C | 0.1.16 |
 

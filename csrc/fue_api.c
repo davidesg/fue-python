@@ -28,6 +28,7 @@
 #include "fue_api.h"
 #include "internal/fue.h"
 #include "internal/nlatools.h"
+#include "internal/fdhess_se.h"       /* BUG-0015: est_fdhess, est_se_how */
 
 extern int qn_last_termcode;   /* qnewtopt.c — BUG-0012 */
 extern int qn_last_nit;
@@ -955,6 +956,7 @@ FueResult *fue_estimate(const FueModelSpec *spec)
     {
         real abs_xitol = spec->xitol > 0 ? spec->xitol : 1e-3;
         real xitol_signed = spec->eml ? -abs_xitol : abs_xitol;
+        est_fdhess = spec->hessian_bfgs ? 0 : 1;
         est(cast_us, npar, par, dev, cov,
             spec->maxits > 0 ? spec->maxits : 200,
             10,
@@ -976,6 +978,7 @@ FueResult *fue_estimate(const FueModelSpec *spec)
     result->termcode = qn_last_termcode;
     result->niter    = qn_last_nit;
     result->gnorm    = qn_last_gnorm;
+    result->se_method = est_se_how;
     if (npar > 0 && nresiduals > 0) {
         result->aic = -2.0 * logelf + 2.0 * npar;
         result->bic = -2.0 * logelf + npar * log((double)nresiduals);

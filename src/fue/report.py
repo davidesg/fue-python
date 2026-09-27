@@ -457,6 +457,11 @@ def _section_matrices(lines, r):
     cov  = r.cov_matrix   # (npar, npar)
     se   = r.std_errors
 
+    # Which Hessian gave these numbers, as the C's .out says it (BUG-0015).
+    how = getattr(r, "se_method", None)
+    if how:
+        lines.append(f"Standard errors: {how}")
+        lines.append("")
     lines.append("Estimated covariance matrix:")
     lines.append("")
     for i in range(npar):

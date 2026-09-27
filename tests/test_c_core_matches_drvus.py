@@ -86,6 +86,21 @@ _EXCEPTIONS = [
      lambda l: l.strip().startswith("eigenqr( a, n, wr, wi );")),
     ("gsl-eigenqr-new",
      lambda l: l.strip().startswith("if ( n>1 ) {gsl_eigenqr( a, n, wr, wi );}")),
+    # ── THE SECOND FUNCTIONAL CHANGE: BUG-0015, drvmlest.c only ──────────
+    # Standard errors from fdhess AT the optimum, the call Mauricio's source
+    # left commented out. The code lives in fdhess_se.c; here only the lines
+    # that call it, each marked BUG-0015 (or naming its own helper).
+    ("bug-0015-new",
+     lambda l: "BUG-0015" in l or "fdhess_cov(" in l),
+    # ...and what they replace: the commented-out alternative, and the plain
+    # `return( 1.0 )` / `pow(...)` of objcfunc (now counted / checked finite).
+    ("bug-0015-old",
+     lambda l: l.strip() in (
+         "/* This is an alternative way of computing the second derivative matrix:     */",
+         "/* fdhess( objcfunc, npar, par, pi1, macheps, mtmp );                        */",
+         "/* choldcp( mtmp, npar, &pi2, &pi3, ifault );                                */",
+         "return( 1.0 );",
+         "return( pow( (pi1 / pi10x), varmax.m ) * (pi2 / pi20x) );")),
 ]
 
 
@@ -143,17 +158,26 @@ def test_the_source_files_are_present_on_both_sides(module):
 
 
 def test_the_single_functional_change_is_still_the_only_one():
-    """Two of the three modules must differ ONLY in licence and encoding.
+    """Each declared functional change stays in its own module.
 
-    If a functional edit ever appears in `usmelard.c` (AS 197) or `drvmlest.c`,
-    it will show up here even if someone adds it to _EXCEPTIONS for elfvarma.
+    `usmelard.c` (AS 197) differs only in licence and encoding. `elfvarma.c`
+    carries the GSL eigenvalue change; `drvmlest.c` carries BUG-0015 (fdhess at
+    the optimum), and nothing else does.
     """
     functional = {"gsl-eigenqr-old", "gsl-eigenqr-new"}
+    bug15 = {"bug-0015-new", "bug-0015-old"}
     for module in ("usmelard", "drvmlest"):
         kinds = {_classify(t) for _s, t in _differing(module)}
         assert not (kinds & functional), (
             f"{module}.c now carries the eigenqr change, which belonged only to "
             f"elfvarma.c")
+    # BUG-0015 is drvmlest.c's one functional change, and only drvmlest.c's.
+    for module in ("usmelard", "elfvarma"):
+        kinds = {_classify(t) for _s, t in _differing(module)}
+        assert not (kinds & bug15), f"{module}.c now carries the BUG-0015 change"
+    assert bug15 <= {_classify(t) for _s, t in _differing("drvmlest")}, (
+        "drvmlest.c no longer shows the BUG-0015 change. If it was reverted, "
+        "docs/PROVENANCE.md section 2 needs updating.")
 
     kinds = {_classify(t) for _s, t in _differing("elfvarma")}
     assert functional <= kinds, (

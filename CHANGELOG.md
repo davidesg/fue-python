@@ -28,6 +28,16 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 - **Standard errors change.** Estimates do not. Anything that published
   standard errors should be rerun.
 
+### No ARMA factor: the C engine, not a diversion — BUG-0013
+
+- **The C now fits a model with no ARMA factor.** An example is a regression
+  on deterministic inputs with white-noise errors. The segfault was fixed at
+  its root in `nlatools.c`, with the same edits the fue-1.14 CLI carries: empty
+  vectors and matrices are valid.
+- **The diversion to the Python engine (0.1.12) is removed.** Results agree
+  with the Python engine, and with the same model written with an AR(1)
+  pinned at zero.
+
 ### The line search on a NaN objective — BUG-0025
 
 - **`lnsrch` never returned on a NaN.** Every comparison it makes is then

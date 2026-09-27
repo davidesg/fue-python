@@ -218,6 +218,7 @@ void cholfor( double **matl, int n, double *rhsol )
    int   i, j;
    double  tmp;
 
+   if ( n < 1 ) return;              /* empty system: nothing to solve        */
    rhsol[1] /= matl[1][1];
 
    for ( i = 2; i <= n; i++ )
@@ -237,6 +238,7 @@ void cholbak( double **matl, int n, double *rhsol )
    int   i, j;
    double  tmp;
 
+   if ( n < 1 ) return;              /* empty system: nothing to solve        */
    rhsol[n] /= matl[n][n];
 
    for ( i = n - 1; i >= 1; i-- )
@@ -425,9 +427,18 @@ void nrerror( char error_text[] )
  *  rompe fue (free(): invalid pointer), asi que su layout no es intercambiable
  *  con el de la copia compartida de drtran/drvarma.  Queda por ver por que.   */
 
+/*  BUG-0013 at its root (the fix of fue-1.14 fbb60d3, which the atsw-gui fue
+ *  CLI carries): empty vectors and matrices (nh < nl, nrh < nrl) are valid
+ *  and can be freed. A model without AR and MA operators has max(p,q) = 0,
+ *  and elf() (elfvarma.c) then works with 0 x 0 matrices -- the correction
+ *  for the initial state does not exist, det(I + M'H'HM) = 1 --, so its loops
+ *  do nothing and cholfor()/cholbak() return at once. Before, matrix(1, 0,
+ *  ...) left m[1] out of the array, free_matrix() and cholfor() used it, and
+ *  the process died; _engine.py routed those models to the Python engine.   */
+
 double *vector( long nl, long nh )
 {
-   double *v = (double *)calloc( (size_t)(nh - nl + 1), sizeof(double) );
+   double *v = (double *)calloc( (size_t)(nh >= nl ? nh - nl + 1 : 1), sizeof(double) );
    if ( !v ) nrerror( "ALLOCATION FAILURE in vector()" );
    return( v - nl );
 }
@@ -436,7 +447,7 @@ double *vector( long nl, long nh )
 
 int *ivector( long nl, long nh )
 {
-   int *v = (int *)calloc( (size_t)(nh - nl + 1), sizeof(int) );
+   int *v = (int *)calloc( (size_t)(nh >= nl ? nh - nl + 1 : 1), sizeof(int) );
    if ( !v ) nrerror( "ALLOCATION FAILURE in ivector()" );
    return( v - nl );
 }
@@ -449,11 +460,14 @@ double **matrix( long nrl, long nrh, long ncl, long nch )
    double **m;
    double *data;
 
-   m = (double **)calloc( (size_t)(nrh + 1), sizeof(double *) );
+   if ( nrow < 0 ) nrow = 0;                       /* empty matrix       */
+   m = (double **)calloc( (size_t)((nrh > nrl ? nrh : nrl) + 1), sizeof(double *) );
    if ( !m ) nrerror( "ALLOCATION FAILURE 1 in matrix()" );
 
-   data = (double *)calloc( (size_t)(nrow * (nch + 1)), sizeof(double) );
+   data = (double *)calloc( (size_t)(nrow * (nch + 1) + 1), sizeof(double) );
    if ( !data ) nrerror( "ALLOCATION FAILURE 2 in matrix()" );
+
+   m[nrl] = data;                    /* free_matrix() frees m[nrl], rows or not */
 
    for ( i = nrl; i <= nrh; i++ )
       m[i] = data + (i - nrl) * (nch + 1);
@@ -469,11 +483,14 @@ int **imatrix( long nrl, long nrh, long ncl, long nch )
    int **m;
    int *data;
 
-   m = (int **)calloc( (size_t)(nrh + 1), sizeof(int *) );
+   if ( nrow < 0 ) nrow = 0;                       /* empty matrix       */
+   m = (int **)calloc( (size_t)((nrh > nrl ? nrh : nrl) + 1), sizeof(int *) );
    if ( !m ) nrerror( "ALLOCATION FAILURE 1 in imatrix()" );
 
-   data = (int *)calloc( (size_t)(nrow * (nch + 1)), sizeof(int) );
+   data = (int *)calloc( (size_t)(nrow * (nch + 1) + 1), sizeof(int) );
    if ( !data ) nrerror( "ALLOCATION FAILURE 2 in imatrix()" );
+
+   m[nrl] = data;                    /* free_imatrix() frees m[nrl], rows or not */
 
    for ( i = nrl; i <= nrh; i++ )
       m[i] = data + (i - nrl) * (nch + 1);

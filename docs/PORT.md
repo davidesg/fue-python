@@ -15,7 +15,7 @@ name. The model is `drtran/docs/PORTE.md`.*
   fue.Model(...).fit()
         │
         ├── csrc/            Mauricio's C, embedded and compiled into a
-        │                    cffi extension (_fue_engine).  3.898 lines.
+        │                    cffi extension (_fue_engine).  3.915 lines.
         │                    Used whenever it is available.
         │
         └── src/fue/         a pure-Python re-implementation of the same

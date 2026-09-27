@@ -7,10 +7,10 @@ message: the process disappeared.
 
 Two things make this test worth more than a crash guard:
 
-* it pins the DIVERSION, not the crash. The pure-Python engine already computed
-  the right answer, so `_engine.estimate` sends the case there. If someone ever
-  fixes the C and removes the diversion, these tests still pass — they check the
-  answer, not the route;
+* it checks the answer, not only the absence of a crash. Until 0.1.16
+  `_engine.estimate` diverted the case to the pure-Python engine; since 0.1.17
+  the C itself handles it (nlatools.c accepts the 0 x 0 matrices elf() uses
+  when max(p,q) = 0), and the diversion is gone;
 * it pins the EQUIVALENCE that identifies the defect: the same model written
   with one AR factor pinned at zero goes through the C engine and agrees to the
   last digit. That is what proves the two paths are the same model and the
@@ -65,12 +65,9 @@ def test_it_agrees_with_the_same_model_written_the_way_a_file_writes_it():
 
     Every `.inp` writes the second, which is why no file ever hit the crash.
 
-    They must give the same number, and the tolerance is the MEASURED one:
-    1.9e-07. It is not machine epsilon because the two spellings now travel by
-    different engines — the diverted one through the Python translation, the
-    other through the C — and that is exactly the cross-engine agreement
-    `docs/PERFORMANCE.md` reports (largest |Δ logL| over 23 real models: 2e-04).
-    An earlier version of this test asserted 1e-9, which was a guess and failed.
+    Both now travel through the C engine, so they must agree to the last digit
+    (while the first was diverted to the Python engine the measured difference
+    was 1.9e-07, the cross-engine agreement of `docs/PERFORMANCE.md`).
     """
     ts, y = _serie()
 
@@ -84,20 +81,30 @@ def test_it_agrees_with_the_same_model_written_the_way_a_file_writes_it():
         sin_factor.fit()
         con_factor.fit()
 
-    assert sin_factor.loglik == pytest.approx(con_factor.loglik, abs=1e-6)
+    assert sin_factor.loglik == pytest.approx(con_factor.loglik, abs=1e-9)
     assert sin_factor._result.npar == con_factor._result.npar
+    np.testing.assert_allclose(sin_factor._result.params, con_factor._result.params,
+                               rtol=0, atol=1e-9)
 
 
-def test_the_diversion_is_where_the_bug_report_says_it_is():
-    """The helper that decides, and its contract: a factor pinned at zero is
-    still a factor, so it must NOT be diverted."""
-    from fue._engine import _sin_estructura_arma
+def test_the_c_engine_handles_it_without_the_python_engine(monkeypatch):
+    """The root fix, not a route around it: with the Python engine made
+    unavailable, `_engine.estimate` still fits the model with no ARMA factor."""
+    pytest.importorskip("fue._fue_engine")
+    import fue.cast_us
+
+    def _no(*a, **k):
+        raise AssertionError("diverted to the Python engine")
+    monkeypatch.setattr(fue.cast_us, "estimate_py", _no)
 
     ts, y = _serie()
-    assert _sin_estructura_arma(
-        fue.Model(ts, d=0, interventions=_armonicos()))
-    assert not _sin_estructura_arma(
-        fue.Model(ts, d=0, interventions=_armonicos(),
-                  ar=[[0.0]], ar_free=[[False]]))
-    assert not _sin_estructura_arma(
-        fue.Model(ts, d=0, interventions=_armonicos(), ma=[[0.4]]))
+    m = fue.Model(ts, d=0, interventions=_armonicos(),
+                  mu=float(y.mean()), estimate_mu=True)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        m.fit()
+    assert m._result.ifault == 0 and np.isfinite(m.loglik)
+    # with no ARMA, the SE of mu has the closed form sigma/sqrt(n)
+    n = len(m._result.residuals)
+    assert m._result.std_errors[-1] == pytest.approx(
+        np.sqrt(m._result.sigma2 / n), rel=1e-3)

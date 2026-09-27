@@ -14,19 +14,6 @@ _MAX_FACTORS = 32   # FUE_MAX_FACTORS: max AR/MA factors per block
 _MAX_POLYORD = 64   # FUE_MAX_POLYORD: max polynomial order per factor
 
 
-def _sin_estructura_arma(model) -> bool:
-    """True when the model declares no ARMA factor of any kind.
-
-    Not "no free ARMA parameters": a factor pinned at zero is enough for the C
-    engine, which is why files that write `1 1 / 0.0 0` are safe. What breaks it
-    is the absence of the structure itself.
-    """
-    for atributo in ("ar", "ma", "ar_s", "ma_s", "ar_f", "ma_f"):
-        if getattr(model, atributo, None):
-            return False
-    return True
-
-
 #: The Hessian behind the standard errors, as the C engine codes it
 #: (est_se_how in drvmlest.c) and as every report of the family writes it.
 SE_METHODS = {
@@ -67,23 +54,12 @@ def estimate(model):
         from .cast_us import eval_at_params
         return eval_at_params(model)
 
-    # BUG-0013: a model with deterministic inputs and no ARMA factor at all —
-    # a regression with ARMA(0,0) errors, which is the first rung of every
-    # seasonal ladder — kills the interpreter in the C engine. No exception, no
-    # message: SIGSEGV.
-    #
-    # The Python engine handles it and agrees to the last digit with the C on
-    # the equivalent specification (one AR factor pinned at zero): both give
-    # -311.9352 on the repro. So there is a correct answer available, and
-    # diverting is better than raising — the caller gets the fit and never
-    # learns there was a hole.
-    #
-    # This is the same shape as the npar == 0 case above, and the reason no
-    # `.inp` ever hit it: a file always declares the AR section, with the
-    # coefficient at zero and the flag fixed. Only the Python API reaches here.
-    if _sin_estructura_arma(model):
-        from .cast_us import estimate_py
-        return estimate_py(model)
+    # BUG-0013: a model with deterministic inputs and no ARMA factor at all
+    # used to kill the interpreter in the C engine, and was diverted here to
+    # the Python engine. Fixed at its root in 0.1.17: nlatools.c accepts the
+    # 0 x 0 matrices elf() works with when max(p,q) = 0 (the fix fue-1.14 and
+    # the atsw-gui CLI carry). The C now gives the same fit as the Python engine
+    # and as the same model with one AR factor pinned at zero.
 
     try:
         from fue._fue_engine import ffi, lib

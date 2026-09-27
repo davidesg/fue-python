@@ -199,3 +199,28 @@ Siguen abiertos, y no dependen de este paquete:
   2. **Los 178 `.inp` ya escritos**, que hay que reescribir uno a uno —o
      regenerar— para que dejen de matar al binario.
   3. **Las wheels** sin el desvío del puente, que se comportan como el binario.
+
+## Addendum — 27-sep-2026 (0.1.17): fixed at the root, the diversion removed
+
+The 0.1.12 fix was a route around the crash: `_engine.estimate` diverted any
+model with no ARMA factor to the pure-Python engine. The crash itself was in
+`csrc/internal/nlatools.c`. With max(p,q) = 0, `elf()` works with 0 x 0
+matrices, where the correction for the initial state does not exist and
+det(I + M'H'HM) = 1. But `matrix(1, 0, ...)` left `m[1]` out of the array,
+and both `free_matrix()` and `cholfor()` used it.
+
+fue-1.14 fixed exactly that on 2026-09-15 (commit fbb60d3), and the atsw-gui
+fue CLI carries the fix. The same five edits are now in the wheel's
+`nlatools.c`:
+
+- empty vectors and matrices are valid and can be freed;
+- `cholfor` and `cholbak` do nothing when n < 1.
+
+`nlatools.c` is not Mauricio's verbatim source, so the provenance test does
+not cover it. The diversion (`_sin_estructura_arma`) is gone.
+
+On the repro, the C with no ARMA factor, the C with one AR factor pinned at
+zero, and the Python engine give the same fit: ℓ = −311.935193, the same
+parameters, and the same SEs. With no ARMA, SE(μ) is the closed form σ̂/√n.
+`tests/test_bug_0013_no_arma_factors.py` now checks that the C fits the model
+with the Python engine made unavailable.

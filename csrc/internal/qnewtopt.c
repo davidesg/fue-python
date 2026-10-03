@@ -40,6 +40,10 @@
 int qn_last_termcode = 0;
 int qn_last_nit      = 0;
 double qn_last_gnorm = 0.0;
+/* fue BUG-0005 (B): the scaled gradient at the stop, the very quantity umstop
+   compares with gradtol: max_i |g_i| (|x_i| + 1) / (|f| + 1).  Recorded only,
+   like the three above; no rule of raxopt changes. */
+double qn_last_sgrad = 0.0;
 extern real macheps;          /* Machine epsilon (global: declared in DRV.C) */
 extern FILE *outputv;         /* Output file (global: declared in DRV.C)     */
 
@@ -176,6 +180,12 @@ void report( int n, int k, real *x, real *g, real f, int termcode )
           gradnorm += g[i] * g[i];
       gradnorm = sqrt( gradnorm );
       qn_last_gnorm = gradnorm;                /* Record: see the note above. */
+      qn_last_sgrad = 0.0;
+      for ( i = 1; i <= n; i++ )
+          {
+          real t = fabs( g[i] ) * ( fabs( x[i] ) + 1.0 ) / ( fabs( f ) + 1.0 );
+          if ( t > qn_last_sgrad ) qn_last_sgrad = t;
+          }
       fprintf( outputv, "%s", endmes );
       fprintf( outputv, "**** CONVERGENCE OBTAINED AFTER %d ITERATIONS ", k );
       fprintf( outputv, "[GRADIENT NORM = %6.4f]\n\n", gradnorm );

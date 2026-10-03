@@ -531,6 +531,7 @@ def _estimate_core(model, optimizer="raxopt"):
     B_hess   = None    # Cholesky factor (raxopt only)
     niter    = 0
     gnorm    = 0.0
+    sgrad    = 0.0
     termcode = 1
     if npar == 0:
         x_opt     = x0.copy()
@@ -538,6 +539,8 @@ def _estimate_core(model, optimizer="raxopt"):
         converged = True
     elif optimizer == "raxopt":
         x_opt, obj_opt, B_hess, termcode, niter, gnorm = raxopt(objective, x0)
+        from . import qnewtopt as _qn
+        sgrad = _qn.LAST_SGRAD
         converged = termcode in (1, 2)
     else:
         opt = minimize(
@@ -631,6 +634,7 @@ def _estimate_core(model, optimizer="raxopt"):
         "w":          w,
         "niter":      niter,
         "gnorm":      gnorm,
+        "sgrad":      sgrad,
         "termcode":   termcode,
         "se_method":  se_method,
     }

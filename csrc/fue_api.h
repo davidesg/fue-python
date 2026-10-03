@@ -167,6 +167,8 @@ typedef struct {
                                   0 bfgs, 1 fdhess, 2/3 bfgs because fdhess
                                   was on the boundary / not PD, 4/5 none
                                   (the same, and raxopt did not iterate)    */
+    double  sgrad;             /* scaled gradient at the stop, the quantity
+                                  raxopt compares with gradtol (BUG-0005) */
 } FueResult;
 
 /* ── API entry points ───────────────────────────────────────────────────── */

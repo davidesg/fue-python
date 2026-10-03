@@ -333,3 +333,84 @@ Las dos pasan con numpy 1.26 y con numpy 2.5.3.
 - La divergencia entre plataformas sigue sin máquina Windows, aunque con el
   reinicio un atasco en otro punto acaba en el mismo óptimo.
 
+## Arreglo B (2026-10-03): un alto por el paso con el gradiente anulado es un máximo
+
+**Lo que faltaba.** fue solo daba por convergido el termcode 0 o 1, así que
+un alto por el criterio del paso (2) o sin mejora en la búsqueda lineal (3)
+EN el óptimo se marcaba como no convergido. Eso tenía dos consecuencias:
+emitía el aviso de BUG-0012 en falso, y con el arreglo A gastaba un
+reinicio inútil (D.1 y US_CPI, el caso original de este informe).
+`gnorm`, la norma euclídea, no servía para distinguirlo, porque depende de
+la escala de los parámetros.
+
+**Lo que se exporta.** El gradiente ESCALADO en el punto de parada,
+max |gᵢ|·(|xᵢ|+1)/(|f|+1), que es justo lo que el optimizador compara con su
+tolerancia (≈1.82e-6):
+- **C:** `qnewtopt.c` lo registra en `qn_last_sgrad`, al lado de
+  `qn_last_gnorm`, sin cambiar ninguna regla de raxopt;
+- **API:** sale en `FueResult.sgrad` (`fue_api.h` y `fue_api.c`, y en la
+  declaración cffi);
+- **puerto Python:** `qnewtopt.LAST_SGRAD`, sin cambiar lo que devuelve
+  `raxopt`;
+- **resultado:** `FitResult.sgrad`.
+
+**Medido** sobre 258 modelos reales, en la primera pasada:
+
+| | termcode | gradiente escalado |
+|---|---|---|
+| convergidos por gradiente (194) | 1 | ≤ 1.81e-6 |
+| paran por el paso EN el óptimo (US_CPI, D.1) | 2 | 4.8e-6, 3.9e-6 |
+| R.4 tras su reinicio | 2 | 4.2e-5 |
+| atascados (R.4, syn_ARF) | 2 | 1.4e5, 3.0e4 (syn_ARF, 27 tras dos reinicios) |
+| sin parámetros libres (59) | — | no pasan por el optimizador |
+
+**La regla.** `converged` vale si el termcode es 0 o 1, o si es 2 o 3 con
+`sgrad ≤ SGRAD_CONVERGIDO = 1e-4`. Ese umbral queda por encima de todo lo
+legítimo y a más de cinco órdenes de lo atascado. Ahora:
+- D.1 y US_CPI convergen a la primera: sin reinicio y sin aviso;
+- R.4 converge tras un reinicio;
+- syn_ARF sigue sin converger y lo dice.
+
+**Validación:** `tests/test_bug_0005_reinicio.py`, ocho tests:
+- los dos motores registran `sgrad`;
+- R.4 converge tras su reinicio sin aviso;
+- D.1 no se reinicia;
+- el umbral separa los grupos medidos.
+
+**Lo que queda abierto en este informe:**
+- el binario C de atsw-gui (`engines/fue`) no tiene ni A ni B;
+- la divergencia entre plataformas sigue sin máquina Windows (con A, un
+  atasco en otro punto acaba en el mismo óptimo).
+
+
+## La divergencia entre plataformas, verificada (2026-10-04)
+
+Ya se había comprobado una vez: el 8 de septiembre una sesión de Windows corrió
+`art-python/bugs/BUG-0006-repro/repro.py` y coincidió con Linux hasta la sexta
+cifra (art BUG-0118). Quedó escrito en art y no aquí, por eso este informe
+seguía diciendo «falta máquina Windows».
+
+Ahora se repite con el optimizador actual (arreglo A, sin B) en el workflow
+manual `platform-check` (run 37156298003): fue compilado desde la fuente con
+el motor C en ubuntu-latest (GCC, GSL del sistema) y windows-latest (MSVC,
+GSL de vcpkg, como las ruedas), numpy 2.5.3 en los dos. El script es
+`scripts/platform_check_bug0005.py`.
+
+| ajuste | Linux | Windows |
+|---|---|---|
+| US_CPI desde el .pre | ℓ 1322.513054, term 2 | ℓ 1322.513054, term 1 |
+| US_CPI semilla de signo equivocado (la de julio), μ⁰=0 | ℓ 1322.513054, term 2 | ℓ 1322.513054, term 2 |
+| US_CPI semilla identificada | ℓ 1322.513054, term 1 | ℓ 1322.513054, term 1 |
+| R.4 | ℓ 251.682958, 1 reinicio | ℓ 251.682958, 1 reinicio |
+| R.1 | ℓ 142.868260 | ℓ 142.868260 |
+
+Los parámetros coinciden en las siete cifras impresas salvo uno de los 16 de
+US_CPI (Φ₂: −9.345990e-02 frente a −9.345991e-02). La única otra diferencia es
+el criterio por el que para US_CPI desde el .pre: Linux por el paso (2),
+Windows por el gradiente (1), en el mismo óptimo. Es la diferencia de último
+bit que el arreglo B deja de tratar como no convergencia: sin B, Linux lo
+marca `converged=False` y Windows `True`.
+
+**Conclusión:** la divergencia entre plataformas no se reproduce, ni desde la
+semilla de signo equivocado que la provocó en julio. La mitad 1 del informe
+queda cerrada.

@@ -46,3 +46,59 @@ def test_el_out_dice_los_reinicios(tmp_path):
     out = tmp_path / "r4.out"
     fue.write_out(m, str(out))
     assert "OPTIMIZER RESTARTED" in out.read_text()
+
+
+# ── (B) un alto por el paso con el gradiente anulado ES un máximo ──────────
+
+D1 = "/home/david/Dropbox/SRC/atsw-gui/engines/fue/tests/corpus/D.1.inp"
+
+
+def test_el_motor_c_registra_el_gradiente_escalado():
+    from fue._engine import estimate
+    pytest.importorskip("fue._fue_engine")
+    _, m = fue.load(R1)
+    r = estimate(m)
+    assert r["sgrad"] is not None and 0.0 <= r["sgrad"] <= 1.9e-6, \
+        "un alto por gradiente tiene el escalado bajo la tolerancia (≈1.82e-6)"
+
+
+def test_el_puerto_python_registra_el_mismo_gradiente_escalado():
+    from fue.cast_us import estimate_py
+    _, m = fue.load(R1)
+    r = estimate_py(m)
+    assert 0.0 <= r["sgrad"] <= 1.9e-6
+
+
+def test_un_alto_por_el_paso_en_el_optimo_cuenta_como_convergido():
+    """R.4 tras su reinicio para por el criterio del paso con el gradiente
+    escalado en 4.2e-5: es un máximo y no se avisa."""
+    _, m = fue.load(R4)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        m.fit()
+    r = m._result
+    assert r.termcode == 2 and r.converged
+    assert not any("sin anular el gradiente" in str(x.message) for x in w)
+
+
+@pytest.mark.skipif(not os.path.exists(D1), reason="corpus de atsw-gui")
+def test_un_alto_por_el_paso_en_el_optimo_no_se_reinicia():
+    """D.1 ya estaba en el óptimo (escalado 3.9e-6): antes se reiniciaba en
+    balde y avisaba de que no había convergido."""
+    _, m = fue.load(D1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        m.fit()
+    r = m._result
+    assert r.termcode == 2 and r.converged and r.restarts == 0
+
+
+def test_el_umbral_separa_lo_legitimo_de_lo_atascado():
+    from fue.model import FitResult, SGRAD_CONVERGIDO
+    base = dict(ifault=0, npar=1, nresiduals=10, sigma2=1.0, loglik=0.0,
+                aic=0.0, bic=0.0, params=[], std_errors=[], cov_matrix=[],
+                residuals=[], termcode=2)
+    assert FitResult({**base, "sgrad": 4.8e-6}).converged
+    assert not FitResult({**base, "sgrad": 3.0e4}).converged
+    assert not FitResult({**base, "sgrad": None}).converged
+    assert 4.2e-5 < SGRAD_CONVERGIDO < 26.9

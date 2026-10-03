@@ -148,6 +148,7 @@ typedef struct {
     int     niter;
     double  gnorm;
     int     se_method;
+    double  sgrad;
 } FueResult;
 
 FueResult *fue_estimate(const FueModelSpec *spec);

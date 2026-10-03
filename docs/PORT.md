@@ -15,12 +15,12 @@ name. The model is `drtran/docs/PORTE.md`.*
   fue.Model(...).fit()
         │
         ├── csrc/            Mauricio's C, embedded and compiled into a
-        │                    cffi extension (_fue_engine).  3.915 lines.
+        │                    cffi extension (_fue_engine).  3.927 lines.
         │                    Used whenever it is available.
         │
         └── src/fue/         a pure-Python re-implementation of the same
                              engine — elfvarma.py, cast_us.py, qnewtopt.py:
-                             1.984 lines.  Used when the extension is not.
+                             1.996 lines.  Used when the extension is not.
 ```
 
 The selection is one `try/except ImportError` in `src/fue/_engine.py`
@@ -70,7 +70,7 @@ That difference is measured and it is not small: median **×90**, up to ×384
 (`docs/PERFORMANCE.md`). What does not differ is the answer — largest
 \|Δ log-likelihood\| over 23 real models: 0.0002.
 
-**Ported to Python** — the 1.984 lines above, translated from the C with the
+**Ported to Python** — the 1.996 lines above, translated from the C with the
 AS 311 step markers `(a)`…`(k)` carried across so the two can be read side by
 side (`tests/test_as311_published_identities.py` asserts the markers survive).
 

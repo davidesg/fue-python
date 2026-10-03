@@ -61,6 +61,12 @@ from scipy.linalg import solve_triangular
 
 _MACHEPS = np.finfo(float).eps
 _GRTOL   = _MACHEPS ** (1.1 / 3.0)   # ≈ 1.82e-6 — matches fue_defaults() grtol
+
+#: fue BUG-0005 (B). The scaled gradient at the last stop of `raxopt` —
+#: max_i |g_i| (|x_i| + 1) / (|f| + 1), the quantity `_umstop` compares with
+#: gradtol — as the C engine records it in qn_last_sgrad. Recorded only: the
+#: return value of `raxopt` does not change.
+LAST_SGRAD = 0.0
 _SPTOL   = _MACHEPS ** (2.0 / 3.0)   # ≈ 3.67e-11 — matches fue_defaults() sptol
 _MAXCMAX = 5
 
@@ -413,4 +419,6 @@ def raxopt(func, x0, maxits=500, nrits=10, gradtol=None, steptol=None):
         gk   = gkp1
         fk   = fkp1
 
+    global LAST_SGRAD
+    LAST_SGRAD = float(np.max(np.abs(gk) * (np.abs(xk) + 1.0)) / (abs(fk) + 1.0))
     return xk, fk, B, termcode, k, float(np.linalg.norm(gk))

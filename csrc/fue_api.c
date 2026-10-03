@@ -33,6 +33,7 @@
 extern int qn_last_termcode;   /* qnewtopt.c — BUG-0012 */
 extern int qn_last_nit;
 extern double qn_last_gnorm;
+extern double qn_last_sgrad;   /* qnewtopt.c — BUG-0005 (B) */
 
 /* ── Globals required by the internal estimation engine ─────────────────── */
 /* cast_us() accesses these as module-level globals, matching fue.c layout.  */
@@ -978,6 +979,7 @@ FueResult *fue_estimate(const FueModelSpec *spec)
     result->termcode = qn_last_termcode;
     result->niter    = qn_last_nit;
     result->gnorm    = qn_last_gnorm;
+    result->sgrad    = qn_last_sgrad;
     result->se_method = est_se_how;
     if (npar > 0 && nresiduals > 0) {
         result->aic = -2.0 * logelf + 2.0 * npar;

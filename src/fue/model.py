@@ -61,6 +61,17 @@ _TERMINATION = {
 }
 
 
+#: BUG-0005 (B). Gradiente ESCALADO —max |gᵢ|·(|xᵢ|+1)/(|f|+1), lo que el
+#: optimizador compara con su tolerancia (≈1.82e-6)— por debajo del cual un alto
+#: por el criterio del paso (termcode 2) o sin mejora (3) cuenta como máximo.
+#: Medido sobre 258 modelos reales: los convergidos por gradiente llegan a
+#: 1.81e-6; los que paran por el paso EN el óptimo, 3.9e-6 y 4.8e-6 (y R.4
+#: tras su reinicio, 4.2e-5); los atascados, 3e4 y 1.4e5 (syn_ARF sigue en 27
+#: tras dos reinicios). 1e-4 queda por encima de todo lo legítimo y a más de
+#: cinco órdenes de lo atascado.
+SGRAD_CONVERGIDO = 1e-4
+
+
 class FitResult:
     """Container for estimation results returned by the C engine."""
 
@@ -77,6 +88,9 @@ class FitResult:
         self.residuals  = data['residuals']
         self.niter      = data.get('niter')
         self.gnorm      = data.get('gnorm')
+        # BUG-0005 (B): the scaled gradient at the stop, what the optimizer
+        # compares with its tolerance. None from engines that do not record it.
+        self.sgrad      = data.get('sgrad')
         self.termcode   = data.get('termcode')
         # BUG-0015: which Hessian gave std_errors/cov_matrix ("fdhess",
         # "bfgs (fdhess: <why>)", "none (...)"), as the reports write it.
@@ -88,8 +102,17 @@ class FitResult:
         # viaja (termcode), así que la afirmación puede ser la honesta.
         #   termcode 1 = el gradiente se anuló: esto sí es un máximo
         #   termcode 0 = no registrado (motores anteriores a 0.1.10)
+        # BUG-0005 (B): un alto por el criterio del PASO (2) o sin mejora en la
+        # búsqueda lineal (3) también es un máximo si el gradiente ESCALADO —lo
+        # que el optimizador compara con su tolerancia— está anulado. Medido
+        # sobre 258 modelos reales: los que paran así en el óptimo (US_CPI,
+        # D.1) tienen 4.8e-6 y 3.9e-6; los atascados (R.4, syn_ARF), 1.4e5 y
+        # 3e4. El umbral, SGRAD_CONVERGIDO = 1e-4, está en medio.
         self.converged  = (self.ifault == 0
-                           and (self.termcode is None or self.termcode in (0, 1)))
+                           and (self.termcode is None or self.termcode in (0, 1)
+                                or (self.termcode in (2, 3)
+                                    and self.sgrad is not None
+                                    and self.sgrad <= SGRAD_CONVERGIDO)))
         # BUG-0005: cuántas veces se reinició el optimizador desde donde paró
         # (Model.fit). 0 = convergió, o se dejó, a la primera.
         self.restarts   = 0

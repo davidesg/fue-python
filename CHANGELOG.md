@@ -5,6 +5,20 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
 ## 0.1.17 — unreleased
 
+### A stop on the step test with the gradient zeroed counts as converged — BUG-0005 (B)
+
+- The C engine records the scaled gradient at the stop, the quantity raxopt
+  compares with its tolerance, and returns it in `FueResult.sgrad`. The
+  Python port records it in `qnewtopt.LAST_SGRAD`. `FitResult.sgrad`
+  carries it.
+- `converged` now also holds for termcode 2 or 3 with
+  `sgrad ≤ SGRAD_CONVERGIDO = 1e-4`, measured on 258 real models. Optima
+  that stop on the step test sit at 3.9e-6 to 4.2e-5; stuck fits sit at 3e4
+  and above.
+- D.1 and US_CPI no longer warn or restart in vain. R.4 converges after its
+  restart.
+- The C extension must be rebuilt: the result struct gained a field.
+
 ### The optimizer is restarted when it stops without zeroing the gradient — BUG-0005
 
 - `Model.fit` restarts the search from where it stopped while the

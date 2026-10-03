@@ -216,8 +216,10 @@ _OPT_EXCEPTIONS = [
     ("printf-to-outputv",
      lambda l: '"%4d F: %0.10f' in l),
     # BUG-0012: recording what raxopt already computed. No criterion changes.
+    # BUG-0005 (B) adds qn_last_sgrad, umstop's scaled gradient, recorded the
+    # same way; its loop is undone as a block below.
     ("termcode-recording",
-     lambda l: re.match(r"^\s*((int|double)\s+)?qn_last_(termcode|nit|gnorm)\s*=",
+     lambda l: re.match(r"^\s*((int|double)\s+)?qn_last_(termcode|nit|gnorm|sgrad)\s*=",
                         l) is not None),
 ]
 
@@ -251,6 +253,24 @@ def _undo_bug0025(lines):
     return out
 
 
+# BUG-0005 (B): the loop that computes the scaled gradient for the record. Like
+# BUG-0025, generic lines ("{", "for") are undone as an exact block, not declared.
+_SGRAD_BLOCK = [
+    "for ( i = 1; i <= n; i++ )", "{",
+    "real t = fabs( g[i] ) * ( fabs( x[i] ) + 1.0 ) / ( fabs( f ) + 1.0 );",
+    "if ( t > qn_last_sgrad ) qn_last_sgrad = t;", "}",
+]
+
+
+def _undo_sgrad(lines):
+    """qnewtopt.c's code lines with the BUG-0005 (B) recording loop taken out."""
+    st = [l.strip() for l in lines]
+    k = len(_SGRAD_BLOCK)
+    at = [i for i in range(len(st) - k + 1) if st[i:i + k] == _SGRAD_BLOCK]
+    assert len(at) == 1, f"the sgrad block is there {len(at)} times, not once"
+    return lines[:at[0]] + lines[at[0] + k:]
+
+
 def _code_only(path, encoding):
     """The file with comments and blank lines removed.
 
@@ -279,7 +299,8 @@ def _classify_opt(line):
 def test_the_optimizer_is_still_mauricios():
     """raxopt must keep its own rules: BUG-0012 records, it does not decide."""
     a = _code_only(os.path.join(_FUE_1131, "qnewtopt.c"), "latin-1")
-    b = _undo_bug0025(_code_only(os.path.join(_INTERNAL, "qnewtopt.c"), "utf-8"))
+    b = _undo_sgrad(_undo_bug0025(
+        _code_only(os.path.join(_INTERNAL, "qnewtopt.c"), "utf-8")))
     undeclared = []
     for line in difflib.unified_diff(a, b, n=0, lineterm=""):
         if line.startswith(("---", "+++", "@@")) or line[:1] not in "-+":

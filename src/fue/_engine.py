@@ -243,6 +243,7 @@ def estimate(model):
             'termcode':   raw.termcode,
             'niter':      raw.niter,
             'gnorm':      raw.gnorm,
+            'sgrad':      raw.sgrad,
             'se_method':  se_method_label(raw.se_method, n),
             'params':     np.array([raw.params[i]     for i in range(n)],    dtype=float),
             'std_errors': np.array([raw.std_errors[i] for i in range(n)],    dtype=float),

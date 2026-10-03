@@ -5,6 +5,17 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
 ## 0.1.17 — unreleased
 
+### The optimizer is restarted when it stops without zeroing the gradient — BUG-0005
+
+- `Model.fit` restarts the search from where it stopped while the
+  likelihood improves, up to `Model.MAX_REINICIOS = 3` times, when a fit
+  ends without zeroing the gradient.
+- On IPC-T/Coint/R.4 the first fit stopped on the step test with
+  ‖g‖≈1.2e5, 40 loglik units below the optimum, at a point that moved with
+  numpy's last bit. One restart reaches 251.683 under any numpy.
+- Fits that converge the first time (253 of 258 real models) are untouched.
+- `FitResult.restarts` counts the restarts, and the `.out` reports them.
+
 ### fue says when it falls back to the Python engine — BUG-0024
 
 - If the C extension does not load, the first estimate in the process warns

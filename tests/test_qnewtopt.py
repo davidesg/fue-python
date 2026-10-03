@@ -206,14 +206,40 @@ _EQUIV_CASES = [
 _EQUIV_IDS = [p.split("/")[-1] for p, *_ in _EQUIV_CASES]
 
 
+def _hasta_el_optimo(est, rel, max_reinicios=3):
+    """Run an engine and, if it stopped without zeroing the gradient, restart it
+    from where it stopped while the loglik improves — what Model.fit does
+    (fue BUG-0005)."""
+    from fue.model import FitResult
+    from fue.cast_us import sync_params_to_attrs
+    m = _load(rel)
+    r = est(m)
+    for _ in range(max_reinicios):
+        if r.get("termcode") in (None, 0, 1):
+            break
+        m._result = FitResult(r)
+        sync_params_to_attrs(m)
+        r2 = est(m)
+        if not r2["loglik"] > r["loglik"] + 1e-9:
+            break
+        r = r2
+    return r
+
+
 @requires_c
 @pytest.mark.parametrize("rel,ll_tol,s2_tol", _EQUIV_CASES, ids=_EQUIV_IDS)
 def test_raxopt_matches_c(rel, ll_tol, s2_tol):
-    """raxopt loglik must agree with C within tolerance."""
+    """raxopt loglik must agree with C within tolerance.
+
+    Where the C engine stops without zeroing the gradient (IPC-T/Coint/R.4:
+    step test, ‖g‖≈1.2e5), the stopping point is not an optimum and where each
+    engine stops depends on the last bit (numpy 2 takes two more steps). Both
+    are then compared after restarting to the optimum, as Model.fit does
+    (fue BUG-0005): 251.682958 from either engine.
+    """
     from fue._engine import estimate as est_c
-    m   = _load(rel)
-    rc  = est_c(m)
-    rp  = estimate_py(m)
+    rc  = _hasta_el_optimo(est_c, rel)
+    rp  = _hasta_el_optimo(estimate_py, rel)
     assert abs(rp["loglik"] - rc["loglik"]) < ll_tol, (
         f"raxopt loglik {rp['loglik']:.6f} vs C {rc['loglik']:.6f} "
         f"(diff {abs(rp['loglik']-rc['loglik']):.2e})"

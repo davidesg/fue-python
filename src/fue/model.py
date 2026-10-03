@@ -90,6 +90,9 @@ class FitResult:
         #   termcode 0 = no registrado (motores anteriores a 0.1.10)
         self.converged  = (self.ifault == 0
                            and (self.termcode is None or self.termcode in (0, 1)))
+        # BUG-0005: cuántas veces se reinició el optimizador desde donde paró
+        # (Model.fit). 0 = convergió, o se dejó, a la primera.
+        self.restarts   = 0
 
     @property
     def termination(self):
@@ -297,6 +300,8 @@ class Model:
         self._result = FitResult(raw)
         # El fallo del motor sigue siendo excepción; un alto que no es máximo,
         # no: es un ajuste que existe y sobre el que hay que poder decidir.
+        if self._result.ifault == 0:
+            self._reinicia_si_no_convergio(estimate)
         if self._result.ifault != 0:
             from ._engine import _load_c
             c = _load_c()
@@ -310,7 +315,10 @@ class Model:
             warnings.warn(
                 f"fue: la estimación paró sin anular el gradiente "
                 f"({self._result.termination}; {self._result.niter} iteraciones, "
-                f"‖g‖={self._result.gnorm:.4g}). Los valores devueltos NO son un "
+                f"‖g‖={self._result.gnorm:.4g}"
+                + (f", tras {self._result.restarts} reinicio(s)"
+                   if self._result.restarts else "")
+                + "). Los valores devueltos NO son un "
                 f"máximo verificado — revisa las semillas antes de usarlos "
                 f"(fue/bugs/BUG-0012).",
                 RuntimeWarning, stacklevel=2)
@@ -322,6 +330,40 @@ class Model:
         # consumer (forecast_fuf, _write_inp, reports) reads the fit, not the seeds.
         sync_params_to_attrs(self)
         return self
+
+    #: BUG-0005. Reinicios del optimizador, como mucho, cuando un ajuste acaba
+    #: sin anular el gradiente.
+    MAX_REINICIOS = 3
+
+    def _reinicia_si_no_convergio(self, estimate):
+        """BUG-0005: si el optimizador paró sin anular el gradiente, reiniciarlo
+        desde donde paró mientras la verosimilitud mejore.
+
+        Un alto por el criterio del PASO con el gradiente lejos de cero es el
+        BFGS atascado: su aproximación del hessiano da pasos minúsculos. Medido
+        sobre 258 modelos reales del ecosistema, 253 convergen a la primera (y
+        esto no los toca) y en IPC-T/Coint/R.4 un solo reinicio sube ℓ de 211.21
+        a 251.68 con el gradiente anulado. Y es lo que hace el resultado
+        independiente del camino: en esa zona el último bit (numpy, compilador,
+        plataforma) decidía si se daba un paso más; reiniciando, todos llegan al
+        mismo óptimo.
+        """
+        from .cast_us import sync_params_to_attrs
+        mejor = self._result
+        for _ in range(self.MAX_REINICIOS):
+            if mejor.converged:
+                break
+            self._result = mejor
+            sync_params_to_attrs(self)          # semillas = donde paró
+            try:
+                nuevo = FitResult(estimate(self))
+            except Exception:
+                break
+            if nuevo.ifault != 0 or not (nuevo.loglik > mejor.loglik + 1e-9):
+                break
+            nuevo.restarts = mejor.restarts + 1
+            mejor = nuevo
+        self._result = mejor
 
     def forecast_fuf(self, horizon=None, sigma2=None):
         """

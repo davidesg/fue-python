@@ -139,6 +139,9 @@ def _section_header(lines, model, inp_name, out_name):
             f"**** CONVERGENCE OBTAINED AFTER {niter_str} ITERATIONS"
             f" [GRADIENT NORM = {gnorm_str}]"
         )
+        if getattr(r, "restarts", 0):
+            lines.append(f"**** OPTIMIZER RESTARTED {r.restarts} TIME(S) FROM "
+                         "WHERE IT STOPPED (fue BUG-0005)")
     elif not r.converged:
         lines.append("**** CONVERGENCE NOT ACHIEVED")
     lines.append("")

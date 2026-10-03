@@ -172,6 +172,10 @@ def test_the_verdict_matches_every_preserved_c_run():
         want_nit, want_g = int(got.group(1)), float(got.group(2))
 
         _ts, m = fue.load(inp)
+        # The oracle is the C program's FIRST pass. Model.fit restarts a fit
+        # that stops without zeroing the gradient (BUG-0005), which the C
+        # program never did; the comparison is with that layer off.
+        m.MAX_REINICIOS = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             m.fit()

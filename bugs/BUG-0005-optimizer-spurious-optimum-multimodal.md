@@ -275,3 +275,61 @@ Es el mismo fenómeno que este informe describe entre Windows y Linux: sobre una
 verosimilitud sin óptimo nítido, el camino del optimizador depende de detalles
 numéricos, y aquí el detalle es la versión de numpy. No se marcan como xfail: la
 diferencia es información, y un test que la esconda dejaría de verla.
+
+## Tercer intento (2026-10-03): el optimizador atascado, y el reinicio (arreglo A)
+
+**Lo que se midió.** Con numpy 2.5.3 en un entorno aparte, los dos tests de R.4
+fallan como decía la nota del 25-sep. Su causa no es una superficie
+multimodal:
+
+| | ℓ | iteraciones | termcode | ‖g‖ |
+|---|---|---|---|---|
+| C | 211.214577 | 22 | 2 (paso) | 116 338 |
+| Python, numpy 1 | 211.214784 | 22 | 2 | 116 330 |
+| Python, numpy 2 | 212.059483 | 24 | 2 | 116 324 |
+| **reinicio desde donde paró** | **251.682958** | — | 2 | **0** |
+
+El primer ajuste se queda **40 unidades de ℓ por debajo del óptimo**. Para
+por el criterio del paso con el gradiente enorme: el BFGS está atascado, con
+una aproximación del hessiano que da pasos minúsculos. En esa zona el último
+bit decide si da uno o dos pasos más, y por eso numpy 1, numpy 2 (y
+plausiblemente Windows frente a Linux) paraban en sitios distintos. Un
+reinicio lo lleva al óptimo.
+
+Sobre 258 modelos reales (los tests de fue, el corpus de atsw-gui, las
+réplicas de art y el pass-through):
+- 253 convergen a la primera;
+- de los 5 restantes, R.4 (y su copia) gana +40.47 al reiniciar, y syn_ARF
+  gana +0.06 sin llegar a converger;
+- D.1 y US_CPI (el caso original de este informe) ya estaban en el óptimo
+  (Δℓ = 0, ‖g‖ = 0), y solo se marcan como no convergidos por el código de
+  parada.
+
+**Arreglo A (aplicado).** `Model.fit` reinicia el optimizador desde donde
+paró cuando el ajuste no ha convergido, mientras ℓ mejore y hasta
+`Model.MAX_REINICIOS = 3` veces. Cubre los dos motores, porque todos pasan
+por `fit`.
+- `FitResult.restarts` cuenta los reinicios.
+- El `.out` lo dice («OPTIMIZER RESTARTED n TIME(S)»), y también el aviso
+  de BUG-0012.
+- Un ajuste que converge a la primera no se toca.
+- R.4 llega a 251.682958 con numpy 1 y con numpy 2.
+
+Tests:
+- `tests/test_bug_0005_reinicio.py`, nuevo.
+- `test_qnewtopt::test_raxopt_matches_c` compara los motores tras el
+  reinicio cuando el C para sin converger, porque comparar el punto de
+  parada no tiene sentido.
+- `test_performance::test_py_sigma2` deja de comparar σ² si Python está en
+  otro punto más allá de su tolerancia.
+
+Las dos pasan con numpy 1.26 y con numpy 2.5.3.
+
+**Pendiente:**
+- (B) Un termcode 2 o 3 con el gradiente anulado debería contar como
+  convergido (D.1, US_CPI y R.4 tras el reinicio). Requiere exportar el
+  gradiente escalado del optimizador.
+- El binario C de atsw-gui no tiene el reinicio.
+- La divergencia entre plataformas sigue sin máquina Windows, aunque con el
+  reinicio un atasco en otro punto acaba en el mismo óptimo.
+

@@ -274,7 +274,11 @@ def test_py_sigma2(case_id, factory, freq, nobs, npar,
     naturally differ and checking it against the C reference is meaningless.
     """
     r = estimate_py(factory())
-    if r["loglik"] > ref_ll + 1.0:
+    # Same point or not: beyond the loglik tolerance Python is somewhere else,
+    # and on a case where the C reference itself stopped without zeroing the
+    # gradient (IPC-T/Coint/R.4) that "somewhere else" moves with numpy's last
+    # bit — numpy 2 takes two more steps and gains 0.85 (fue BUG-0005).
+    if r["loglik"] > ref_ll + tol_py_ll:
         pytest.skip(f"{case_id}: Python found a better optimum "
                     f"(Py {r['loglik']:.4f} > ref {ref_ll:.4f}); sigma2 differs by design")
     assert abs(r["sigma2"] - ref_s2) < tol_py_s2, (

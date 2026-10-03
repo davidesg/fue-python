@@ -28,6 +28,64 @@ class ForecastResult:
     sigma2: float
 
 
+def forecast_graph_data(model, fr) -> dict:
+    """The data of fuf's forecast graph, as atsw-gui engines/fuf/src/usfo.c
+    prepares them (`forecast_graphic`, `forecast_graphic_BC`).
+
+    Returns the keyword arguments of `pyfug.plot_forecast`: the last L
+    observations and the L forecasts, their bands, the last L residuals, the
+    residual standard deviation, and the date of the first observation shown.
+
+    - Box-Cox λ < 0: the LEVEL, with bands of two standard deviations (the
+      transformation undone).
+    - Otherwise, the annual change of the series: a rate in per cent when the
+      model is in logarithms (λ = 0), and a change in the units of the series
+      when it is not; the bands are of one standard deviation.
+    """
+    ts = model.series
+    nobs = ts.nobs
+    freq = ts.freq if ts.freq > 0 else 1
+    L = int(fr.horizon)
+    refactor = model.refactor
+    lam = model.boxlam
+    raw = np.asarray(ts.data, dtype=float)
+    res = np.asarray(model._result.residuals, dtype=float)[-L:]
+
+    begyear, begtime = ts.start
+    total = int(begyear) * freq + (int(begtime) - 1) + (nobs - L)
+    first_year, first_season = total // freq, total % freq + 1
+
+    if lam < 0:
+        y_hist = raw[nobs - L:nobs]
+        f1 = np.array([_boxcox(v, lam, refactor) for v in fr.level])
+        sd = np.asarray(fr.level_std, dtype=float) * refactor
+        hi = np.array([_inv_boxcox(f + 2 * s, lam, refactor) for f, s in zip(f1, sd)])
+        lo = np.array([_inv_boxcox(f - 2 * s, lam, refactor) for f, s in zip(f1, sd)])
+        y = np.concatenate([y_hist, np.asarray(fr.level, dtype=float)])
+        err = 100.0 * res / refactor
+        sigma = math.sqrt(fr.sigma2)
+        title = "LEVEL"
+    else:
+        pct = 100.0 if lam == 0.0 else 1.0
+        y_hist = np.array([
+            pct * (_boxcox(raw[nobs - L + i], lam, refactor)
+                   - _boxcox(raw[nobs - L + i - freq], lam, refactor)) / refactor
+            for i in range(L)])
+        f3 = (pct / 100.0) * np.asarray(fr.seasonal_diff, dtype=float)
+        s3 = (pct / 100.0) * np.asarray(fr.seasonal_diff_std, dtype=float)
+        y = np.concatenate([y_hist, f3])
+        hi, lo = f3 + s3, f3 - s3
+        err = pct * res / refactor
+        sigma = pct * math.sqrt(fr.sigma2) / refactor
+        title = "LRC anual (%)" if lam == 0.0 else "Annual change"
+
+    zeros = np.zeros(L)
+    return dict(y=y, band=np.concatenate([zeros, hi]),
+                band2=np.concatenate([zeros, lo]), err=err, L=L, sigma=sigma,
+                freq=freq, first_year=first_year, first_season=first_season,
+                title=title)
+
+
 # ── Box-Cox helpers ───────────────────────────────────────────────────────────
 
 def _boxcox(y, lam, refactor):

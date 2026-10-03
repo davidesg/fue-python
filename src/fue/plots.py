@@ -355,6 +355,26 @@ def plot_model_diagnostics(model, lags=None, save_prefix=None):
 
 
 def plot_forecast(model, fr, save_prefix=None):
+    """fuf's forecast graph, drawn by pyfug (`pyfug.plot_forecast`) with the
+    data of `fue.forecast.forecast_graph_data`, as fufplot.c draws it.
+
+    Without pyfug, the old matplotlib drawing below. It goes with fue.plots
+    when the plots leave fue: pyfug is the one graphics engine.
+    """
+    try:
+        from pyfug.graphics import plot_forecast as _pyfug_forecast
+    except ImportError:
+        return _plot_forecast_legacy(model, fr, save_prefix)
+    from .forecast import forecast_graph_data
+    if model._result is None:
+        raise RuntimeError("plot_forecast: model._result not set — call forecast_fuf() first")
+    fig = _pyfug_forecast(**forecast_graph_data(model, fr))
+    if save_prefix:
+        fig.savefig(f"{save_prefix}_forecast.png", dpi=150)
+    return fig
+
+
+def _plot_forecast_legacy(model, fr, save_prefix=None):
     """Forecast graphic matching C fuf forecast_graphic output.
 
     Two panels: top = seasonal-diff history + forecast + confidence bands;

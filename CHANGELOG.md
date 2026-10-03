@@ -5,6 +5,21 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
 ## 0.1.17 — unreleased
 
+
+### The forecast graph is pyfug's; fue prepares its data
+
+- `fue.forecast.forecast_graph_data(model, fr)` returns the data of fuf's
+  forecast graph, prepared exactly as `usfo.c` does:
+  - λ = 0: the annual rate in %;
+  - other λ ≥ 0: the annual change in the series' units;
+  - λ < 0: the level with ±2σ bands.
+
+  Before, fue always drew the rate in %.
+- `plots.plot_forecast` and the HTML report's chart draw it with
+  `pyfug.plot_forecast`, fufplot.c's figure. Without pyfug they fall back to
+  the old drawing until `fue.plots` leaves fue: pyfug is the one graphics
+  engine.
+
 ### Standard errors from the Hessian at the optimum — BUG-0015
 
 *(In English from this version on.)*

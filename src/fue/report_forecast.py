@@ -396,6 +396,21 @@ def write_forecast_report(model, fr, path,
 # ── Chart — combined multiplot ────────────────────────────────────────────────
 
 def _make_charts_svg(model, fr) -> str:
+    """fuf's forecast graph as SVG: pyfug's `plot_forecast` with the data of
+    `forecast_graph_data`. Without pyfug, the old drawing below."""
+    try:
+        from pyfug.graphics import plot_forecast as _pyfug_forecast
+    except ImportError:
+        return _make_charts_svg_legacy(model, fr)
+    import matplotlib.pyplot as plt
+    from .forecast import forecast_graph_data
+    fig = _pyfug_forecast(**forecast_graph_data(model, fr))
+    svg = _fig_to_svg(fig)
+    plt.close(fig)
+    return svg
+
+
+def _make_charts_svg_legacy(model, fr) -> str:
     """Two-panel figure (mirrors C gnuplot multiplot).
 
     Top    : annual rate of change — history (dots+line) + forecast (line)

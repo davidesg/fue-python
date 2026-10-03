@@ -414,3 +414,9 @@ marca `converged=False` y Windows `True`.
 **Conclusión:** la divergencia entre plataformas no se reproduce, ni desde la
 semilla de signo equivocado que la provocó en julio. La mitad 1 del informe
 queda cerrada.
+
+**Con el arreglo B** (`platform-check`, run 37159696717, commit ae37ac3): los
+cinco ajustes salen `converged=True` en Linux y en Windows. US_CPI desde el
+.pre sigue parando por el paso en Linux y por el gradiente en Windows, y ahora
+los dos lo dan por convergido; R.4 hace su reinicio en las dos. El resto, igual
+que en la tabla de arriba.

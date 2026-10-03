@@ -1,0 +1,40 @@
+# BUG-0005: do the same fits reach the same optimum on Linux and on Windows?
+#
+# Builds fue from source with the C engine on each OS (GCC + system GSL on
+# Linux; MSVC + vcpkg GSL on Windows, as the wheels are) and runs
+# scripts/platform_check_bug0005.py. Compare the two logs line by line.
+# Manual only: it is a check, not a gate.
+name: platform-check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: GSL (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgsl-dev
+
+      - name: GSL (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          vcpkg install gsl:x64-windows-static-md
+          echo "GSL_ROOT=$VCPKG_INSTALLATION_ROOT/installed/x64-windows-static-md" >> "$GITHUB_ENV"
+
+      - name: Install fue with the C engine
+        run: pip install .
+
+      - name: Run the check
+        run: python scripts/platform_check_bug0005.py

@@ -298,10 +298,12 @@ class Model:
         # El fallo del motor sigue siendo excepción; un alto que no es máximo,
         # no: es un ajuste que existe y sobre el que hay que poder decidir.
         if self._result.ifault != 0:
-            try:
-                from fue._fue_engine import ffi, lib
+            from ._engine import _load_c
+            c = _load_c()
+            if c is not None:
+                ffi, lib = c
                 msg = ffi.string(lib.fue_strerror(self._result.ifault)).decode()
-            except ImportError:
+            else:
                 msg = f"ifault={self._result.ifault}"
             raise RuntimeError(f"FUE estimation failed: {msg}")
         if not self._result.converged:

@@ -23,9 +23,12 @@ name. The model is `drtran/docs/PORTE.md`.*
                              1.984 lines.  Used when the extension is not.
 ```
 
-The selection is one `try/except ImportError` in `src/fue/_engine.py:34`. There
-is no flag and no configuration: if the extension imported, it runs; if it did
-not, the Python engine runs and the answers stay comparable.
+The selection is one `try/except ImportError` in `src/fue/_engine.py`
+(`_load_c`, tried once per process). There is no flag and no configuration: if
+the extension imported, it runs; if it did not, the Python engine runs and the
+answers stay comparable. The fallback is not silent (BUG-0024): the first
+estimate that falls back issues a `RuntimeWarning` with the import error, and
+`fue.engine_backend()` returns `"c"` or `"python"`.
 
 **Why carry both.** A wrapper cannot be read — the algorithm stays behind a
 `.so` and nobody can check that the port is faithful, which is the whole purpose

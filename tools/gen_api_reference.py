@@ -42,6 +42,9 @@ _GROUPS = [
     ("Results", [
         "ForecastResult",
     ]),
+    ("Engine", [
+        "engine_backend", "engine_load_error",
+    ]),
 ]
 
 #: Datasets. Not attributes of the package — they live in `fue.datasets` — but

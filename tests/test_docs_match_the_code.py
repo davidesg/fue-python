@@ -166,7 +166,7 @@ def test_the_fallback_the_port_document_describes_still_exists():
     src = open(os.path.join(_ROOT, "src", "fue", "_engine.py"),
                encoding="utf-8").read()
     assert "from fue._fue_engine import ffi, lib" in src
-    assert "except ImportError:" in src
+    assert "except ImportError" in src
     assert "from .cast_us import estimate_py" in src, (
         "the pure-Python fallback is gone; PORT.md §1 is then false")
 

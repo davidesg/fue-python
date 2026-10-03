@@ -26,6 +26,7 @@ from .inp import load, load_fuf
 from .report import write_out, write_fuf, write_fuf_out
 from .report_forecast import write_forecast_report
 from . import datasets
+from ._engine import engine_backend, engine_load_error
 
 def _version() -> str:
     """La versión, de UNA sola fuente.
@@ -71,4 +72,5 @@ __all__ = ["TimeSeries", "Intervention", "Model", "FixedFreqFactor",
            "default_lags", "free_arma_count", "differencing_offset",
            "residuals_start",
            "load", "load_fuf", "write_out", "write_fuf", "write_fuf_out",
-           "write_forecast_report", "datasets"]
+           "write_forecast_report", "datasets",
+           "engine_backend", "engine_load_error"]

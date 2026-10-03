@@ -2,7 +2,7 @@
 Bridge between the Python Model API and the cffi-compiled C extension.
 
 Falls back to the pure-Python estimator (cast_us.estimate_py) when the
-C extension (_fue_engine) is not available.
+C extension (_fue_engine) is not available, and says so (BUG-0024).
 """
 
 import numpy as np
@@ -26,6 +26,59 @@ SE_METHODS = {
     5: ("none (fdhess: the Hessian is not positive definite; "
         "the search did not move, so it built no BFGS Hessian)"),
 }
+
+
+# ── Which engine estimates (BUG-0024) ────────────────────────────────────────
+#
+# If the C extension does not load, fue estimates with the Python port. That
+# is a homologated engine, but not the same path: another optimizer, another
+# speed, and on a flat likelihood possibly another optimum (BUG-0005). It used
+# to happen in silence. Now the first fallback in a process warns, with the
+# import error, and `engine_backend()` says which engine is in use.
+
+_C_ENGINE = None          # (ffi, lib) once loaded
+_C_ERROR = None           # the ImportError text when it does not load
+_WARNED = False
+
+
+def _load_c():
+    """(ffi, lib) of the C extension, or None. Tried once per process."""
+    global _C_ENGINE, _C_ERROR
+    if _C_ENGINE is None and _C_ERROR is None:
+        try:
+            from fue._fue_engine import ffi, lib
+            _C_ENGINE = (ffi, lib)
+        except ImportError as e:
+            _C_ERROR = f"{type(e).__name__}: {e}"
+    return _C_ENGINE
+
+
+def engine_backend() -> str:
+    """"c" when the compiled engine loads, "python" when fue falls back to
+    the Python port. art seals it in the guion with the instrument's version."""
+    return "c" if _load_c() is not None else "python"
+
+
+def engine_load_error():
+    """Why the C engine did not load (the ImportError), or None."""
+    _load_c()
+    return _C_ERROR
+
+
+def _warn_python_fallback():
+    global _WARNED
+    if _WARNED:
+        return
+    _WARNED = True
+    import warnings
+    warnings.warn(
+        "fue: the C engine did not load "
+        f"({_C_ERROR}); estimating with the Python port. Same model, another "
+        "optimizer and speed, and on a flat likelihood possibly another "
+        "optimum (fue BUG-0005). If fue was installed without the extension "
+        "on purpose (FUE_SKIP_C=1) this is expected; otherwise reinstall the "
+        "wheel. fue.engine_backend() tells the engine in use (BUG-0024).",
+        RuntimeWarning, stacklevel=3)
 
 
 def se_method_label(code, npar):
@@ -61,11 +114,12 @@ def estimate(model):
     # the atsw-gui CLI carry). The C now gives the same fit as the Python engine
     # and as the same model with one AR factor pinned at zero.
 
-    try:
-        from fue._fue_engine import ffi, lib
-    except ImportError:
+    c = _load_c()
+    if c is None:
+        _warn_python_fallback()
         from .cast_us import estimate_py
         return estimate_py(model)
+    ffi, lib = c
 
     spec = ffi.new("FueModelSpec *")
     lib.fue_defaults(spec)

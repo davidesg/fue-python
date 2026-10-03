@@ -5,6 +5,14 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
 ## 0.1.17 — unreleased
 
+### fue says when it falls back to the Python engine — BUG-0024
+
+- If the C extension does not load, the first estimate in the process warns
+  (`RuntimeWarning`) with the import error, and estimates with the Python
+  port as before. Until now the fallback was silent.
+- `fue.engine_backend()` returns `"c"` or `"python"`, and
+  `fue.engine_load_error()` returns why the C engine did not load.
+
 
 ### The forecast graph is pyfug's; fue prepares its data
 

@@ -1,11 +1,11 @@
 ---
 id: BUG-0024
 title: Si la extensión C no carga, fue estima con el motor en Python sin decirlo — mismo modelo, otro optimizador, otra velocidad, y nada en la salida lo delata
-status: open
+status: fixed
 severity: medium
 component: engine
 found_in: 0.1.16
-fixed_in:
+fixed_in: 0.1.17
 reported: 2026-09-26
 reporter: David — prueba de instalación en frío de atsw 1.5.0
 tags:
@@ -64,3 +64,30 @@ caso legítimo: el aviso lo dice, no lo impide.
 
 Simular la importación fallida (monkeypatch de `fue._fue_engine`) y exigir el
 aviso con la causa; y que `engine_backend()` diga `"python"`.
+
+## Resolution (2026-10-03)
+
+The proposed fix.
+
+- `_engine._load_c()` tries the extension once per process and keeps either
+  the engine or the import error.
+- On the first fallback to the Python port, fue issues a `RuntimeWarning`
+  that names the import error and says what changes. It adds that a wheel
+  without the extension (`FUE_SKIP_C=1`) makes this expected, and points to
+  `fue.engine_backend()`. It warns once, not on every fit.
+- `fue.engine_backend()` returns `"c"` or `"python"`, and
+  `fue.engine_load_error()` returns the cause. art can seal the backend in
+  the guion next to the instrument's version (not done yet; see below).
+- `Model.fit()` translates engine errors through the same single load.
+- The deliberate fallback for models with no free parameters
+  (`eval_at_params`) is unchanged and does not warn.
+
+**Validation:** `tests/test_bug_0024_motor_python_avisa.py`, with the
+extension's import made to fail:
+- the warning names the cause, the fit still runs, and `engine_backend()`
+  says `"python"`;
+- the warning is issued once per process;
+- with the C engine there is no warning, and `engine_backend()` says `"c"`.
+
+**Follow-up (art):** seal `fue.engine_backend()` in the guion.
+

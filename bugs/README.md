@@ -4,11 +4,10 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  A fix commit references the id, e.g. `fix(pipeline): BUG-0001 …`.
 
-**25 report(s), 2 open.**
+**25 report(s), 1 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
-| [BUG-0024](BUG-0024-sin-motor-c-fue-estima-en-python-sin-decirlo.md) | open | medium | engine | Si la extensión C no carga, fue estima con el motor en Python sin decirlo — mismo modelo, otro optimizador, otra velocidad, y nada en la salida lo delata | — |
 | [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | in-progress | medium | estimation | ML optimizer converges to a spurious optimum on multimodal (seasonal-AR) likelihoods and reports converged=True with no diagnostic; the basin is platform-dependent (Windows vs Linux) | — |
 | [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 | [BUG-0002](BUG-0002-binding-fixed-factor-arrays.md) | fixed | high | binding | Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError | 0.1.6 |
@@ -32,5 +31,6 @@ New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  
 | [BUG-0021](BUG-0021-write-pre-cuantiza-tambien-los-parametros-fijos-.md) | fixed | high | inp-writer | write_pre cuantiza tambien los parametros FIJOS: un AR fijado en 0.941176 vuelve fijado en 0.9412, que es otro modelo | 0.1.16 |
 | [BUG-0022](BUG-0022-en-una-serie-anual-con-nombre-numerico-load-toma.md) | fixed | high | inp-reader | En una serie ANUAL con nombre numerico, load() toma el nombre por el ano: la serie se lee empezando 254 anios mas tarde y pierde el nombre | 0.1.16 |
 | [BUG-0023](BUG-0023-la-figura-de-residuos-no-sabe-del-modelo.md) | fixed | high | plots | La figura de residuos de un modelo no sabe del modelo — la Q resta todos los parámetros, el primer residuo lleva la fecha del primer dato y los retardos no son los de fug C | 0.1.16 |
+| [BUG-0024](BUG-0024-sin-motor-c-fue-estima-en-python-sin-decirlo.md) | fixed | medium | engine | Si la extensión C no carga, fue estima con el motor en Python sin decirlo — mismo modelo, otro optimizador, otra velocidad, y nada en la salida lo delata | 0.1.17 |
 | [BUG-0025](BUG-0025-the-line-search-never-returns-on-a-nan-objective.md) | fixed | high | estimation | The line search never returns when the objective is NaN — the C spins for ever, the Python port crashes on the NaN gradient | 0.1.17 (unreleased) |
 

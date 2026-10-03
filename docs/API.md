@@ -466,6 +466,18 @@ by hand as d + D·s (art BUG-0172, BUG-0185).
 Point forecasts and standard errors from Model.forecast().
 
 
+## Engine
+
+### `engine_backend() -> str`
+
+"c" when the compiled engine loads, "python" when fue falls back to
+the Python port. art seals it in the guion with the instrument's version.
+
+### `engine_load_error()`
+
+Why the C engine did not load (the ImportError), or None.
+
+
 ## Datasets
 
 Shipped with the package; `from fue.datasets import ripc`.

@@ -55,7 +55,7 @@ def test_describe_monthly():
     std = x.std(ddof=0)
     skew = (((x - mu) / std) ** 3).mean()
     kurt = (((x - mu) / std) ** 4).mean() - 3.0
-    jb   = (n // 6) * (skew**2 + kurt**2 / 4.0)
+    jb   = n / 6.0 * (skew**2 + kurt**2 / 4.0)     # BUG-0026: no ⌊n/6⌋
     assert f"{mu:.6f}" in out
     assert f"{jb:.6f}" in out
     assert "9/2020" in out      # minimum at observation 9

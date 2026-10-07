@@ -5,6 +5,13 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
 ## 0.1.17 — unreleased
 
+### The Jarque-Bera uses n/6, not ⌊n/6⌋ — BUG-0026
+
+- `report.py` (the `.out`) and `TimeSeries.describe()` copied the old C's
+  `nobs / 6`, an integer division: with n = 215 the JB was 359.19 instead of
+  367.74. They now use n/6, like the current C of atsw-gui, scipy, pyfug and
+  art (art/BUG-0214). `.out` files written before keep the truncated value.
+
 ### A stop on the step test with the gradient zeroed counts as converged — BUG-0005 (B)
 
 - The C engine records the scaled gradient at the stop, the quantity raxopt

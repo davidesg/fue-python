@@ -4,7 +4,7 @@ In-repo bug tracker for **fue**.  One Markdown file per bug (`BUG-NNNN-slug.md`)
 
 New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  A fix commit references the id, e.g. `fix(pipeline): BUG-0001 …`.
 
-**25 report(s), 1 open.**
+**26 report(s), 1 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
@@ -33,4 +33,5 @@ New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  
 | [BUG-0023](BUG-0023-la-figura-de-residuos-no-sabe-del-modelo.md) | fixed | high | plots | La figura de residuos de un modelo no sabe del modelo — la Q resta todos los parámetros, el primer residuo lleva la fecha del primer dato y los retardos no son los de fug C | 0.1.16 |
 | [BUG-0024](BUG-0024-sin-motor-c-fue-estima-en-python-sin-decirlo.md) | fixed | medium | engine | Si la extensión C no carga, fue estima con el motor en Python sin decirlo — mismo modelo, otro optimizador, otra velocidad, y nada en la salida lo delata | 0.1.17 |
 | [BUG-0025](BUG-0025-the-line-search-never-returns-on-a-nan-objective.md) | fixed | high | estimation | The line search never returns when the objective is NaN — the C spins for ever, the Python port crashes on the NaN gradient | 0.1.17 (unreleased) |
+| [BUG-0026](BUG-0026-el-jarque-bera-trunca-n-entre-6.md) | fixed | low | report | El Jarque-Bera del .out y de describe() trunca n/6 a entero — el puerto copió el C antiguo (nobs / 6, división entera) | 0.1.17 (unreleased) |
 

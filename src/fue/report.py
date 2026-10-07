@@ -503,7 +503,7 @@ def _section_residual_stats(lines, ts, res, freq, ornsop):
     se  = std / math.sqrt(n)
     skew = float((((res - mu) / std) ** 3).mean()) if std > 1e-20 else 0.0
     kurt = float((((res - mu) / std) ** 4).mean() - 3.0) if std > 1e-20 else 0.0
-    jb   = (n // 6) * (skew ** 2 + kurt ** 2 / 4.0)   # C uses integer n/6
+    jb   = n / 6.0 * (skew ** 2 + kurt ** 2 / 4.0)    # n/6 exacto (BUG-0026)
 
     imin = int(res.argmin())
     imax = int(res.argmax())

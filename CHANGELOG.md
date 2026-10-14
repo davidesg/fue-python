@@ -3,7 +3,7 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
-## 0.1.17 — unreleased
+## 0.1.17 — 2026-10-15
 
 ### The Jarque-Bera uses n/6, not ⌊n/6⌋ — BUG-0026
 

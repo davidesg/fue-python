@@ -48,6 +48,7 @@ from .forecast  import (
     _ifadf_ornsop, _boxcox,
 )
 from .qnewtopt  import raxopt, _cholsol
+from .fuedet    import det_noise, nu_weights
 
 _LOG2PI   = 1.837877066
 _SQRT_EPS = math.sqrt(2.2e-16)   # sqrt(machine epsilon)
@@ -58,7 +59,8 @@ _SQRT_EPS = math.sqrt(2.2e-16)   # sqrt(machine epsilon)
 def calcnu_py(omega, delta, lags):
     """Impulse response of ω(B)/δ(B) up to lag *lags*.
 
-    Mirrors calcnu() in fue_api.c (extracted from fue.c:4489).
+    calcnu() of fue.c, now ``fuedet.nu_weights``: one Python calcnu for the
+    package (cast_us and forecast used to carry one each).
 
     Parameters
     ----------
@@ -70,18 +72,7 @@ def calcnu_py(omega, delta, lags):
     -------
     nu : ndarray (lags+1,)
     """
-    s  = len(omega) - 1        # Nomega
-    r  = len(delta)            # Ndelta
-    nu = np.zeros(lags + 1)
-    nu[0] = omega[0]
-    for j in range(1, lags + 1):
-        s1 = 0.0
-        if r > 0:
-            for i in range(1, min(j, r) + 1):
-                s1 += delta[i - 1] * nu[j - i]
-        s2 = float(omega[j]) if j <= s else 0.0
-        nu[j] = s1 - s2
-    return nu
+    return nu_weights(omega, delta, lags)
 
 
 # ── indicator series (DataMat[i]) ─────────────────────────────────────────────
@@ -322,21 +313,16 @@ def cast_us_py(x, est_spec):
     theta = np.array(_unscramble(list(ma_est) + ff_ma, ma_s_est, sper))
     p, q  = len(phi), len(theta)
 
-    # [6] Build intervention-filtered series z[1..nobs] (1-indexed)
+    # [6] Build intervention-filtered series z[1..nobs] (1-indexed).
+    #     fue.c's step [5], through fuedet (the compiled routine when the
+    #     extension carries it, the same operations in Python otherwise):
+    #     nu(B) truncated at Nomega lags, or 40 with a delta, the variables
+    #     SUMMED and the sum subtracted ONCE. Until 0.1.18 this subtracted
+    #     variable by variable, which moved the last bit against the C.
     nobs = est_spec.nobs
-    z    = est_spec.data0.copy()   # start from BoxCox data
-
-    for j, itv in enumerate(model.interventions):
-        # Lags for impulse response: Nomega if pure FIR, else 40
-        lags = len(itv_omega[j]) - 1 if len(itv_delta[j]) == 0 else 40
-        nu   = calcnu_py(itv_omega[j], itv_delta[j], lags)
-        ind  = est_spec.ind_data[j]
-        for t in range(1, nobs + 1):
-            acc = 0.0
-            for k in range(lags + 1):
-                if t - k >= 1:
-                    acc += nu[k] * ind[t - k]
-            z[t] -= acc
+    z    = det_noise(itv_omega, itv_delta, est_spec.ind_data,
+                     est_spec.data0, nobs)
+    z[0] = est_spec.data0[0]
 
     # [7] Apply non-stationary operator → w[0..n_eff-1]  (0-indexed output)
     #     w[t] = z[ornsop+1+t] − Σ_{i=0}^{ornsop-1} rnsop[i]·z[ornsop+t-i]

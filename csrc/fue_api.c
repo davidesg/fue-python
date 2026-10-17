@@ -10,7 +10,7 @@
  *   cast_us()           — extracted from fue.c:3645 (uses module-level globals)
  *   unscramble()        — extracted from fue.c:3939
  *   CalcNonsOp()        — extracted from fue.c:4303
- *   calcnu()            — extracted from fue.c:4489
+ *   (calcnu and step [5] of cast_us live in fuedet.c: see below)
  *   Cos2()              — extracted from fue.c:4290
  *   BoxCox_simple()     — local version (no geometric Jacobian)
  *   fue_estimate()      — main API entry point
@@ -29,6 +29,7 @@
 #include "internal/fue.h"
 #include "internal/nlatools.h"
 #include "internal/fdhess_se.h"       /* BUG-0015: est_fdhess, est_se_how */
+#include "fuedet.h"                   /* the deterministic filter, step [5] */
 
 extern int qn_last_termcode;   /* qnewtopt.c — BUG-0012 */
 extern int qn_last_nit;
@@ -111,28 +112,6 @@ static double Cos2(double freq, int sper)
 {
     const double PI = 3.141592654;
     return cos(2.0 * PI * freq / sper);
-}
-
-/* ── calcnu: impulse response of ω(B)/δ(B) ─────────────────────────────── */
-/* Extracted from fue.c:4489                                                 */
-
-static void calcnu(double *omega, int s, double *delta, int r,
-                   double *nu, int lags)
-{
-    int i, j;
-    double sum1, sum2;
-
-    nu[0] = omega[0];
-    for (j = 1; j <= lags; j++) {
-        sum1 = 0.0;
-        if (r > 0)
-            for (i = 1; i <= j; i++)
-                if (i <= r) sum1 += delta[i] * nu[j - i];
-        sum2 = 0.0;
-        if (s > 0)
-            if (j <= s) sum2 = omega[j];
-        nu[j] = sum1 - sum2;
-    }
 }
 
 /* ── CalcNonsOp: non-stationary differencing operator ──────────────────── */
@@ -377,8 +356,8 @@ static void cast_us(real *x, struct Tvarma *armax,
                     int *ifaultx, int firstx, int lastx)
 {
     int i, j, k, itmp;
-    int OrderAr, OrderMa, *NuLag;
-    double *vtmp1, *vtmp2, **Nu, tmp1, tmp2;
+    int OrderAr, OrderMa;
+    double *vtmp1, *vtmp2, tmp1;
 
     itmp = 0;
 
@@ -471,36 +450,20 @@ static void cast_us(real *x, struct Tvarma *armax,
     armax->mu[1]    = Tm.mu;
     armax->qq[1][1] = 1.0;
 
-    /* [5]: Compute differenced noise series */
+    /* [5]: Compute differenced noise series.
+     *
+     * The deterministic part is fue.c's step [5] -- nu(B) by calcnu, truncated
+     * at Nomega lags or at 40 when there is a delta, the variables summed and
+     * subtracted ONCE -- and it lives in fuedet.c, a byte-identical copy of
+     * atsw-gui's lib/fuedet/fuedet.c (tests/test_fuedet_vendored.py checks its
+     * sha256). The same code serves fue, fuf, drtran, drvarma and drvec, and
+     * cast_us.py / forecast.py call it through cffi (fue/fuedet.py).         */
 
     vtmp1 = vector(1, Ts.nobs);
 
-    if (Tm.NdetVar > 0) {
-        NuLag = ivector(1, Tm.NdetVar);
-        Nu    = (double **)calloc((size_t)(Tm.NdetVar + 1), sizeof(double *));
-        for (j = 1; j <= Tm.NdetVar; j++) {
-            NuLag[j] = (Tm.Ndelta[j] == 0) ? Tm.Nomega[j] : 40;
-            Nu[j]    = vector(0, NuLag[j]);
-            calcnu(Tm.Omega[j], Tm.Nomega[j],
-                   Tm.Delta[j], Tm.Ndelta[j],
-                   Nu[j], NuLag[j]);
-        }
-        for (i = 1; i <= Ts.nobs; i++) {
-            tmp1 = 0.0;
-            for (j = 1; j <= Tm.NdetVar; j++) {
-                tmp2 = 0.0;
-                for (k = 0; k <= NuLag[j]; k++)
-                    if (i - k >= 1) tmp2 += Nu[j][k] * DataMat[j][i - k];
-                tmp1 += tmp2;
-            }
-            vtmp1[i] = DataMat[0][i] - tmp1;
-        }
-        for (j = Tm.NdetVar; j >= 1; j--) free_vector(Nu[j], 0, NuLag[j]);
-        free(Nu);
-        free_ivector(NuLag, 1, Tm.NdetVar);
-    } else {
-        for (i = 1; i <= Ts.nobs; i++) vtmp1[i] = DataMat[0][i];
-    }
+    if (fuedet_noise(Tm.NdetVar, Tm.Omega, Tm.Nomega, Tm.Delta, Tm.Ndelta,
+                     DataMat, DataMat[0], Ts.nobs, vtmp1) != 0)
+        nrerror("allocation failure in fuedet_noise()");
 
     for (j = Tm.ornsop + 1; j <= Ts.nobs; j++) {
         tmp1 = 0.0;

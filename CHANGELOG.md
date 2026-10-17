@@ -3,6 +3,35 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.18 — 2026-10-16
+
+### One deterministic filter for the whole suite: fue.c's step [5]
+
+- The deterministic component — ν(B) = ω(B)/δ(B) by `calcnu`, truncated at
+  Nomega lags or at 40 when there is a δ, the variables summed and
+  subtracted once — is computed by ONE routine in the ATSW suite:
+  atsw-gui's `lib/fuedet/fuedet.c`, which is fue.c's code moved verbatim.
+  fue, fuf, drtran, drvarma and drvec call it in C (drvec BUG-40: the
+  siblings used to filter exactly, and fuf truncated at 20).
+- `csrc/fuedet.c` and `csrc/fuedet.h` are byte-identical copies of that
+  file; `tests/test_fuedet_vendored.py` checks their sha256. `fue_api.c`
+  calls `fuedet_noise` instead of its own calcnu and step [5]: the C
+  estimates do not move a bit (42 real cases, logL and parameters
+  identical).
+- New module `fue.fuedet` (`det_sum`, `det_noise`, `nu_weights`): the
+  compiled routine through cffi when the extension carries it, otherwise
+  the same operations in Python, in the same order (the same bits on Linux
+  x86_64). `calcnu_py` and `forecast._calcnu` are now `nu_weights`.
+- `cast_us_py` [6] subtracted variable by variable; it now sums and
+  subtracts once, like the C. `forecast._build_xi` added every term straight
+  into `xi[t]`; it now goes through `det_sum`. Both are last-bit changes:
+  the forecasts of the C engine move by at most 1.7e-16 (RIPC.1–3). The
+  Python fallback estimator follows another optimizer path: on the IPC
+  cases logL moves ≤ 5e-13 and the parameters ≤ 3e-9, except RIPC.1.inp
+  (a flat likelihood), logL +3.2e-5 and a parameter 5.7e-4.
+- The C extension must be rebuilt: it gained `fuedet.c` and four exported
+  functions.
+
 ## 0.1.17 — 2026-10-15
 
 ### The Jarque-Bera uses n/6, not ⌊n/6⌋ — BUG-0026

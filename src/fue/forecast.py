@@ -337,25 +337,13 @@ def _varphi(phi_coefs, rnsop_coefs):
     return phi0[1:]   # [phi0_1, ..., phi0_{ornsop+p}]
 
 
-# ── calcnu impulse response (replicates calcnu() in fue_api.c) ────────────────
+# ── calcnu impulse response ───────────────────────────────────────────────────
 
 def _calcnu(omega, delta, lags):
-    """Impulse response nu[0..lags] of the ω(B)/δ(B) filter.
-
-    omega : list [ω₀, ω₁, ...] (0-indexed)
-    delta : list [δ₁, δ₂, ...] (0-indexed, δ_i = coefficient at lag i)
-
-    Matches calcnu() in fue_api.c: nu[j] = Σ δ_i*nu[j-i] − ω[j].
-    """
-    s  = len(omega) - 1   # Nomega
-    r  = len(delta)        # Ndelta
-    nu = np.zeros(lags + 1)
-    nu[0] = omega[0]
-    for j in range(1, lags + 1):
-        sum1 = sum(delta[i - 1] * nu[j - i] for i in range(1, min(j, r) + 1))
-        sum2 = omega[j] if j <= s else 0.0
-        nu[j] = sum1 - sum2
-    return nu
+    """Impulse response nu[0..lags] of the ω(B)/δ(B) filter: calcnu of fue.c,
+    through ``fuedet.nu_weights`` (one Python calcnu for the package)."""
+    from .fuedet import nu_weights
+    return nu_weights(omega, delta, lags)
 
 
 # ── Build indicator and xi ────────────────────────────────────────────────────
@@ -363,60 +351,50 @@ def _calcnu(omega, delta, lags):
 def _build_xi(model, nobs, freq, horizon, itv_omega, itv_delta):
     """Total deterministic effect xi[1..nobs+horizon] for the forecast period.
 
-    For each intervention: extend its indicator D to nobs+horizon, compute the
-    nu impulse response, and convolve: xi[t] += Σ_k nu[k]*D[t-k].
-
-    Mirrors fue_api.c DataMat[i] generation and fuf.c DataMat extension.
-    `itv.at` is 0-based; obs = itv.at + 1 gives the 1-based C obs index.
+    Each intervention's indicator D_j is extended to nobs+horizon, and
+    xi[t] = Σ_j Σ_k ν_j[k] D_j[t-k], with fue.c's rule and order (fuedet):
+    the same as fuf.c's xius (fuf 1.10).
     """
     T  = nobs + horizon
-    xi = np.zeros(T + 1)   # 1-indexed, index 0 unused
 
     # begtime: starting period within year (1-based), used by seasonal indicator
     begtime = model.series.start[1] if model.series.start else 1
+    begyear = model.series.start[0] if model.series.start else None
 
-    for idx, itv in enumerate(model.interventions):
-        omega  = itv_omega[idx]
-        delta  = itv_delta[idx]
-        obs    = itv.at + 1    # convert 0-based at → 1-based C obs index
+    # EL INDICADOR LO CONSTRUYE **UN SOLO** GENERADOR (BUG-0014).
+    #
+    # Aquí había una segunda copia de la construcción, indexada por
+    # `type_code` en vez de por nombre, con ramas para 8 de los 11 tipos y
+    # sin `else` final. `compimp` (8), `easter` (9) y `trend` (10) caían
+    # fuera y su indicador salía IDÉNTICAMENTE NULO — sin aviso, sin error.
+    #
+    # El daño era doble, porque `xi` se usa dos veces: `nt - xi` limpia la
+    # HISTORIA para obtener el ruido, y `f1 += xi` añade el efecto al
+    # FUTURO. Con `xi≡0` el ruido que alimenta la recursión queda
+    # contaminado por un determinista que nadie quitó, y la previsión
+    # además no lleva el efecto. Medido: un easter de +4% —estimado por el
+    # motor como ω=399,4— desaparecía entero de la previsión, mientras que
+    # `fuf` (el C) lo daba bien.
+    #
+    # Dos generadores del mismo regresor son un defecto, no una
+    # duplicación inocente: el segundo se quedó atrás cuando el primero
+    # creció. `_build_indicator` acepta la longitud, así que pedirle
+    # `nobs+horizonte` extiende cada tipo por su propia regla —el easter por
+    # el calendario, el step por su definición— sin repetir ninguna.
+    # Import diferido: `cast_us` importa de este módulo, así que a nivel
+    # de módulo sería circular.
+    from .cast_us import _build_indicator
+    from .fuedet import det_sum
+    inds = [_build_indicator(itv, T, freq, begtime, begyear)
+            for itv in model.interventions]
 
-        # NuLag mirrors fue_api.c: Nomega if no delta, else 40
-        nu_lag = len(omega) - 1 if not delta else 40
-        nu = _calcnu(omega, delta, nu_lag)
-
-        # EL INDICADOR LO CONSTRUYE **UN SOLO** GENERADOR (BUG-0014).
-        #
-        # Aquí había una segunda copia de la construcción, indexada por
-        # `type_code` en vez de por nombre, con ramas para 8 de los 11 tipos y
-        # sin `else` final. `compimp` (8), `easter` (9) y `trend` (10) caían
-        # fuera y su indicador salía IDÉNTICAMENTE NULO — sin aviso, sin error.
-        #
-        # El daño era doble, porque `xi` se usa dos veces: `nt - xi` limpia la
-        # HISTORIA para obtener el ruido, y `f1 += xi` añade el efecto al
-        # FUTURO. Con `xi≡0` el ruido que alimenta la recursión queda
-        # contaminado por un determinista que nadie quitó, y la previsión
-        # además no lleva el efecto. Medido: un easter de +4% —estimado por el
-        # motor como ω=399,4— desaparecía entero de la previsión, mientras que
-        # `fuf` (el C) lo daba bien.
-        #
-        # Dos generadores del mismo regresor son un defecto, no una
-        # duplicación inocente: el segundo se quedó atrás cuando el primero
-        # creció. `_build_indicator` acepta la longitud, así que pedirle
-        # `nobs+horizonte` extiende cada tipo por su propia regla —el easter por
-        # el calendario, el step por su definición— sin repetir ninguna.
-        # Import diferido: `cast_us` importa de este módulo, así que a nivel
-        # de módulo sería circular.
-        from .cast_us import _build_indicator
-        begyear = model.series.start[0] if model.series.start else None
-        D = _build_indicator(itv, T, freq, begtime, begyear)
-
-        # Apply filter: xi[t] += Σ_{k=0}^{nu_lag} nu[k] * D[t-k]
-        for t in range(1, T + 1):
-            for kk in range(nu_lag + 1):
-                if t - kk >= 1:
-                    xi[t] += nu[kk] * D[t - kk]
-
-    return xi
+    # EL FILTRO, también uno solo: fue.c [5] a través de fuedet, el mismo
+    # código que fue, fuf, drtran, drvarma y drvec. nu(B) truncada en Nomega
+    # retardos, o en 40 con delta, y las variables SUMADAS -- tmp2 por
+    # variable, tmp1 += tmp2 --. Hasta 0.1.18 cada término iba directo a
+    # xi[t], sin la suma parcial por variable: el mismo número salvo el
+    # último bit.
+    return det_sum(itv_omega, itv_delta, inds, T)
 
 
 # ── Main forecast function ────────────────────────────────────────────────────

@@ -155,10 +155,24 @@ FueResult *fue_estimate(const FueModelSpec *spec);
 void       fue_defaults(FueModelSpec *spec);
 void       fue_result_free(FueResult *r);
 const char *fue_strerror(int ifault);
+
+/* The deterministic filter of fue.c, step [5] (csrc/fuedet.h). */
+int  fuedet_nulag(int nomega, int ndelta);
+void fuedet_nu(double *omega, int s, double *delta, int r,
+               double *nu, int lags);
+int  fuedet_sum(int nvar, double **omega, int *nomega,
+                double **delta, int *ndelta,
+                double **x, int n, double *det);
+int  fuedet_noise(int nvar, double **omega, int *nomega,
+                  double **delta, int *ndelta,
+                  double **x, const double *data, int n, double *out);
 """
 
 _SOURCES = [
     os.path.join(_ROOT, "fue_api.c"),
+    # Byte-identical copy of atsw-gui's lib/fuedet/fuedet.c: the deterministic
+    # filter of fue.c [5], shared by the whole suite (tests/test_fuedet_vendored.py).
+    os.path.join(_ROOT, "fuedet.c"),
     os.path.join(_INTERN, "elfvarma.c"),
     os.path.join(_INTERN, "usmelard.c"),
     os.path.join(_INTERN, "qnewtopt.c"),
@@ -204,7 +218,7 @@ ffi.cdef(_CDEF)
 
 ffi.set_source(
     "fue._fue_engine",
-    r'#include "fue_api.h"',
+    '#include "fue_api.h"\n#include "fuedet.h"',
     sources=_SOURCES,
     include_dirs=_include_dirs,
     library_dirs=_library_dirs,

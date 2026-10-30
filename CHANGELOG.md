@@ -3,6 +3,17 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.19 — unreleased
+
+### Binary wheels for Python 3.14
+
+- The wheels are built for cp310–cp314 (they were cp310–cp313). On Python 3.14
+  pip used to fall back to the pure-Python wheel, so the C engine never reached
+  the interpreter that current distributions ship (Arch, found by the clean
+  install test of atsw 2.1.0 in ten distributions). The code does not change.
+- cibuildwheel 2.22 → 3.4.1, the first line that builds the final 3.14. The
+  free-threaded builds (cp314t), which 3.1+ makes by default, are skipped.
+
 ## 0.1.18 — 2026-10-16
 
 ### One deterministic filter for the whole suite: fue.c's step [5]

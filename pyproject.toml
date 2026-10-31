@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "fue"
-version         = "0.1.18"
+version         = "0.1.19"
 description     = "Exact maximum likelihood estimation of univariate time series (ARMAX with transfer functions)"
 readme          = "README.md"
 license         = { text = "GPL-2.0-or-later" }
@@ -25,6 +25,7 @@ classifiers     = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 # cffi IS a runtime dependency. This block used to claim the opposite -- "the
 # compiled extension embeds the cffi runtime inside the .so" -- and that is
@@ -85,10 +86,11 @@ where = ["src"]
 
 [tool.cibuildwheel]
 # Python versions to build for
-build = "cp310-* cp311-* cp312-* cp313-*"
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 
-# Skip 32-bit builds and PyPy
-skip = "*-win32 *-manylinux_i686 pp*"
+# Skip 32-bit builds, PyPy and the free-threaded builds (cibuildwheel 3.1+
+# makes them by default; the C engine is not checked without the GIL)
+skip = "*-win32 *-manylinux_i686 pp* cp31?t-*"
 
 # Smoke-test each built wheel: verify it imports and estimates/forecasts a small
 # model. NOT the full golden numerical battery — exact log-likelihoods are

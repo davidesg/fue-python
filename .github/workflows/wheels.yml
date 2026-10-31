@@ -1,6 +1,6 @@
 name: Build wheels
 
-# Builds cp310-cp313 binary wheels (Linux x86_64+aarch64, macOS Apple Silicon,
+# Builds cp310-cp314 binary wheels (Linux x86_64+aarch64, macOS Apple Silicon,
 # Windows AMD64) with GSL bundled, plus the pure-Python wheel and the sdist.
 # Runs on demand (workflow_dispatch) for validation; publishes to PyPI on v* tags.
 #
@@ -46,7 +46,7 @@ jobs:
           platforms: aarch64
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22
+        uses: pypa/cibuildwheel@v3.4.1
         env:
           # Build aarch64 on Linux as well as x86_64
           CIBW_ARCHS_LINUX: "x86_64 aarch64"

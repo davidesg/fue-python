@@ -3,7 +3,7 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
-## 0.1.19 — unreleased
+## 0.1.19 — 2026-10-31
 
 ### Binary wheels for Python 3.14
 

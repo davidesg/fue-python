@@ -388,7 +388,8 @@ class TestInpParser:
                 if not f.endswith(".inp"):
                     continue
                 base = os.path.join(root, f[:-4])
-                rel  = os.path.relpath(base, _REAL)
+                # _FUG is written with "/": on Windows relpath gives "\\"
+                rel  = os.path.relpath(base, _REAL).replace(os.sep, "/")
                 if rel not in self._FUG:
                     result.append((rel, base))
         return result

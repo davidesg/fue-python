@@ -66,4 +66,13 @@ def test_fdhess_is_the_c_step_and_exact_on_a_quadratic():
     A = np.array([[4.0, 1.0], [1.0, 3.0]])
     f = lambda x: 1.0 + 0.5 * x @ A @ x                    # noqa: E731
     x = np.array([0.3, -2.0])
-    np.testing.assert_allclose(_fdhess(f, x, f(x)), A, rtol=1e-5)
+    # On a quadratic the forward differences have no truncation error; what is
+    # left is rounding: each entry is ~4 values of f cancelling, divided by
+    # h_i h_j, so its floor is ~4 eps |f| / (h_i h_j) (8e-5 for the cross term
+    # here). rtol=1e-5 was under it, and Windows' BLAS rounds x @ A @ x to
+    # 1.4e-5 off on the cross term (fue's suite, art-python run 43094293797).
+    eps = np.finfo(float).eps
+    h = eps ** (1.0 / 3.0) * np.maximum(np.abs(x), 1.0)
+    floor = 4.0 * eps * abs(f(x)) / np.outer(h, h)
+    H = _fdhess(f, x, f(x))
+    assert np.all(np.abs(H - A) <= floor), (H, floor)

@@ -46,8 +46,13 @@ def test_python_lnsrch_shrinks_past_a_nan_without_interpolating():
 @pytest.mark.skipif(shutil.which("gcc") is None or shutil.which("pkg-config") is None,
                     reason="needs gcc and GSL to build the C harness")
 def test_c_lnsrch_returns_on_a_nan_objective(tmp_path):
-    gsl = subprocess.run(["pkg-config", "--cflags", "--libs", "gsl"],
-                         capture_output=True, text=True)
+    # the path which() resolved: on Windows it may be a .bat, which
+    # subprocess cannot start by its bare name
+    try:
+        gsl = subprocess.run([shutil.which("pkg-config"), "--cflags", "--libs", "gsl"],
+                             capture_output=True, text=True)
+    except OSError as e:
+        pytest.skip(f"pkg-config does not run here: {e}")
     if gsl.returncode:
         pytest.skip("GSL not found by pkg-config")
     exe = tmp_path / "repro_c"

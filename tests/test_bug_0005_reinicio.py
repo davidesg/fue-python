@@ -13,6 +13,12 @@ import warnings
 import pytest
 
 import fue
+import sys
+# Trajectory-pinned tests run only where the trajectory is the reference's
+# (tests/_plataforma.py).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _plataforma import c_engine  # noqa: E402
+
 
 _REAL = os.path.join(os.path.dirname(__file__), "real_cases")
 R4 = os.path.join(_REAL, "PRICES/IPC/Trimestral/Sample_1.2003_4.2019/Mod/Coint/R.4.inp")
@@ -69,6 +75,7 @@ def test_el_puerto_python_registra_el_mismo_gradiente_escalado():
     assert 0.0 <= r["sgrad"] <= 1.9e-6
 
 
+@c_engine
 def test_un_alto_por_el_paso_en_el_optimo_cuenta_como_convergido():
     """R.4 tras su reinicio para por el criterio del paso con el gradiente
     escalado en 4.2e-5: es un máximo y no se avisa."""

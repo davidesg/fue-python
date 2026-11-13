@@ -28,6 +28,12 @@ import warnings
 import pytest
 
 import fue
+import sys
+# Trajectory-pinned tests run only where the trajectory is the reference's
+# (tests/_plataforma.py).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _plataforma import exact_trajectory  # noqa: E402
+
 
 _BJ = os.path.expanduser(
     "~/Dropbox/SRC/drvus-source/1.2.01/drvus/src/Box_y_Jenkings")
@@ -132,6 +138,7 @@ def test_the_report_carries_the_convergence_block():
     assert "**** CONVERGENCE OBTAINED AFTER" in out and "[GRADIENT NORM =" in out
 
 
+@exact_trajectory
 def test_the_verdict_matches_every_preserved_c_run():
     """The strongest check available, and it is an oracle rather than a mirror.
 

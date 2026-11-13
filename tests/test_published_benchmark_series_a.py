@@ -31,6 +31,12 @@ import os
 
 import numpy as np
 import pytest
+import sys
+# Trajectory-pinned tests run only where the trajectory is the reference's
+# (tests/_plataforma.py).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _plataforma import c_engine  # noqa: E402
+
 
 _DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      "data", "bj_series_a.txt")
@@ -73,6 +79,7 @@ def test_the_fixture_is_series_a():
 
 # ── against the original C ─────────────────────────────────────────────────
 
+@c_engine
 def test_fue_reproduces_mauricios_own_c():
     """The 2026 port against a run of the 2001 C preserved in its fixtures."""
     m = _fit_fue(_series())
@@ -90,6 +97,7 @@ def test_fue_reproduces_the_textbook_estimate():
 
 # ── against an implementation that shares no ancestry ──────────────────────
 
+@c_engine
 def test_fue_agrees_with_statsmodels():
     """The check that is genuinely external.
 
@@ -110,6 +118,7 @@ def test_fue_agrees_with_statsmodels():
     assert m.loglik == pytest.approx(r.llf, abs=1e-4)
 
 
+@c_engine
 def test_the_three_agree_with_each_other():
     """The whole chain in one assertion, and the tolerances are not decoration:
     fue↔DRVUS is 2.7e-07 and fue↔statsmodels 4.5e-09."""

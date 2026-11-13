@@ -13,6 +13,12 @@ import re
 import pytest
 
 import fue
+import sys
+# Trajectory-pinned tests run only where the trajectory is the reference's
+# (tests/_plataforma.py).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _plataforma import exact_trajectory  # noqa: E402
+
 
 try:
     from fue._fue_engine import ffi as _ffi  # noqa
@@ -117,6 +123,7 @@ _RIPC1_DIR = os.path.join(_CASES_DIR,
 
 
 @requires_c
+@exact_trajectory
 def test_write_out_ripc1():
     """write_out() for RIPC.1 must match the reference .out file exactly.
 
@@ -135,6 +142,7 @@ def test_write_out_ripc1():
 
 
 @requires_c
+@exact_trajectory
 def test_write_pre_ripc1(tmp_path):
     """write_pre() for RIPC.1 must match the reference .pre file exactly.
 

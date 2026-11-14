@@ -3,7 +3,7 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
-## 0.1.20 — unreleased
+## 0.1.20 — 2026-11-14
 
 ### macOS wheels for macOS 11, on Apple silicon and Intel
 

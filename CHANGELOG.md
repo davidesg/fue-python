@@ -3,6 +3,35 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.20 — unreleased
+
+### macOS wheels for macOS 11, on Apple silicon and Intel
+
+- The macOS wheels are `macosx_11_0`, for arm64 and now also x86_64: GitHub
+  retired the macos-14 runner on 2 November 2026, and the wheels are built on
+  macos-15 (arm64) and macos-15-intel with `MACOSX_DEPLOYMENT_TARGET=11.0`,
+  the same floor as atsw-gui's .dmg. Until now the only macOS wheel was
+  `macosx_14_0_arm64`: an Intel Mac, or one before macOS 14, got the pure
+  wheel, and fue ran without its C engine there.
+- The GSL is compiled from source, static, for 11.0 (`tools/build_gsl.sh`,
+  GSL 2.8): a Homebrew bottle targets the runner's macOS.
+  `tools/check_macos_minos.py` stops the workflow if any Mach-O in a wheel
+  asks for a newer macOS than its tag, or is not of its architecture.
+
+### Tests that pass where they should
+
+- Tests that pin the C engine's trajectory on Linux (the byte goldens of
+  RIPC.1, the iteration counts of the preserved C runs) run only with the C
+  engine on Linux x86_64 with glibc (`tests/_plataforma.py`); with musl, on
+  macOS and on Windows the optimiser takes another path. The tests pinned at
+  the C engine's precision skip with the pure-Python engine (BUG-0005). The
+  C tests of IPC-T/Coint/R.4 skip when the engine finds a better optimum
+  than the reference, which stopped without zeroing the gradient.
+- Windows: paths compared with `/`, the rounding floor of the finite-difference
+  Hessian test, and `pkg-config` found through `shutil.which`.
+- `docs/API.md` regenerated (0.1.19 shipped declaring 0.1.18). The code does
+  not change.
+
 ## 0.1.19 — 2026-10-31
 
 ### Binary wheels for Python 3.14

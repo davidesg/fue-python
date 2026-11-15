@@ -3,7 +3,7 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
-## 0.1.21 — unreleased
+## 0.1.21 — 2026-11-15
 
 ### The forecast table of the .out is fuf's (BUG-0027)
 

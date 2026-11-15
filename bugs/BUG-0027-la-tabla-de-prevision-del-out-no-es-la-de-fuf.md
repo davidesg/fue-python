@@ -5,7 +5,7 @@ status: fixed
 severity: high
 component: report
 found_in: 0.1.20
-fixed_in: 0.1.21 (unreleased)
+fixed_in: 0.1.21
 reported: 2026-11-15
 reporter: David / Claude — auditoría de la suite antes de mtram
 tags:

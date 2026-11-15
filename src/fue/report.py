@@ -1483,89 +1483,103 @@ def _fuf_section_header(lines, model, fr, inp_name, out_name):
 
 
 def _fuf_section_forecast_table(lines, model, fr, residuals, ornsop):
-    from .forecast import _boxcox   # reuse Box-Cox helper
-    ts      = model.series
-    freq    = ts.freq if ts.freq > 0 else 1
-    L       = fr.horizon
-    nobs    = ts.nobs
-    boxlam  = model.boxlam
+    """The forecast table of fuf's .out, as atsw-gui engines/fuf/src/usfo.c
+    (`forecast_table_acii`) writes it since fuf BUG-0001/0002/0003 (BUG-0027).
+
+    - The scale: vs = 100/refactor in logarithms (lambda = 0), 1/refactor
+      otherwise, on the variations, their std, the level's std and ERR. In
+      logarithms the variations are rates in per cent; in levels, changes in
+      the units of the series. The level is never scaled.
+    - The layout: drtran's, drvarma's and drvec's, with a space between every
+      field, so the table can be split on blanks.
+    - A series with one period per year has a table too, its date is the
+      year and its annual columns are "-" (they would repeat the period's).
+      An observed row's annual change is "-" when there is no observation a
+      year before, and its period change on the first observation.
+
+    `data[i]` below is the C's: the transformed series times refactor. With a
+    negative Box-Cox the C writes, besides, a table of its own, in the level
+    with two-std bands; it is not ported (fue never had it either).
+    """
+    from .forecast import _boxcox   # fue C's Box-Cox (lambda = 1: refactor*y)
+    ts       = model.series
+    freq     = ts.freq if ts.freq > 0 else 1
+    L        = fr.horizon
+    nobs     = ts.nobs
+    boxlam   = model.boxlam
     refactor = model.refactor
     begyear, begtime = ts.start
+    if not (freq > 1 or boxlam >= 0.0):
+        return
+    logs = abs(boxlam) < 1.0e-8
+    vs = (100.0 if logs else 1.0) / refactor
 
-    # Date of last obs (= forecast origin)
-    last_month, last_year = _fuf_obs_to_date_str(nobs, begyear, begtime, freq), None
-    # Actually compute (month, year) separately for the FORECAST ORIGIN line
-    total_last = begtime - 1 + nobs - 1
-    if freq > 1:
-        fo_period = total_last % freq + 1
-        fo_year   = begyear + total_last // freq
-        fo_str    = f"{fo_period:2d}/{fo_year}"
-    else:
-        fo_str = str(begyear + total_last)
+    def fecha(k):
+        total = begtime - 1 + k - 1
+        if freq > 1:
+            return f"  {total % freq + 1:2d}/{begyear + total // freq:4d}"
+        return f"     {begyear + total:4d}"
 
+    def nivel(x):                      # x on the C's scale (times refactor)
+        return math.exp(x / refactor) if boxlam == 0 else x / refactor
+
+    data = [None] + [_boxcox(v, boxlam, refactor) for v in ts.data]
+    origen = fecha(nobs).strip()
     lines.append("FORECAST REPORT: ")
     lines.append(f"VARIABLE NAME: {ts.name}")
-    lines.append(f"FORECAST ORIGIN : {fo_str}")
+    lines.append(f"FORECAST ORIGIN : {fecha(nobs)[2:] if freq > 1 else origen}")
     lines.append(f"LEAD TIME FOR FORECASTING: {L}")
     lines.append("")
-    lines.append(" +---------------------------------------------------------------+")
-    lines.append(" |      |     LEVEL      |           VARIATION           |       |")
-    lines.append(" | DATE +----------------+-------------------------------+  ERR  |")
-    lines.append(" |      |  VALUE   | STD | TRIMEST | STD |  ANUAL  | STD |       |")
-    lines.append(" |      |          |     | /MONT   |     |         |     |       |")
-    lines.append(" +---------------------------------------------------------------+")
+    borde = " +" + "-" * 76 + "+"
+    lines.append(borde)
+    lines.append(" |       |       LEVEL        |              VARIATION              |         |")
+    lines.append(" | DATE  +--------------------+-------------------------------------+   ERR   |")
+    lines.append(" |       |   VALUE   |  STD   | TRIMEST |  STD   |  ANUAL  |  STD   |         |")
+    lines.append(" |       |           |        |  /MONT  |        |         |        |         |")
+    lines.append(borde)
 
-    # ── History rows: last L+1 observed values ────────────────────────────────
-    # obs k (1-indexed): k from nobs-L to nobs
-    for k in range(nobs - L, nobs + 1):
-        if k < 1:
+    # The last L+1 observations, with their residual
+    for i in range(nobs - L, nobs + 1):
+        if i < 1:
             continue
-        date_str  = _fuf_obs_to_date_str(k, begyear, begtime, freq)
-        level_val = ts.data[k - 1]
-
-        # monthly/period variation: 100*(nt[k] - nt[k-1]) / refactor
-        if k > 1:
-            diff1 = 100.0 * (_boxcox(ts.data[k-1], boxlam, refactor)
-                             - _boxcox(ts.data[k-2], boxlam, refactor)) / refactor
+        row = fecha(i) + f" {nivel(data[i]):11.4f} {'-':>8s}"
+        if i > 1:
+            row += f" {vs * (data[i] - data[i-1]):9.4f} {'-':>8s}"
         else:
-            diff1 = 0.0
-
-        # annual variation: 100*(nt[k] - nt[k-freq]) / refactor
-        if k > freq:
-            annual = 100.0 * (_boxcox(ts.data[k-1], boxlam, refactor)
-                              - _boxcox(ts.data[k-1-freq], boxlam, refactor)) / refactor
+            row += f" {'-':>9s} {'-':>8s}"
+        if freq > 1 and i > freq:
+            row += f" {vs * (data[i] - data[i-freq]):9.4f} {'-':>8s}"
         else:
-            annual = 100.0 * _boxcox(ts.data[k-1], boxlam, refactor) / refactor
-
-        # residual for this obs (0-indexed residuals start at obs ornsop+1)
-        res_idx = k - ornsop - 1
-        if 0 <= res_idx < len(residuals):
-            err = residuals[res_idx]
-            lines.append(
-                f" {date_str:>7s}{level_val:9.4f}     -{diff1:9.4f}      -{annual:10.4f}"
-                f"     -{err:9.4f} "
-            )
+            row += f" {'-':>9s} {'-':>8s}"
+        if 1 <= i - ornsop <= len(residuals):
+            row += f" {vs * residuals[i - ornsop - 1]:9.4f}"
         else:
-            # obs before residual window: show without ERR
-            lines.append(
-                f" {date_str:>7s}{level_val:9.4f}     -{diff1:9.4f}      -{annual:10.4f}"
-                f"     -"
-            )
+            row += f" {'-':>9s}"
+        lines.append(row)
 
-    # ── Forecast rows ─────────────────────────────────────────────────────────
+    # The L forecasts and their std, from the forecast's own arrays (the C's
+    # f1, f2, f3 and v1, v2, v3). A ForecastResult built by hand has none:
+    # then they are rebuilt from its fields (per cent of the transformed
+    # series, and the level's std as sqrt(v1)/refactor).
+    c = getattr(fr, "_fuf_c", None)
+    if c is None:
+        back = refactor / 100.0
+        c = dict(f1=[_boxcox(v, boxlam, refactor) for v in fr.level],
+                 f2=back * np.asarray(fr.diff1), f3=back * np.asarray(fr.seasonal_diff),
+                 v1=(np.asarray(fr.level_std) * refactor) ** 2,
+                 v2=(back * np.asarray(fr.diff1_std)) ** 2,
+                 v3=(back * np.asarray(fr.seasonal_diff_std)) ** 2)
     for h in range(L):
-        k = nobs + h + 1   # 1-indexed forecast obs
-        date_str = _fuf_obs_to_date_str(k, begyear, begtime, freq)
-        level_val = fr.level[h]
-        lstd      = fr.level_std[h] * refactor
-        diff1     = fr.diff1[h]
-        dstd      = fr.diff1_std[h]
-        annual    = fr.seasonal_diff[h]
-        astd      = fr.seasonal_diff_std[h]
-        lines.append(
-            f" {date_str:>7s}{level_val:9.4f}{lstd:7.4f}{diff1:8.4f}{dstd:8.4f}"
-            f"{annual:9.4f}{astd:7.4f} "
-        )
+        row = fecha(nobs + h + 1)
+        row += f" {nivel(c['f1'][h]):11.4f} {vs * math.sqrt(c['v1'][h]):8.4f}"
+        row += f" {vs * c['f2'][h]:9.4f} {vs * math.sqrt(c['v2'][h]):8.4f}"
+        if freq > 1:
+            row += f" {vs * c['f3'][h]:9.4f} {vs * math.sqrt(c['v3'][h]):8.4f}"
+        else:
+            row += f" {'-':>9s} {'-':>8s}"
+        row += f" {'-':>9s}"
+        lines.append(row)
+    lines.append(borde)
     lines.append("")
 
 

@@ -234,7 +234,9 @@ def test_write_fuf_out_table():
     (forecast_S.2.out) character-for-character.
 
     Reference regenerated with fuf-1.08.1-fix (BUG-0001) and versioned in
-    tests/real_cases/, so this stays self-contained and correct.
+    tests/real_cases/, so this stays self-contained and correct; regenerated
+    again on 15-nov-2026 with atsw-gui's fuf (its BUG-0001/0002/0003, the
+    table this port follows since fue BUG-0027).
     """
     _SPAIN_OUT = os.path.join(os.path.dirname(__file__),
                               "real_cases", "forecast_S.2.out")
@@ -255,8 +257,11 @@ def test_write_fuf_out_table():
     g0 = _find(got_lines, "FORECAST REPORT")
     r0 = _find(ref_lines, "FORECAST REPORT")
 
-    # compare all 62 lines from the table section (header + 50 data rows + blank)
-    for i in range(62):
+    # the whole table section: its header, the rows and the closing border
+    # (fuf BUG-0002 added it; fue BUG-0027), plus the blank line after it
+    n = next(i for i in range(len(ref_lines) - r0)
+             if i > 10 and ref_lines[r0 + i].startswith(" +--")) + 2
+    for i in range(n):
         gi = got_lines[g0 + i] if g0 + i < len(got_lines) else ""
         ri = ref_lines[r0 + i] if r0 + i < len(ref_lines) else ""
         assert gi == ri, (

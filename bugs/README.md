@@ -4,11 +4,10 @@ In-repo bug tracker for **fue-escala**.  One Markdown file per bug (`BUG-NNNN-sl
 
 New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  A fix commit references the id, e.g. `fix(pipeline): BUG-0001 …`.
 
-**28 report(s), 2 open.**
+**28 report(s), 1 open.**
 
 | id | status | sev | component | title | fixed in |
 |----|--------|-----|-----------|-------|----------|
-| [BUG-0028](BUG-0028-la-pagina-html-de-prevision-multiplica-por-100-en-niveles.md) | open | medium | report_forecast | La página HTML de previsión multiplica por 100 las variaciones sea cual sea λ — en niveles el cambio sale cien veces mayor bajo una columna «(%)» | — |
 | [BUG-0005](BUG-0005-optimizer-spurious-optimum-multimodal.md) | in-progress | medium | estimation | ML optimizer converges to a spurious optimum on multimodal (seasonal-AR) likelihoods and reports converged=True with no diagnostic; the basin is platform-dependent (Windows vs Linux) | — |
 | [BUG-0001](BUG-0001-forecast-mean-drift.md) | fixed | high | forecast | Forecast level over-shoots by mu*phi(1)^-1 in the mean drift (drift double-counted) | 0.1.5 |
 | [BUG-0002](BUG-0002-binding-fixed-factor-arrays.md) | fixed | high | binding | Python binding caps AR/MA at 8 factors and factor order at 16 (fixed cdata arrays) — long-order models crash with IndexError | 0.1.6 |
@@ -36,4 +35,5 @@ New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  
 | [BUG-0025](BUG-0025-the-line-search-never-returns-on-a-nan-objective.md) | fixed | high | estimation | The line search never returns when the objective is NaN — the C spins for ever, the Python port crashes on the NaN gradient | 0.1.17 (unreleased) |
 | [BUG-0026](BUG-0026-el-jarque-bera-trunca-n-entre-6.md) | fixed | low | report | El Jarque-Bera del .out y de describe() trunca n/6 a entero — el puerto copió el C antiguo (nobs / 6, división entera) | 0.1.17 (unreleased) |
 | [BUG-0027](BUG-0027-la-tabla-de-prevision-del-out-no-es-la-de-fuf.md) | fixed | high | report | La tabla de previsión del .out no es la de fuf — en niveles las variaciones y ERR salen ×100, los campos van pegados y las series anuales llenan columnas que no existen | 0.1.21 |
+| [BUG-0028](BUG-0028-la-pagina-html-de-prevision-multiplica-por-100-en-niveles.md) | fixed | medium | report_forecast | La página HTML de previsión multiplica por 100 las variaciones sea cual sea λ — en niveles el cambio sale cien veces mayor bajo una columna «(%)» | 0.1.22 (unreleased) |
 

@@ -238,13 +238,13 @@ _HTML = """\
           <th rowspan="2">Date</th>
           <th colspan="2">Level</th>
           <th colspan="2">{{ diff1_label }}</th>
-          <th colspan="2">Annual (%)</th>
-          <th rowspan="2">ERR<br>(%)</th>
+          <th colspan="2">{{ annual_label }}</th>
+          <th rowspan="2">ERR{{ unit_br }}</th>
         </tr>
         <tr>
-          <th>Value</th><th>Std&#160;(%)</th>
-          <th>(%)</th><th>Std&#160;(%)</th>
-          <th>(%)</th><th>Std&#160;(%)</th>
+          <th>Value</th><th>Std{{ unit_sp }}</th>
+          <th>{{ unit_or_value }}</th><th>Std{{ unit_sp }}</th>
+          <th>{{ unit_or_value }}</th><th>Std{{ unit_sp }}</th>
         </tr>
       </thead>
       <tbody>
@@ -366,6 +366,10 @@ def write_forecast_report(model, fr, path,
         horizon        = fr.horizon,
         freq_label     = meta["freq_label"],
         diff1_label    = meta["diff1_label"],
+        annual_label   = meta["annual_label"],
+        unit_br        = "<br>(%)" if meta["percent"] else "",
+        unit_sp        = "&#160;(%)" if meta["percent"] else "",
+        unit_or_value  = "(%)" if meta["percent"] else "Value",
         sigma2         = f"{fr.sigma2:.6f}",
         aic            = f"{r.aic:.2f}"  if hasattr(r, "aic")  else "—",
         bic            = f"{r.bic:.2f}"  if hasattr(r, "bic")  else "—",
@@ -452,12 +456,18 @@ def _make_charts_svg_legacy(model, fr) -> str:
     ax_bot = fig.add_subplot(gs[1])
 
     # ── Top panel: annual rate of change ─────────────────────────────────────
+    # BUG-0028: a percentage with logs, the change itself otherwise (the
+    # .out's rule, BUG-0027). ForecastResult's variations are 100*delta/refactor
+    # whatever lambda is, so they are taken back with q.
+    pct = 100.0 if abs(boxlam) < 1e-8 else 1.0
+    q   = pct / 100.0
     hist_annual = np.array([
-        100.0 * (_boxcox(raw[nobs - L + i],         boxlam, refactor)
+        pct * (_boxcox(raw[nobs - L + i],         boxlam, refactor)
                  - _boxcox(raw[nobs - L + i - freq], boxlam, refactor)) / refactor
         for i in range(L)
     ])
-    y_all  = np.concatenate([hist_annual, fr.seasonal_diff])
+    f3, s3 = q * np.asarray(fr.seasonal_diff), q * np.asarray(fr.seasonal_diff_std)
+    y_all  = np.concatenate([hist_annual, f3])
     x_all  = np.arange(2 * L)
     x_hist = np.arange(L)
     x_fore = np.arange(L, 2 * L)
@@ -468,8 +478,8 @@ def _make_charts_svg_legacy(model, fr) -> str:
     # col4: larger circles for historical only (gnuplot: with points ls 1)
     ax_top.plot(x_hist, hist_annual, 'ko', ms=6.0, zorder=4)
     # bands (matches gnuplot ls 3: dashed, lw 1.5)
-    ax_top.plot(x_fore, fr.seasonal_diff + fr.seasonal_diff_std, 'k--', lw=1.5, zorder=2)
-    ax_top.plot(x_fore, fr.seasonal_diff - fr.seasonal_diff_std, 'k--', lw=1.5, zorder=2)
+    ax_top.plot(x_fore, f3 + s3, 'k--', lw=1.5, zorder=2)
+    ax_top.plot(x_fore, f3 - s3, 'k--', lw=1.5, zorder=2)
     ax_top.axvline(L - 0.5, color='0.55', lw=0.9, zorder=1)
     ax_top.axhline(0,        color='k',    lw=0.7, zorder=1)
     ax_top.set_xlim(*xlim)
@@ -479,14 +489,15 @@ def _make_charts_svg_legacy(model, fr) -> str:
     # grid at xtic positions (matches gnuplot: set grid xtics lt 1)
     ax_top.set_axisbelow(True)
     ax_top.grid(axis='x', color='0.75', lw=0.5, ls='-', zorder=0)
-    ax_top.set_title('Annual rate of change (%)', loc='left', fontsize=9, pad=4)
+    ax_top.set_title('Annual rate of change (%)' if pct == 100.0 else 'Annual change',
+                     loc='left', fontsize=9, pad=4)
 
     # ── Bottom panel: ERR ─────────────────────────────────────────────────────
     residuals  = np.asarray(model._result.residuals)
     err_L      = min(L, len(residuals))
-    err_vals   = 100.0 * residuals[-err_L:] / refactor
+    err_vals   = pct * residuals[-err_L:] / refactor
     x_err      = np.arange(err_L)
-    sigma_plot = math.sqrt(fr.sigma2) * 100.0 / refactor  # always in % units
+    sigma_plot = math.sqrt(fr.sigma2) * pct / refactor
     prevcmax   = _prevcmax(err_vals, sigma_plot)
 
     # x-ticks: only historical years (< err_L)
@@ -549,26 +560,32 @@ def _table_data(model, fr):
     ornsop    = nobs - len(residuals)
     n_hist    = freq + 1
 
+    # BUG-0028: a percentage with logs, the change itself otherwise -- the
+    # rule of the .out's table (BUG-0027) and of fuf. ForecastResult's
+    # variations are 100*delta/refactor whatever lambda is: q takes them back.
+    percent = abs(boxlam) < 1e-8
+    pct = 100.0 if percent else 1.0
+    q   = pct / 100.0
+
     # ── Historical rows ───────────────────────────────────────────────────────
     hist_rows = []
     for k in range(nobs - n_hist + 1, nobs + 1):
         date  = _fuf_obs_to_date_str(k, begyear, begtime, freq)
         level = raw[k - 1]
-        diff1 = (100.0 * (_boxcox(raw[k-1], boxlam, refactor)
-                          - _boxcox(raw[k-2], boxlam, refactor)) / refactor
-                 if k > 1 else 0.0)
-        annual = (100.0 * (_boxcox(raw[k-1], boxlam, refactor)
-                           - _boxcox(raw[k-1-freq], boxlam, refactor)) / refactor
-                  if k > freq else
-                  100.0 * _boxcox(raw[k-1], boxlam, refactor) / refactor)
+        diff1 = (_f2(pct * (_boxcox(raw[k-1], boxlam, refactor)
+                            - _boxcox(raw[k-2], boxlam, refactor)) / refactor)
+                 if k > 1 else "—")
+        annual = (_f2(pct * (_boxcox(raw[k-1], boxlam, refactor)
+                             - _boxcox(raw[k-1-freq], boxlam, refactor)) / refactor)
+                  if k > freq else "—")          # no datum a year before
         res_idx = k - ornsop - 1
-        err_str = (_f2(100.0 * residuals[res_idx] / refactor)
+        err_str = (_f2(pct * residuals[res_idx] / refactor)
                    if 0 <= res_idx < len(residuals) else "—")
         hist_rows.append({
             "date":   date,
             "level":  _f2(level),
-            "diff1":  _f2(diff1),
-            "annual": _f2(annual),
+            "diff1":  diff1,
+            "annual": annual,
             "err":    err_str,
         })
 
@@ -577,15 +594,15 @@ def _table_data(model, fr):
     for h in range(L):
         k    = nobs + h + 1
         date = _fuf_obs_to_date_str(k, begyear, begtime, freq)
-        lstd = fr.level_std[h] * 100  # level_std is refactor-invariant; *100 gives %
+        lstd = fr.level_std[h] * pct   # sqrt(v1)/refactor: relative with logs
         all_fore.append({
             "date":       date,
             "level":      _f2(fr.level[h]),
             "level_std":  _f2(lstd),
-            "diff1":      _f2(fr.diff1[h]),
-            "diff1_std":  _f2(fr.diff1_std[h]),
-            "annual":     _f2(fr.seasonal_diff[h]),
-            "annual_std": _f2(fr.seasonal_diff_std[h]),
+            "diff1":      _f2(q * fr.diff1[h]),
+            "diff1_std":  _f2(q * fr.diff1_std[h]),
+            "annual":     _f2(q * fr.seasonal_diff[h]),
+            "annual_std": _f2(q * fr.seasonal_diff_std[h]),
         })
 
     fore_rows_main = all_fore[:freq]
@@ -597,18 +614,21 @@ def _table_data(model, fr):
     stem   = model._inp_stem or ts.name
     origin = _fuf_obs_to_date_str(nobs, begyear, begtime, freq)
 
+    u = " (%)" if percent else " change"
     if freq == 12:
-        freq_label, diff1_label = "months", "Monthly (%)"
+        freq_label, diff1_label = "months", "Monthly" + u
     elif freq == 4:
-        freq_label, diff1_label = "quarters", "Quarterly (%)"
+        freq_label, diff1_label = "quarters", "Quarterly" + u
     else:
-        freq_label, diff1_label = "periods", "Period (%)"
+        freq_label, diff1_label = "periods", "Period" + u
 
     return hist_rows, fore_rows_main, fore_row_end, {
         "stem":        stem,
         "origin":      origin,
         "freq_label":  freq_label,
         "diff1_label": diff1_label,
+        "annual_label": "Annual" + u,
+        "percent":     percent,
         "sample":      sample,
     }
 

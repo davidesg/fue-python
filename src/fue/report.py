@@ -20,6 +20,8 @@ Known differences from fue.c .out output (by design, not bugs):
 import math
 import numpy as np
 
+from .scale import format_refactor
+
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
@@ -1240,7 +1242,7 @@ def write_pre(model, path):
 
     # ── cbands + refactor ────────────────────────────────────────────────────
     out += "** ACF/PACF bands (0 Automatic) and reescaling factor: \n"
-    out += f" {float(getattr(model, 'cbands', 0.0) or 0.0):.2f} {model.refactor:.2f}\n"
+    out += f" {float(getattr(model, 'cbands', 0.0) or 0.0):.2f} {format_refactor(model.refactor)}\n"
 
     # ── Data ─────────────────────────────────────────────────────────────────
     out += "** Time series (stochastic and non-standard deterministic variables): \n"
@@ -1413,7 +1415,7 @@ def write_fuf(model, horizon, sigma2, path=None):
 
     # ── cbands + refactor ────────────────────────────────────────────────────
     out += "** ACF/PACF bands (0 Automatic) and reescaling factor: \n"
-    out += f" {float(getattr(model, 'cbands', 0.0) or 0.0):.2f} {model.refactor:.2f}\n"
+    out += f" {float(getattr(model, 'cbands', 0.0) or 0.0):.2f} {format_refactor(model.refactor)}\n"
 
     # ── Data ─────────────────────────────────────────────────────────────────
     out += "** Time series (stochastic and non-standard deterministic variables): \n"

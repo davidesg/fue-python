@@ -45,6 +45,11 @@ _GROUPS = [
     ("Engine", [
         "engine_backend", "engine_load_error",
     ]),
+    # The rest of the rule -- display_scale, cross_scale, check_scale,
+    # recommended_refactor, loglik_y -- is in `fue.scale`, listed below.
+    ("The rescaling factor", [
+        "boxcox", "inv_boxcox",
+    ]),
 ]
 
 #: Datasets. Not attributes of the package — they live in `fue.datasets` — but
@@ -56,7 +61,7 @@ _DATASETS = ["ripc", "sfny"]
 #: Modules re-exported at package level. Listed, not expanded: their contents
 #: are reached through the objects above.
 _MODULES = ["datasets", "diagnostics", "forecast", "inp", "intervention",
-            "model", "report", "report_forecast", "series"]
+            "model", "report", "report_forecast", "scale", "series"]
 
 
 def _signature(obj):

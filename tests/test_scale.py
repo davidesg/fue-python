@@ -42,6 +42,11 @@ def test_display_scale():
     assert scale.param_scale(100.0) == 0.01
     assert scale.cross_scale(100.0, 100.0) == 1.0
     assert scale.cross_scale(100.0, 1.0) == 0.01          # Y at 100, X at 1
+    # between two series in logs, the cross factor of what is presented
+    assert scale.display_cross(0.0, 100.0, 0.0, 1.0) == pytest.approx(0.01)
+    assert scale.display_cross(0.0, 100.0, 0.0, 100.0) == 1.0
+    # output in logs (per cent), input in levels at 100: per cent per unit
+    assert scale.display_cross(0.0, 100.0, 1.0, 100.0) == pytest.approx(100.0)
 
 
 def test_format_refactor_keeps_100_and_does_not_lose_small_ones():

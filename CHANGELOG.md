@@ -13,7 +13,7 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
   - the transformation, fue's and the C's (`boxcox`, `inv_boxcox`,
     `stationary`);
   - how a number on the engine's scale is presented (`display_scale`,
-    `param_scale`, `cross_scale`): a percentage only with logs, the units of
+    `param_scale`, `cross_scale`, `display_cross`): a percentage only with logs, the units of
     the series otherwise, and a coefficient between two series by the ratio
     of their factors;
   - whether the optimiser can work on a series as its file has it

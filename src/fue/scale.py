@@ -8,7 +8,7 @@ it, so that none of them decides on its own:
 
 * the transformation itself (`boxcox`, `inv_boxcox`): fue's, which is the C's;
 * how a number estimated on that scale is PRESENTED (`display_scale`,
-  `cross_scale`): in the units of its series, the rule atsw-gui's GUIs follow;
+  `cross_scale`, `display_cross`): in the units of its series, the rule atsw-gui's GUIs follow;
 * whether the optimiser can work on a series as it is (`check_scale`) and the
   factor to write for it (`recommended_refactor`);
 * a log-likelihood that does not depend on the factor (`loglik_y`).
@@ -142,6 +142,17 @@ def cross_scale(refactor_out, refactor_in):
     ro = float(refactor_out) if refactor_out else 1.0
     ri = float(refactor_in) if refactor_in else 1.0
     return ri / ro
+
+
+def display_cross(lam_out, refactor_out, lam_in, refactor_in):
+    """Multiplier that takes a coefficient of series ``in`` in the equation of
+    series ``out`` to the units each is PRESENTED in (`display_scale`): the
+    ratio of their two display factors. Between two series in logs it is
+    `cross_scale` and the coefficient is an elasticity; with the output in
+    logs and the input in levels it is the percentage change of the output per
+    unit of the input."""
+    return (display_scale(lam_out, refactor_out).k
+            / display_scale(lam_in, refactor_in).k)
 
 
 def loglik_y(loglik, y, lam, refactor, n=None):

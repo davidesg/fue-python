@@ -3,6 +3,28 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.21 — unreleased
+
+### The forecast table of the .out is fuf's (BUG-0027)
+
+- `write_fuf_out` writes the forecast table as atsw-gui's fuf writes it since
+  its BUG-0001, 0002 and 0003 (15-nov-2026), byte for byte on Linux x86_64:
+  - **the scale:** vs = 100/refactor in logarithms and 1/refactor otherwise,
+    on the variations, their std, the level's std and ERR. **In levels
+    (lambda = 1) the variations and ERR came out 100 times too large**; in
+    logarithms with refactor = 100 the numbers were already fuf's;
+  - **the layout:** the 76-column table of drtran, drvarma and drvec, with a
+    space between every field and a closing border, so it splits on blanks;
+  - **"-" where there is no datum:** the first row's period change, and the
+    annual change of the first year's rows (it wrote the transformed level);
+  - **annual series:** the date is the year and the annual columns are "-".
+- `ForecastResult` does not change. `forecast` leaves the C's own arrays in
+  the result (`_fuf_c`) for the table: rebuilding them from its fields moved
+  the last digit.
+- `tests/test_bug_0027_tabla_de_fuf.py`: 17 cases with fuf's tables
+  (`tests/data/tablas_de_fuf/`). `tests/real_cases/forecast_S.2.out` regenerated with
+  the new fuf: only its table changes.
+
 ## 0.1.20 — 2026-11-14
 
 ### macOS wheels for macOS 11, on Apple silicon and Intel

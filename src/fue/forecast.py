@@ -564,7 +564,7 @@ def forecast(model, result, horizon):
     seasonal_diff = 100.0 * np.array([f3[l] for l in range(1, L + 1)]) / refactor
     seasonal_diff_std = 100.0 * np.sqrt(v3) / refactor
 
-    return ForecastResult(
+    fr = ForecastResult(
         horizon=L,
         level=level,
         level_std=level_std,
@@ -574,3 +574,9 @@ def forecast(model, result, horizon):
         seasonal_diff_std=seasonal_diff_std,
         sigma2=sigma2,
     )
+    # The C's own arrays, on the transformed scale times refactor, for the
+    # .out's table (report._fuf_section_forecast_table), which writes them as
+    # fuf C does: rebuilding them from the fields above moves the last digit.
+    fr._fuf_c = dict(f1=np.array(f1[1:L + 1]), f2=np.array(f2[1:L + 1]),
+                     f3=np.array(f3[1:L + 1]), v1=v1, v2=v2, v3=v3)
+    return fr

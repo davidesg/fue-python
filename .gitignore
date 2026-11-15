@@ -29,6 +29,8 @@ examples/*.png
 tests/**/forecast_*
 !tests/real_cases/forecast_S.2.out
 tests/**/fuf_*
+# ...but the inputs and tables fuf C wrote for BUG-0027 are references
+!tests/data/tablas_de_fuf/*
 tests/**/*_forecast.png
 tests/**/*.html
 tests/**/*.aux

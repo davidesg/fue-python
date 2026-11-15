@@ -5,7 +5,7 @@ status: fixed
 severity: medium
 component: report_forecast
 found_in: 0.1.21
-fixed_in: 0.1.22 (unreleased)
+fixed_in: 0.1.22
 reported: 2026-11-15
 reporter: David / Claude — revisión de incoherencias entre componentes antes de mtram
 tags:

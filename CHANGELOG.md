@@ -3,7 +3,7 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
-## 0.1.22 — unreleased
+## 0.1.22 — 2026-11-15
 
 ### The rescaling factor: one rule for the suite (`fue.scale`), and BUG-0028
 

@@ -27,6 +27,8 @@ from .report import write_out, write_fuf, write_fuf_out
 from .report_forecast import write_forecast_report
 from . import datasets
 from ._engine import engine_backend, engine_load_error
+from . import scale
+from .scale import boxcox, inv_boxcox
 
 def _version() -> str:
     """La versión, de UNA sola fuente.
@@ -73,4 +75,5 @@ __all__ = ["TimeSeries", "Intervention", "Model", "FixedFreqFactor",
            "residuals_start",
            "load", "load_fuf", "write_out", "write_fuf", "write_fuf_out",
            "write_forecast_report", "datasets",
-           "engine_backend", "engine_load_error"]
+           "engine_backend", "engine_load_error",
+           "scale", "boxcox", "inv_boxcox"]

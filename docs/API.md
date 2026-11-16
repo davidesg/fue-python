@@ -2,7 +2,7 @@
 
 *Generated from the docstrings by `tools/gen_api_reference.py`. Do not edit: fix the docstring and regenerate. `tests/test_docs_match_the_code.py` checks that this file is current.*
 
-`fue` 0.1.20
+`fue` 0.1.22
 
 ---
 
@@ -478,6 +478,19 @@ the Python port. art seals it in the guion with the instrument's version.
 Why the C engine did not load (the ImportError), or None.
 
 
+## The rescaling factor
+
+### `boxcox(y, lam, refactor=1.0)`
+
+``refactor * BoxCox_lambda(y)``: log for 0, y itself for 1 (not y - 1),
+``(y**lam - 1)/lam`` otherwise. Scalar or array. This is the C's
+transformation; nothing in the suite should write another.
+
+### `inv_boxcox(z, lam, refactor=1.0)`
+
+The inverse of `boxcox`. Scalar or array.
+
+
 ## Datasets
 
 Shipped with the package; `from fue.datasets import ripc`.
@@ -537,4 +550,5 @@ Re-exported at package level; their contents are reached through the objects abo
 * **`fue.model`** — Model: ARMAX specification with interventions, fitted by exact ML via FUE.
 * **`fue.report`** — Generate .out-style estimation reports matching fue's ASCII output format.
 * **`fue.report_forecast`** — HTML forecast report generator — SPS (Sistema de Previsión y Seguimiento).
+* **`fue.scale`** — The rescaling factor: one rule for the whole suite.
 * **`fue.series`** — TimeSeries: lightweight wrapper around a numpy array with date metadata.

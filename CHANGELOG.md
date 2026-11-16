@@ -3,6 +3,37 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## 0.1.22 — 2026-11-15
+
+### The rescaling factor: one rule for the suite (`fue.scale`), and BUG-0028
+
+- **`fue.scale`**, new, and `fue.boxcox` / `fue.inv_boxcox`: what every
+  program of the suite needs to know about the rescaling factor, so that none
+  decides on its own (the study is in atsw-gui, `docs/ESTUDIO-escala.md`):
+  - the transformation, fue's and the C's (`boxcox`, `inv_boxcox`,
+    `stationary`);
+  - how a number on the engine's scale is presented (`display_scale`,
+    `param_scale`, `cross_scale`, `display_cross`): a percentage only with logs, the units of
+    the series otherwise, and a coefficient between two series by the ratio
+    of their factors;
+  - whether the optimiser can work on a series as its file has it
+    (`check_scale`: the spread of the stationary series between 0.1 and 1000,
+    and its level-to-spread ratio under 1e6) and the factor to write
+    (`recommended_refactor`: 100, the convention, unless it leaves the series
+    outside the band);
+  - a log-likelihood in the units of y (`loglik_y`), which does not depend on
+    the factor and is comparable between lambdas.
+- **The HTML forecast page says a percentage only with logs (BUG-0028).** With
+  lambda = 1 it multiplied the variations, their std, the level's std and ERR
+  by 100 under columns headed "(%)": a series about 100 that moved by 2.4
+  read 241. It is now the change itself, the columns say so, and the first
+  rows have "—" where there is no datum a year before — the rule BUG-0027
+  gave the `.out`. The chart drawn without pyfug follows.
+- **The factor is written without losing it.** `write_pre` and `write_fuf`
+  printed it with two decimals: 0.001 came out `0.00`, which every reader
+  takes for 1. Two decimals when that is exact (100 is still `100.00`, byte
+  for byte), the shortest exact form otherwise.
+
 ## 0.1.21 — 2026-11-15
 
 ### The forecast table of the .out is fuf's (BUG-0027)

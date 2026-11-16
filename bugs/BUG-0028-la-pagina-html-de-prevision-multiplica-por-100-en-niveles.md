@@ -1,11 +1,11 @@
 ---
 id: BUG-0028
 title: La página HTML de previsión multiplica por 100 las variaciones sea cual sea λ — en niveles el cambio sale cien veces mayor bajo una columna «(%)»
-status: open
+status: fixed
 severity: medium
 component: report_forecast
 found_in: 0.1.21
-fixed_in:
+fixed_in: 0.1.22
 reported: 2026-11-15
 reporter: David / Claude — revisión de incoherencias entre componentes antes de mtram
 tags:
@@ -64,12 +64,17 @@ tal cual y calcula las filas observadas con la misma regla.
 
 ## Fix
 
-La escala de BUG-0027 (`(100 si λ = 0, si no 1)/refactor`) en la página y el
-gráfico, sin cambiar el significado de los campos de `ForecastResult` (los usan
-drtran y pyfug): o se aplica al pintar, o `ForecastResult` gana un campo que
-diga en qué unidades vienen. A decidir al arreglarlo; drtran `report.py` se
-revisa en la misma tanda.
+La escala de BUG-0027 al PINTAR, sin cambiar lo que significan los campos de
+`ForecastResult` (los usan drtran y pyfug): `_table_data` y el gráfico de
+reserva multiplican por 100 solo con λ = 0; las cabeceras dicen «(%)» solo
+entonces («Monthly change», «Std», «Value» en niveles); la variación anual de
+las filas sin dato un año antes es «—». La regla vive en `fue.scale`
+(`display_scale`), nueva, que es la que usará el resto de la suite.
 
 ## Validation
 
-Pendiente.
+`tests/test_bug_0028_pagina_html.py`: en niveles la variación es el cambio y
+la d.t. del nivel es σ, con factor 1 y con 100; en logaritmos es un tanto por
+ciento con los dos; la página se escribe con sus cabeceras. El repro sale 0
+(la variación de la última observada, +2.41 donde decía +241.04).
+`tests/test_scale.py` cubre `fue.scale`. La batería entera: 922 pasan.

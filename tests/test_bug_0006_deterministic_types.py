@@ -28,7 +28,9 @@ from fue.cast_us import _build_indicator, easter_date, obs_to_date
 from fue.intervention import Intervention
 from fue.report import _itv_name_line
 
-FUEC = "/home/david/Dropbox/SRC/atws/fue/fue-1.13.1/bin/fue"
+# fue C's binary: FUE_C_BIN, or the atws checkout next to this repository.
+FUEC = os.environ.get("FUE_C_BIN") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "atws", "fue", "fue-1.13.1", "bin", "fue")
 
 
 def _ind(type, nobs=12, freq=12, begtime=1, begyear=2002, at=0, **kw):

@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from barrido import bloque_deterministas  # noqa: E402
 
-RAIZ = "/home/david/Dropbox"
+RAIZ = os.environ.get("FUE_CORPUS_ROOT") or os.path.expanduser("~")
 
 
 def main():

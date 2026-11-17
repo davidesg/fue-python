@@ -165,9 +165,12 @@ def test_forecast_sfny2_vs_fuf():
 
 # ── fuf workflow tests ────────────────────────────────────────────────────────
 
-_SPAIN_FUF = "/home/david/Dropbox/Inflation Volatility/Analisis/Spain/forecast_b2025/forecast_S.2.inp"
+# A private analysis file: its path is given in FUE_SPAIN_FUF, never written
+# here (it is not in the repository and does not travel with it).
+_SPAIN_FUF = os.environ.get("FUE_SPAIN_FUF", "")
 _spain_fuf_missing = pytest.mark.skipif(
-    not os.path.exists(_SPAIN_FUF), reason="Spain forecast_S.2.inp not present"
+    not (_SPAIN_FUF and os.path.exists(_SPAIN_FUF)),
+    reason="FUE_SPAIN_FUF (the Spain forecast_S.2.inp) not given"
 )
 
 

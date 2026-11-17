@@ -105,4 +105,5 @@ def main(raiz):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "/home/david/Dropbox")
+    main(sys.argv[1] if len(sys.argv) > 1 else
+         os.environ.get("FUE_CORPUS_ROOT") or os.path.expanduser("~"))

@@ -36,4 +36,5 @@ New report: `art-bug new` (or copy `TEMPLATE.md`).  Validate: `art-bug check`.  
 | [BUG-0026](BUG-0026-el-jarque-bera-trunca-n-entre-6.md) | fixed | low | report | El Jarque-Bera del .out y de describe() trunca n/6 a entero — el puerto copió el C antiguo (nobs / 6, división entera) | 0.1.17 (unreleased) |
 | [BUG-0027](BUG-0027-la-tabla-de-prevision-del-out-no-es-la-de-fuf.md) | fixed | high | report | La tabla de previsión del .out no es la de fuf — en niveles las variaciones y ERR salen ×100, los campos van pegados y las series anuales llenan columnas que no existen | 0.1.21 |
 | [BUG-0028](BUG-0028-la-pagina-html-de-prevision-multiplica-por-100-en-niveles.md) | fixed | medium | report_forecast | La página HTML de previsión multiplica por 100 las variaciones sea cual sea λ — en niveles el cambio sale cien veces mayor bajo una columna «(%)» | 0.1.22 |
+| [BUG-0029](BUG-0029-en-mac-intel-el-porte-y-el-c-paran-en-puntos-distintos.md) | open | low | qnewtopt | En macOS Intel el porte (raxopt) y el motor C paran en puntos distintos sobre un fichero fuera de la banda del optimizador | |
 

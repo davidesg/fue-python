@@ -56,7 +56,9 @@ def test_el_out_dice_los_reinicios(tmp_path):
 
 # ── (B) un alto por el paso con el gradiente anulado ES un máximo ──────────
 
-D1 = "/home/david/Dropbox/SRC/atsw-gui/engines/fue/tests/corpus/D.1.inp"
+# atsw-gui's corpus: ATSW_GUI, or the checkout next to this repository.
+D1 = os.path.join(os.environ.get("ATSW_GUI") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "atsw-gui"), "engines", "fue", "tests", "corpus", "D.1.inp")
 
 
 def test_el_motor_c_registra_el_gradiente_escalado():

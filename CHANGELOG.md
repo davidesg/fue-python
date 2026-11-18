@@ -3,6 +3,19 @@
 Exact maximum-likelihood estimation of univariate time series (ARMAX with
 transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
+## Unreleased
+
+### No personal paths in what ships
+
+Five files of the 0.1.22 sdist named folders of the author's machine, one of
+them a private analysis. The tests that need a local file now read its path
+from an environment variable and skip without it: `ATSW_GUI` (atsw-gui's
+corpus), `FUE_C_BIN` (fue C's binary), both found next to the repository by
+default, and `FUE_SPAIN_FUF`, which has no default. The bug reports and
+BUG-0007's scripts no longer name them either.
+`tests/test_sin_rutas_personales.py` keeps `/home/`, `/Users/` and
+`C:\Users` out of everything the sdist carries. Nothing a user runs changes.
+
 ## 0.1.22 — 2026-11-15
 
 ### The rescaling factor: one rule for the suite (`fue.scale`), and BUG-0028

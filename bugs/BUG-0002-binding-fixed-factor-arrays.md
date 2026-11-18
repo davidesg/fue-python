@@ -15,7 +15,7 @@ tags:
 references:
   - src/fue/_build_cffi.py (FueFactor.coefs[16], FueModelSpec.ar1/ar2/ma1/ma2[8])
   - src/fue/_engine.py (_fill_factors)
-  - /home/david/Dropbox/Cycles/bugs_art_fue.md (BUG #6, England EN.1-EN.4)
+  - the analyst's notes, bugs_art_fue.md (BUG #6, England EN.1-EN.4; not in the repository)
 ---
 
 ## Summary

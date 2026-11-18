@@ -16,7 +16,7 @@ tags:
 references:
   - src/fue/plots.py:65 (plot_residuals_ts)
   - src/fue/plots.py:105-118 (tick/divider block gated on freq > 1)
-  - /home/david/Dropbox/Cycles/bugs_art_fue.md (ISSUE #3)
+  - the analyst's notes, bugs_art_fue.md (ISSUE #3; not in the repository)
 ---
 
 ## Summary

@@ -585,7 +585,7 @@ usa pyfug para los gráficos diagnósticos de residuos. No hace falta un ART com
   - `plot_combined` → residuos + ACF/PACF en layout combinado
   - `plot_acf_pacf` → ACF/PACF standalone de residuos
   - `plot_histogram` → histograma de residuos con JB y p-valor
-  - Referencia pyfug: `/home/david/Dropbox/SRC/atws/fug/pyfug`
+  - Referencia pyfug: el repositorio pyfug (`atws/fug/pyfug`)
 
   **Patrón de uso actual** (Claude directo, sin plots.py):
   ```python

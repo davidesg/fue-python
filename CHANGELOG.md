@@ -5,6 +5,16 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
 ## Unreleased
 
+### `cast_us_py(..., flip=False)`
+
+fue's cast takes the invertible form of a regular MA(1) with |θ| > 1 and of a
+fixed-frequency MA with θ₂ < −1 before it builds the polynomial, as fue.c
+does. drvarma's ladder in C does not: it builds the polynomial from the
+parameters as they are and refuses the point. Its Python port, which casts
+each series with this function, was therefore evaluating points the C rejects
+(drvarma-python BUG-0030). `flip=False` builds the polynomial without the
+reciprocal; the default is unchanged, and so is everything fue computes.
+
 ### No personal paths in what ships
 
 Five files of the 0.1.22 sdist named folders of the author's machine, one of

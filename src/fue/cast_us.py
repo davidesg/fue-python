@@ -251,7 +251,7 @@ def build_est_spec(model):
 
 # ── cast_us_py ────────────────────────────────────────────────────────────────
 
-def cast_us_py(x, est_spec):
+def cast_us_py(x, est_spec, flip=True):
     """Translate parameter vector x → (p, q, phi, theta, mu, w, ifault).
 
     Mirrors cast_us() in fue_api.c.  x contains only the *free* parameters
@@ -274,6 +274,14 @@ def cast_us_py(x, est_spec):
     mu        : float
     w         : ndarray (n_eff,)  differenced noise series (0-indexed)
     ifault    : 0 OK, 1 bad fixed-freq coef (coef2 ≥ 0)
+
+    flip : fue's rule (the default, as fue.c): a regular MA(1) with |θ| > 1,
+        and a fixed-frequency MA with θ₂ < −1, are replaced by their
+        reciprocals before the polynomial is built, so the likelihood is the
+        same on both sides. ``flip=False`` builds the polynomial from x as it
+        is. It is for callers whose C engine does not take the invertible
+        form in its cast and refuses the point instead (drvarma's ladder,
+        escalera.c): there, flipping would evaluate a model the C rejects.
     """
     model = est_spec.model
     sper  = est_spec.sper
@@ -284,7 +292,7 @@ def cast_us_py(x, est_spec):
 
     # [2] MA(1) invertibility flip: |θ₁| > 1 → invert (mirrors unscramble [6])
     for k, factor in enumerate(ma_est):
-        if len(factor) == 1 and abs(factor[0]) > 1.0:
+        if flip and len(factor) == 1 and abs(factor[0]) > 1.0:
             ma_est[k] = [1.0 / factor[0]]
 
     # [3] Fixed-freq AR → equivalent 2-lag regular factor [c1, c2]
@@ -301,7 +309,7 @@ def cast_us_py(x, est_spec):
     ff_ma = []
     for i, ff in enumerate(model.ma_f):
         c2 = ma_f_coefs[i]
-        if c2 < -1.0:
+        if flip and c2 < -1.0:
             c2 = 1.0 / c2
         if c2 >= 0.0:
             return 0, 0, np.array([]), np.array([]), 0.0, np.array([]), 1

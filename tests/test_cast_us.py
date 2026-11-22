@@ -248,3 +248,38 @@ def test_logelf_c_formula():
     logelf = _logelf_c(n, f1, 1.0)
     ref    = -0.5 * n * (1.837877066 - math.log(n) + 1.0 + math.log(f1) + math.log(1.0))
     assert abs(logelf - ref) < 1e-10
+
+
+# ── cast_us_py(flip=False): the polynomial from x as it is ──────────────────
+
+def test_cast_us_flip_is_the_default_and_takes_the_invertible_ma1():
+    """fue's rule (fue.c): a regular MA(1) with |theta| > 1 is replaced by
+    its reciprocal before the polynomial is built."""
+    ts = TimeSeries(_SFNY30, freq=1, start=(1852, 1))
+    spec = build_est_spec(Model(ts, ma=[[0.5]]))
+    x = np.array([1.25])
+    _p, q, _phi, theta, _mu, _w, fault = cast_us_py(x, spec)
+    assert fault == 0 and q == 1
+    assert theta[0] == 1.0 / 1.25
+    assert cast_us_py(x, spec, flip=True)[3][0] == 1.0 / 1.25
+
+
+def test_cast_us_without_flip_keeps_x():
+    """flip=False: no reciprocal -- for a caller whose C engine refuses the
+    point instead (drvarma's ladder)."""
+    ts = TimeSeries(_SFNY30, freq=1, start=(1852, 1))
+    spec = build_est_spec(Model(ts, ma=[[0.5]]))
+    _p, q, _phi, theta, _mu, _w, fault = cast_us_py(np.array([1.25]), spec, flip=False)
+    assert fault == 0 and q == 1 and theta[0] == 1.25
+
+
+def test_cast_us_flip_changes_nothing_inside_the_invertible_region():
+    ts = TimeSeries(_SFNY30, freq=1, start=(1852, 1))
+    spec = build_est_spec(Model(ts, ar=[[0.3]], ma=[[0.5]]))
+    x = np.array([0.3, 0.7])
+    a = cast_us_py(x, spec)
+    b = cast_us_py(x, spec, flip=False)
+    assert a[0] == b[0] and a[1] == b[1]
+    np.testing.assert_array_equal(a[2], b[2])
+    np.testing.assert_array_equal(a[3], b[3])
+    np.testing.assert_array_equal(a[5], b[5])

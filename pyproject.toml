@@ -85,8 +85,11 @@ where = ["src"]
 # ── cibuildwheel ──────────────────────────────────────────────────────────────
 
 [tool.cibuildwheel]
-# Python versions to build for
-build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
+# ONE abi3 wheel per platform (setup.py, BUG-0029): cibuildwheel builds it on
+# cp310 and, for every later identifier here, reuses it and runs the smoke test
+# on that Python. The list is the versions TESTED; the wheel installs on any
+# CPython >= 3.10. When a CPython goes final, add it (bugs/BUG-0029-repro).
+build = "cp310-* cp311-* cp312-* cp313-* cp314-* cp315-*"
 
 # Skip 32-bit builds, PyPy and the free-threaded builds (cibuildwheel 3.1+
 # makes them by default; the C engine is not checked without the GIL)

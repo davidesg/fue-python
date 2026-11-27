@@ -5,6 +5,14 @@ transfer functions). Semantic-ish versioning; see `bugs/` for the full reports.
 
 ## Unreleased
 
+### One abi3 wheel per platform, for every CPython from 3.10 on (BUG-0029)
+
+The binary wheels were per minor version and stopped at cp314; on CPython
+3.15 pip took the pure wheel and every estimate ran on the port. The wheel is
+now `cp310-abi3`, smoke-tested on cp310–cp315 (cibuildwheel 4.3.5, with
+abi3audit). The pure `py3-none-any` wheel stays, for every platform without a
+binary.
+
 ### `cast_us_py(..., flip=False)`
 
 fue's cast takes the invertible form of a regular MA(1) with |θ| > 1 and of a
